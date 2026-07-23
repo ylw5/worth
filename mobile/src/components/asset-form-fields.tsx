@@ -6,6 +6,7 @@ import {
   type TextInputProps,
 } from 'react-native';
 
+import { PurchaseDateField } from '@/components/purchase-date-field';
 import { colors } from '@/constants/colors';
 import { categories, type AssetInput } from '@/types/domain';
 
@@ -114,10 +115,9 @@ export function AssetFormFields({
         value={form.condition}
         onChangeText={(condition) => onChange({ ...form, condition })}
       />
-      <Field
-        label="实际买入日期（YYYY-MM-DD，可选）"
+      <PurchaseDateField
         value={form.purchase_date}
-        onChangeText={(purchase_date) => onChange({ ...form, purchase_date })}
+        onChange={(purchase_date) => onChange({ ...form, purchase_date })}
       />
       <Field
         label="实际买入价格（元，可选）"
