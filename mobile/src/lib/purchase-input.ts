@@ -1,3 +1,10 @@
+export function formatPurchaseDate(date: Date) {
+  const pad = (value: number) => value.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )}`;
+}
+
 export type PurchaseInput = {
   purchase_date: string | null;
   purchase_price: number | null;
@@ -16,6 +23,9 @@ export function parsePurchaseInput(
       parsedDate.toISOString().slice(0, 10) !== date)
   ) {
     return { error: '买入日期必须是有效的 YYYY-MM-DD 日期' };
+  }
+  if (date && date > formatPurchaseDate(new Date())) {
+    return { error: '买入日期不能晚于今天' };
   }
 
   const priceText = purchasePrice.trim();
