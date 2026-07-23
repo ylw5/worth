@@ -126,7 +126,11 @@ function AssetEditForm({ asset }: { asset: Asset }) {
       const recognition = await analyzePhotos(
         prepared.map((photo) => photo.analysisUrl ?? photo.uri),
       );
-      setForm(recognition);
+      setForm((current) => ({
+        ...recognition,
+        purchase_date: current.purchase_date,
+        purchase_price: current.purchase_price,
+      }));
       setSpecsText(specsToText(recognition.specs));
       setReviewed(true);
     } catch (caught) {
