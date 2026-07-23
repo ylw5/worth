@@ -5,7 +5,7 @@ import type { AssetInput, ValuationResult } from '@/types/domain';
 
 const metroApiHost = Constants.expoConfig?.hostUri?.replace(/:\d+$/, ':8000');
 const apiUrl =
-  process.env.EXPO_PUBLIC_API_URL ??
+  process.env.EXPO_PUBLIC_API_URL ||
   (metroApiHost ? `http://${metroApiHost}` : undefined);
 
 async function request<T>(path: string, body: unknown): Promise<T> {
