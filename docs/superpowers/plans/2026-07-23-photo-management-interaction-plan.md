@@ -4,9 +4,9 @@
 
 **Goal:** Replace the photo-source buttons with one add-photo empty state, add drag sorting, and replace the reanalysis switch with an explicit button.
 
-**Architecture:** Keep `expo-image-picker` as the camera and gallery implementation. Add `react-native-draggable-flatlist` only for ordering the existing `AssetPhoto[]`; the first array entry remains the cover. Keep reanalysis as an optional edit-screen action and leave save plus automatic valuation unchanged.
+**Architecture:** Keep `expo-image-picker` as the camera and gallery implementation. Add `react-native-sortables` only for ordering the existing `AssetPhoto[]`; the first array entry remains the cover. Keep reanalysis as an optional edit-screen action and leave save plus automatic valuation unchanged.
 
-**Tech Stack:** Expo SDK 57, React Native 0.86, Expo Image Picker, React Native Draggable FlatList, React Native Gesture Handler, Reanimated 4.
+**Tech Stack:** Expo SDK 57, React Native 0.86, Expo Image Picker, React Native Sortables, React Native Gesture Handler, Reanimated 4.
 
 ## Global Constraints
 
@@ -49,10 +49,10 @@ Run:
 
 ```bash
 cd mobile
-npm install react-native-draggable-flatlist@4.0.3
+npm install react-native-sortables@1.9.4
 ```
 
-Expected: `package.json` and `package-lock.json` include `react-native-draggable-flatlist`.
+Expected: `package.json` and `package-lock.json` include `react-native-sortables`.
 
 - [ ] **Step 3: Add the gesture-handler root required by the package**
 
@@ -119,109 +119,33 @@ This keeps camera and gallery permission/error handling in their existing functi
 Import the package in `mobile/src/components/asset-photo-picker.tsx`:
 
 ```tsx
-import DraggableFlatList, {
-  ScaleDecorator,
-  type RenderItemParams,
-} from 'react-native-draggable-flatlist';
+import Sortable from 'react-native-sortables';
 ```
 
 Replace the wrapped photo grid and old source buttons with:
 
 ```tsx
-<DraggableFlatList
+<ScrollView
   horizontal
-  data={photos}
-  keyExtractor={(photo) => photo.id}
-  onDragEnd={({ data }) => onChange(data)}
   showsHorizontalScrollIndicator={false}
-  contentContainerStyle={{ gap: 10 }}
-  containerStyle={{ minHeight: 140 }}
-  renderItem={({
-    item: photo,
-    getIndex,
-    drag,
-    isActive,
-  }: RenderItemParams<AssetPhoto>) => {
-    const index = getIndex() ?? 0;
-    return (
-      <ScaleDecorator activeScale={1.04}>
-        <View style={{ width: 104, gap: 6, opacity: isActive ? 0.9 : 1 }}>
-          <Pressable
-            accessibilityLabel={
-              index === 0 ? '当前封面' : `将第 ${index + 1} 张设为封面`
-            }
-            accessibilityHint="长按拖动可调整顺序"
-            disabled={isActive}
-            onLongPress={drag}
-            onPress={() => onChange(setCover(photos, index))}>
-            <Image
-              source={photo.uri}
-              contentFit="cover"
-              style={{ width: 104, height: 104, borderRadius: 14 }}
-            />
-            <Text
-              style={{
-                position: 'absolute',
-                left: 6,
-                bottom: 6,
-                color: 'white',
-                backgroundColor: 'rgba(0,0,0,0.58)',
-                paddingHorizontal: 7,
-                paddingVertical: 3,
-                borderRadius: 99,
-                overflow: 'hidden',
-                fontSize: 12,
-              }}>
-              {index === 0 ? '封面' : '设为封面'}
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            disabled={photos.length === 1}
-            onPress={() =>
-              onChange(photos.filter((item) => item.id !== photo.id))
-            }>
-            <Text
-              style={{
-                color: colors.danger,
-                textAlign: 'center',
-                opacity: photos.length === 1 ? 0.4 : 1,
-              }}>
-              删除
-            </Text>
-          </Pressable>
-        </View>
-      </ScaleDecorator>
-    );
-  }}
-  ListFooterComponent={
-    photos.length < maxAssetPhotos ? (
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="添加照片"
-        onPress={chooseSource}
-        style={({ pressed }) => ({
-          width: 104,
-          height: 104,
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 6,
-          borderRadius: 14,
-          borderCurve: 'continuous',
-          borderWidth: 1,
-          borderStyle: 'dashed',
-          borderColor: colors.green,
-          backgroundColor: colors.surface,
-          opacity: pressed ? 0.65 : 1,
-        })}>
-        <Text style={{ color: colors.green, fontSize: 28 }}>＋</Text>
-        <Text style={{ color: colors.green, fontWeight: '700' }}>
-          添加照片
-        </Text>
-      </Pressable>
-    ) : null
-  }
-/>
+  contentContainerStyle={{ flexDirection: 'row', gap: 10 }}>
+  <Sortable.Grid
+    data={photos}
+    rows={1}
+    rowHeight={140}
+    columnGap={10}
+    activeItemScale={1.04}
+    keyExtractor={(photo) => photo.id}
+    onDragEnd={({ data }) => onChange(data)}
+    renderItem={({ item: photo, index }) => (
+      // Render the existing photo card. Tapping sets the cover; long-pressing
+      // and dragging changes the order.
+    )}
+  />
+  {photos.length < maxAssetPhotos ? (
+    // Render the dashed add-photo tile and call chooseSource when pressed.
+  ) : null}
+</ScrollView>
 ```
 
 - [ ] **Step 6: Run focused checks**

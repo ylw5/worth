@@ -38,7 +38,7 @@
 ## 开源组件
 
 - 拍照和相册选择继续使用 Expo SDK 57 官方开源 `expo-image-picker`。
-- 拖拽排序使用 MIT 许可的 `react-native-draggable-flatlist`，复用项目已有的 React Native Gesture Handler 和 Reanimated。
+- 拖拽排序使用 MIT 许可、兼容 Reanimated 4 的 `react-native-sortables`，复用项目已有的 React Native Gesture Handler 和 Reanimated。
 - 不接入裁剪、滤镜或完整图片编辑 SDK。
 
 ## 一致性与失败处理
