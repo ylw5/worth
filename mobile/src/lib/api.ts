@@ -1,11 +1,16 @@
+import Constants from 'expo-constants';
+
 import { supabase } from '@/lib/supabase';
 import type { AssetInput, ValuationResult } from '@/types/domain';
 
-const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+const metroApiHost = Constants.expoConfig?.hostUri?.replace(/:\d+$/, ':8000');
+const apiUrl =
+  process.env.EXPO_PUBLIC_API_URL ??
+  (metroApiHost ? `http://${metroApiHost}` : undefined);
 
 async function request<T>(path: string, body: unknown): Promise<T> {
   if (!apiUrl) {
-    throw new Error('尚未配置 EXPO_PUBLIC_API_URL');
+    throw new Error('无法确定 API 地址，请配置 EXPO_PUBLIC_API_URL');
   }
   const { data } = await supabase.auth.getSession();
   if (!data.session) {

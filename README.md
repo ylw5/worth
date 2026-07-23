@@ -59,14 +59,10 @@ XIANYU_COOKIE=
 ```bash
 cd mobile
 npm install
-source ../.env.local
-EXPO_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
-EXPO_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
-EXPO_PUBLIC_API_URL="http://YOUR_LAN_IP:8000" \
-npm start -- --lan
+npm start
 ```
 
-手机必须和开发机处于同一 Wi-Fi。用 Expo Go 扫码验证相机、图片上传和私有 Storage。
+开发环境会从 Expo 自动推导 API 的局域网地址，无需手动填写 Mac IP。手机必须和开发机处于同一 Wi-Fi。
 
 ## 验证
 
