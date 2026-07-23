@@ -5,6 +5,7 @@ from openai import OpenAI
 
 from .config import Settings
 from .models import (
+    AIAssetRecognition,
     AssetInput,
     AssetRecognition,
     CandidateMatches,
@@ -48,11 +49,15 @@ class OpenAIService:
                     ],
                 },
             ],
-            text_format=AssetRecognition,
+            text_format=AIAssetRecognition,
         )
         if not response.output_parsed:
             raise RuntimeError("Image recognition returned no result")
-        return response.output_parsed
+        parsed = response.output_parsed
+        return AssetRecognition(
+            **parsed.model_dump(exclude={"specs"}),
+            specs={spec.name: spec.value for spec in parsed.specs},
+        )
 
     def matching_ids(
         self,

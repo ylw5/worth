@@ -27,6 +27,21 @@ class AssetRecognition(BaseModel):
     search_query: str
 
 
+class AssetSpec(BaseModel):
+    name: str
+    value: str
+
+
+class AIAssetRecognition(BaseModel):
+    name: str
+    brand: str
+    model: str
+    specs: list[AssetSpec]
+    category: Category
+    condition: str
+    search_query: str
+
+
 class AnalyzeRequest(BaseModel):
     image_url: str
 
