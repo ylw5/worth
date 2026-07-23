@@ -149,6 +149,13 @@ export default function AssetDetailScreen() {
             ['品牌型号', [asset.brand, asset.model].filter(Boolean).join(' ')],
             ['规格', specsToText(asset.specs) || '—'],
             ['成色', asset.condition || '—'],
+            ['买入日期', asset.purchase_date || '—'],
+            [
+              '买入价格',
+              asset.purchase_price === null
+                ? '—'
+                : formatCurrency(asset.purchase_price),
+            ],
             ['添加时间', formatDate(asset.created_at)],
           ].map(([label, value]) => (
             <View
