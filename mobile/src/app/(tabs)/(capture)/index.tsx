@@ -43,8 +43,12 @@ export default function CaptureScreen() {
     setError('');
     let uploadedPath = '';
     try {
-      const photo = await camera.current.takePictureAsync({ quality: 0.8 });
-      const uploaded = await uploadPhoto(photo.uri, session.user.id);
+      const photo = await camera.current.takePictureAsync({
+        quality: 0.8,
+        base64: true,
+      });
+      if (!photo.base64) throw new Error('无法读取照片');
+      const uploaded = await uploadPhoto(photo.base64, session.user.id);
       uploadedPath = uploaded.path;
       const recognition = await analyzePhoto(uploaded.signedUrl);
       setDraft({

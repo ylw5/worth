@@ -48,11 +48,10 @@ export async function getValuations(assetId: string): Promise<Valuation[]> {
 }
 
 export async function uploadPhoto(
-  uri: string,
+  base64: string,
   userId: string,
 ): Promise<{ path: string; signedUrl: string }> {
-  const response = await fetch(uri);
-  const file = await response.arrayBuffer();
+  const file = Uint8Array.from(atob(base64), (byte) => byte.charCodeAt(0));
   const path = `${userId}/${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}.jpg`;
