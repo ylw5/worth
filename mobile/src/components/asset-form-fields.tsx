@@ -1,4 +1,10 @@
-import { Pressable, Text, TextInput, View } from 'react-native';
+import {
+  Pressable,
+  Text,
+  TextInput,
+  View,
+  type TextInputProps,
+} from 'react-native';
 
 import { colors } from '@/constants/colors';
 import { categories, type AssetInput } from '@/types/domain';
@@ -8,11 +14,13 @@ function Field({
   value,
   onChangeText,
   multiline = false,
+  keyboardType,
 }: {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
   multiline?: boolean;
+  keyboardType?: TextInputProps['keyboardType'];
 }) {
   return (
     <View style={{ gap: 7 }}>
@@ -20,6 +28,7 @@ function Field({
         {label}
       </Text>
       <TextInput
+        keyboardType={keyboardType}
         multiline={multiline}
         onChangeText={onChangeText}
         value={value}
@@ -104,6 +113,19 @@ export function AssetFormFields({
         label="成色"
         value={form.condition}
         onChangeText={(condition) => onChange({ ...form, condition })}
+      />
+      <Field
+        label="实际买入日期（YYYY-MM-DD，可选）"
+        value={form.purchase_date}
+        onChangeText={(purchase_date) => onChange({ ...form, purchase_date })}
+      />
+      <Field
+        label="实际买入价格（元，可选）"
+        keyboardType="decimal-pad"
+        value={form.purchase_price}
+        onChangeText={(purchase_price) =>
+          onChange({ ...form, purchase_price })
+        }
       />
       <Field
         label="估价搜索词"

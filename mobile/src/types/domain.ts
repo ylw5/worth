@@ -19,9 +19,19 @@ export type AssetInput = {
   category: Category;
   condition: string;
   search_query: string;
+  purchase_date: string;
+  purchase_price: string;
 };
 
-export type Asset = AssetInput & {
+export type AssetWriteInput = Omit<
+  AssetInput,
+  'purchase_date' | 'purchase_price'
+> & {
+  purchase_date: string | null;
+  purchase_price: number | null;
+};
+
+export type Asset = AssetWriteInput & {
   id: string;
   user_id: string;
   photo_paths: string[];

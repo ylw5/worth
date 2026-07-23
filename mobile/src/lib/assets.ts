@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type {
   Asset,
-  AssetInput,
+  AssetWriteInput,
   Valuation,
   ValuationResult,
 } from '@/types/domain';
@@ -105,7 +105,7 @@ export async function uploadPhotos(base64Images: string[], userId: string) {
 export async function createAsset(
   userId: string,
   photoPaths: string[],
-  input: AssetInput,
+  input: AssetWriteInput,
 ): Promise<Asset> {
   const { data, error } = await supabase
     .from('assets')
@@ -118,7 +118,7 @@ export async function createAsset(
 
 export async function updateAsset(
   id: string,
-  input: AssetInput,
+  input: AssetWriteInput,
   photoPaths?: string[],
 ): Promise<Asset> {
   const { data, error } = await supabase

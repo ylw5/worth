@@ -16,6 +16,7 @@ import { colors } from '@/constants/colors';
 import { estimateAsset } from '@/lib/api';
 import { createAsset, recordValuation, removePhotos } from '@/lib/assets';
 import { specsToText, textToSpecs } from '@/lib/format';
+import { parsePurchaseInput } from '@/lib/purchase-input';
 import { useDraft } from '@/providers/draft-provider';
 import { useSession } from '@/providers/session-provider';
 import type { AssetInput } from '@/types/domain';
@@ -64,9 +65,21 @@ export default function ConfirmScreen() {
       setError('请填写名称和估价搜索词');
       return;
     }
+    const purchase = parsePurchaseInput(
+      form.purchase_date,
+      form.purchase_price,
+    );
+    if ('error' in purchase) {
+      setError(purchase.error);
+      return;
+    }
     setLoading(true);
     setError('');
-    const input = { ...form, specs: textToSpecs(specsText) };
+    const input = {
+      ...form,
+      ...purchase.input,
+      specs: textToSpecs(specsText),
+    };
     try {
       const asset = await createAsset(session.user.id, draft.photoPaths, input);
       try {

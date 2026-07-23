@@ -1,7 +1,11 @@
 import Constants from 'expo-constants';
 
 import { supabase } from '@/lib/supabase';
-import type { AssetInput, ValuationResult } from '@/types/domain';
+import type {
+  AssetInput,
+  AssetWriteInput,
+  ValuationResult,
+} from '@/types/domain';
 
 const metroApiHost = Constants.expoConfig?.hostUri?.replace(/:\d+$/, ':8000');
 const apiUrl =
@@ -38,8 +42,26 @@ async function request<T>(path: string, body: unknown): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export const analyzePhotos = (imageUrls: string[]) =>
-  request<AssetInput>('/analyze', { image_urls: imageUrls });
+type RecognitionInput = Omit<
+  AssetInput,
+  'purchase_date' | 'purchase_price'
+>;
 
-export const estimateAsset = (asset: AssetInput) =>
-  request<ValuationResult>('/estimate', asset);
+export const analyzePhotos = async (imageUrls: string[]) => ({
+  ...(await request<RecognitionInput>('/analyze', {
+    image_urls: imageUrls,
+  })),
+  purchase_date: '',
+  purchase_price: '',
+});
+
+export const estimateAsset = (asset: AssetInput | AssetWriteInput) =>
+  request<ValuationResult>('/estimate', {
+    name: asset.name,
+    brand: asset.brand,
+    model: asset.model,
+    specs: asset.specs,
+    category: asset.category,
+    condition: asset.condition,
+    search_query: asset.search_query,
+  });

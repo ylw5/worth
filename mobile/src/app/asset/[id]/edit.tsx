@@ -28,6 +28,7 @@ import {
 } from '@/lib/assets';
 import { specsToText, textToSpecs } from '@/lib/format';
 import type { AssetPhoto } from '@/lib/photos';
+import { parsePurchaseInput } from '@/lib/purchase-input';
 import { tryValuation } from '@/lib/try-valuation';
 import type { Asset, AssetInput } from '@/types/domain';
 
@@ -52,6 +53,8 @@ function AssetEditForm({ asset }: { asset: Asset }) {
     category: asset.category,
     condition: asset.condition,
     search_query: asset.search_query,
+    purchase_date: asset.purchase_date ?? '',
+    purchase_price: asset.purchase_price?.toString() ?? '',
   });
   const [specsText, setSpecsText] = useState(specsToText(asset.specs));
   const [reviewed, setReviewed] = useState(false);
@@ -138,10 +141,22 @@ function AssetEditForm({ asset }: { asset: Asset }) {
       setError('请填写名称和估价搜索词');
       return;
     }
+    const purchase = parsePurchaseInput(
+      form.purchase_date,
+      form.purchase_price,
+    );
+    if ('error' in purchase) {
+      setError(purchase.error);
+      return;
+    }
 
     setPendingAction('save');
     setError('');
-    const input = { ...form, specs: textToSpecs(specsText) };
+    const input = {
+      ...form,
+      ...purchase.input,
+      specs: textToSpecs(specsText),
+    };
     let prepared = photos;
     try {
       prepared = await preparePhotos(photos);
