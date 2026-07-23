@@ -19,7 +19,7 @@ export function PurchaseDateField({
         <input
           aria-label="实际买入日期"
           max={formatPurchaseDate(new Date())}
-          onChange={(event) => onChange(event.currentTarget.value)}
+          onInput={(event) => onChange(event.currentTarget.value)}
           type="date"
           value={value}
           style={{
