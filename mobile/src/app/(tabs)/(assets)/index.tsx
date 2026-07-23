@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
+import { SymbolView } from 'expo-symbols';
 import { Link, Stack } from 'expo-router';
-import { ScrollView, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AssetCard } from '@/components/asset-card';
 import { ErrorState, LoadingState } from '@/components/screen-state';
@@ -27,7 +28,26 @@ export default function AssetsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: '我的资产', headerLargeTitle: true }} />
+      <Stack.Screen
+        options={{
+          title: '我的资产',
+          headerLargeTitle: true,
+          headerRight: () => (
+            <Link href="/capture" asChild>
+              <Pressable
+                accessibilityLabel="添加物品"
+                accessibilityRole="button"
+                hitSlop={8}>
+                <SymbolView
+                  name={{ ios: 'plus', android: 'add', web: 'add' }}
+                  size={24}
+                  tintColor={colors.green}
+                />
+              </Pressable>
+            </Link>
+          ),
+        }}
+      />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ padding: 20, gap: 18 }}>
@@ -118,7 +138,7 @@ export default function AssetsScreen() {
               <Text selectable style={{ color: colors.text, fontWeight: '700' }}>
                 还没有资产
               </Text>
-              <Link href="/(tabs)/(capture)" style={{ color: colors.green }}>
+              <Link href="/capture" style={{ color: colors.green }}>
                 拍下第一件物品
               </Link>
             </View>

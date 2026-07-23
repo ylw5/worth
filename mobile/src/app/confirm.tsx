@@ -1,64 +1,29 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 
+import { AssetFormFields } from '@/components/asset-form-fields';
 import { colors } from '@/constants/colors';
 import { estimateAsset } from '@/lib/api';
-import { createAsset, recordValuation } from '@/lib/assets';
+import { createAsset, recordValuation, removePhotos } from '@/lib/assets';
 import { specsToText, textToSpecs } from '@/lib/format';
 import { useDraft } from '@/providers/draft-provider';
 import { useSession } from '@/providers/session-provider';
-import { categories, type AssetInput, type Category } from '@/types/domain';
-
-function Field({
-  label,
-  value,
-  onChangeText,
-  multiline = false,
-}: {
-  label: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  multiline?: boolean;
-}) {
-  return (
-    <View style={{ gap: 7 }}>
-      <Text selectable style={{ color: colors.muted, fontSize: 13 }}>
-        {label}
-      </Text>
-      <TextInput
-        multiline={multiline}
-        onChangeText={onChangeText}
-        value={value}
-        style={{
-          minHeight: multiline ? 72 : undefined,
-          color: colors.text,
-          fontSize: 16,
-          padding: 14,
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 12,
-          borderCurve: 'continuous',
-          backgroundColor: colors.card,
-          textAlignVertical: multiline ? 'top' : 'center',
-        }}
-      />
-    </View>
-  );
-}
+import type { AssetInput } from '@/types/domain';
 
 export default function ConfirmScreen() {
   const { draft, setDraft } = useDraft();
   const { session } = useSession();
+  const queryClient = useQueryClient();
   const [form, setForm] = useState<AssetInput | null>(
     draft?.recognition ?? null,
   );
@@ -67,6 +32,16 @@ export default function ConfirmScreen() {
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const saved = useRef(false);
+
+  useEffect(
+    () => () => {
+      if (!saved.current && draft) {
+        removePhotos(draft.photoPaths).catch(() => undefined);
+      }
+    },
+    [draft],
+  );
 
   if (!draft || !form || !session) {
     return (
@@ -84,9 +59,6 @@ export default function ConfirmScreen() {
     );
   }
 
-  const set = (key: keyof AssetInput, value: string | Category) =>
-    setForm((current) => (current ? { ...current, [key]: value } : current));
-
   const save = async () => {
     if (!form.name.trim() || !form.search_query.trim()) {
       setError('请填写名称和估价搜索词');
@@ -96,19 +68,17 @@ export default function ConfirmScreen() {
     setError('');
     const input = { ...form, specs: textToSpecs(specsText) };
     try {
-      const asset = await createAsset(
-        session.user.id,
-        draft.photoPath,
-        input,
-      );
+      const asset = await createAsset(session.user.id, draft.photoPaths, input);
       try {
         const valuation = await estimateAsset(input);
         await recordValuation(asset.id, valuation);
       } catch {
         // The asset is valid even when its first valuation is temporarily unavailable.
       }
+      saved.current = true;
       setDraft(null);
-      router.replace({ pathname: '/asset/[id]', params: { id: asset.id } });
+      await queryClient.invalidateQueries({ queryKey: ['assets'] });
+      router.dismissTo('/(tabs)/(assets)');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '保存失败');
     } finally {
@@ -124,65 +94,28 @@ export default function ConfirmScreen() {
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ padding: 20, gap: 18 }}>
-        <Image
-          source={draft.localUri}
-          contentFit="cover"
-          style={{
-            width: '100%',
-            aspectRatio: 1.25,
-            borderRadius: 20,
-          }}
-        />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+          {draft.localUris.map((uri) => (
+            <Image
+              key={uri}
+              source={uri}
+              contentFit="cover"
+              style={{
+                width: '48%',
+                aspectRatio: 1,
+                borderRadius: 16,
+              }}
+            />
+          ))}
+        </View>
         <Text selectable style={{ color: colors.muted }}>
           AI 已填写信息，请确认后保存
         </Text>
-        <Field label="名称" value={form.name} onChangeText={(v) => set('name', v)} />
-        <Field label="品牌" value={form.brand} onChangeText={(v) => set('brand', v)} />
-        <Field label="型号" value={form.model} onChangeText={(v) => set('model', v)} />
-        <Field
-          label="规格（每行“名称: 内容”）"
-          multiline
-          value={specsText}
-          onChangeText={setSpecsText}
-        />
-        <View style={{ gap: 8 }}>
-          <Text selectable style={{ color: colors.muted, fontSize: 13 }}>
-            分类
-          </Text>
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-            {categories.map((category) => (
-              <Pressable
-                key={category}
-                onPress={() => set('category', category)}
-                style={{
-                  paddingHorizontal: 12,
-                  paddingVertical: 8,
-                  borderRadius: 99,
-                  backgroundColor:
-                    form.category === category
-                      ? colors.green
-                      : colors.greenSoft,
-                }}>
-                <Text
-                  style={{
-                    color:
-                      form.category === category ? 'white' : colors.green,
-                  }}>
-                  {category}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-        <Field
-          label="成色"
-          value={form.condition}
-          onChangeText={(v) => set('condition', v)}
-        />
-        <Field
-          label="估价搜索词"
-          value={form.search_query}
-          onChangeText={(v) => set('search_query', v)}
+        <AssetFormFields
+          form={form}
+          specsText={specsText}
+          onChange={setForm}
+          onChangeSpecsText={setSpecsText}
         />
         {error ? (
           <Text selectable style={{ color: colors.danger }}>

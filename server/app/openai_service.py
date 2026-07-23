@@ -23,7 +23,17 @@ class OpenAIService:
         )
         self.model = settings.openai_model
 
-    def analyze(self, image_url: str, user_id: str) -> AssetRecognition:
+    def analyze(
+        self, image_urls: list[str], user_id: str
+    ) -> AssetRecognition:
+        images = [
+            {
+                "type": "input_image",
+                "image_url": image_url,
+                "detail": "auto",
+            }
+            for image_url in image_urls
+        ]
         response = self.client.responses.parse(
             model=self.model,
             reasoning={"effort": "low"},
@@ -40,12 +50,11 @@ class OpenAIService:
                 {
                     "role": "user",
                     "content": [
-                        {"type": "input_text", "text": "识别这件资产。"},
                         {
-                            "type": "input_image",
-                            "image_url": image_url,
-                            "detail": "auto",
+                            "type": "input_text",
+                            "text": "这些照片是同一件资产，请合并识别。",
                         },
+                        *images,
                     ],
                 },
             ],

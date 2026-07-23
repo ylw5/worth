@@ -24,8 +24,8 @@ export type AssetInput = {
 export type Asset = AssetInput & {
   id: string;
   user_id: string;
-  photo_path: string;
-  photo_url?: string;
+  photo_paths: string[];
+  photo_urls?: string[];
   latest_market_price: number | null;
   latest_valuation_at: string | null;
   created_at: string;

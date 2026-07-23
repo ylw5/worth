@@ -3,8 +3,8 @@ import { createContext, use, useState } from 'react';
 import type { AssetInput } from '@/types/domain';
 
 export type AssetDraft = {
-  localUri: string;
-  photoPath: string;
+  localUris: string[];
+  photoPaths: string[];
   recognition: AssetInput;
 };
 

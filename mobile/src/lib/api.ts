@@ -38,8 +38,8 @@ async function request<T>(path: string, body: unknown): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export const analyzePhoto = (imageUrl: string) =>
-  request<AssetInput>('/analyze', { image_url: imageUrl });
+export const analyzePhotos = (imageUrls: string[]) =>
+  request<AssetInput>('/analyze', { image_urls: imageUrls });
 
 export const estimateAsset = (asset: AssetInput) =>
   request<ValuationResult>('/estimate', asset);

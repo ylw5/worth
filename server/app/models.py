@@ -43,7 +43,7 @@ class AIAssetRecognition(BaseModel):
 
 
 class AnalyzeRequest(BaseModel):
-    image_url: str
+    image_urls: list[str] = Field(min_length=1, max_length=5)
 
 
 class AssetInput(AssetRecognition):

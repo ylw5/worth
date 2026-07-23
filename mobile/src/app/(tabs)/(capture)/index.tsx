@@ -1,64 +1,53 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { router, Stack } from 'expo-router';
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   Text,
-  View,
 } from 'react-native';
 
+import { AssetPhotoPicker } from '@/components/asset-photo-picker';
 import { colors } from '@/constants/colors';
-import { analyzePhoto } from '@/lib/api';
-import { removePhoto, uploadPhoto } from '@/lib/assets';
+import { analyzePhotos } from '@/lib/api';
+import { removePhotos, uploadPhotos } from '@/lib/assets';
+import type { AssetPhoto } from '@/lib/photos';
 import { useDraft } from '@/providers/draft-provider';
 import { useSession } from '@/providers/session-provider';
 
 export default function CaptureScreen() {
-  const camera = useRef<CameraView>(null);
-  const [permission, requestPermission] = useCameraPermissions();
-  const [ready, setReady] = useState(false);
-  const [active, setActive] = useState(false);
+  const [photos, setPhotos] = useState<AssetPhoto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { session } = useSession();
   const { setDraft } = useDraft();
 
-  useFocusEffect(
-    useCallback(() => {
-      setActive(true);
-      return () => setActive(false);
-    }, []),
-  );
-
-  useEffect(() => {
-    if (permission && !permission.granted && permission.canAskAgain) {
-      requestPermission();
+  const analyze = async () => {
+    if (!session || !photos.length) {
+      setError('请至少添加一张照片');
+      return;
     }
-  }, [permission, requestPermission]);
-
-  const takePhoto = async () => {
-    if (!camera.current || !ready || !session) return;
     setLoading(true);
     setError('');
-    let uploadedPath = '';
+    let uploadedPaths: string[] = [];
     try {
-      const photo = await camera.current.takePictureAsync({
-        quality: 0.8,
-        base64: true,
-      });
-      if (!photo.base64) throw new Error('无法读取照片');
-      const uploaded = await uploadPhoto(photo.base64, session.user.id);
-      uploadedPath = uploaded.path;
-      const recognition = await analyzePhoto(uploaded.signedUrl);
+      const uploaded = await uploadPhotos(
+        photos.map((photo) => photo.base64 ?? ''),
+        session.user.id,
+      );
+      uploadedPaths = uploaded.map((photo) => photo.path);
+      const recognition = await analyzePhotos(
+        uploaded.map((photo) => photo.signedUrl),
+      );
       setDraft({
-        localUri: photo.uri,
-        photoPath: uploaded.path,
+        localUris: photos.map((photo) => photo.uri),
+        photoPaths: uploadedPaths,
         recognition,
       });
+      setPhotos([]);
       router.push('/confirm');
     } catch (caught) {
-      if (uploadedPath) await removePhoto(uploadedPath).catch(() => undefined);
+      await removePhotos(uploadedPaths).catch(() => undefined);
       setError(
         caught instanceof Error ? caught.message : '识别失败，请重新拍摄',
       );
@@ -67,94 +56,46 @@ export default function CaptureScreen() {
     }
   };
 
-  if (!permission?.granted) {
-    return (
-      <>
-        <Stack.Screen options={{ title: '拍照录入' }} />
-        <View
-          style={{
-            flex: 1,
-            padding: 24,
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 16,
-            backgroundColor: colors.background,
-          }}>
-          <Text selectable style={{ color: colors.text, textAlign: 'center' }}>
-            需要相机权限才能拍照录入资产
-          </Text>
-          <Pressable
-            onPress={requestPermission}
-            style={{
-              paddingHorizontal: 18,
-              paddingVertical: 12,
-              borderRadius: 12,
-              backgroundColor: colors.green,
-            }}>
-            <Text style={{ color: 'white', fontWeight: '700' }}>允许相机</Text>
-          </Pressable>
-        </View>
-      </>
-    );
-  }
-
   return (
-    <View style={{ flex: 1, backgroundColor: 'black' }}>
-      <Stack.Screen options={{ headerShown: false }} />
-      {active ? (
-        <CameraView
-          ref={camera}
-          facing="back"
-          mode="picture"
-          onCameraReady={() => setReady(true)}
-          style={{ flex: 1 }}
+    <>
+      <Stack.Screen options={{ title: '录入物品', headerShown: true }} />
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={{ padding: 20, gap: 18 }}>
+        <Text selectable style={{ color: colors.muted }}>
+          添加同一件物品的正面、背面、铭牌或细节照片
+        </Text>
+        <AssetPhotoPicker
+          photos={photos}
+          onChange={setPhotos}
+          onError={setError}
         />
-      ) : null}
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 44,
-          alignItems: 'center',
-          gap: 14,
-        }}>
         {error ? (
-          <Text
-            selectable
-            style={{
-              color: 'white',
-              backgroundColor: 'rgba(0,0,0,0.65)',
-              padding: 10,
-              borderRadius: 10,
-              overflow: 'hidden',
-            }}>
+          <Text selectable style={{ color: colors.danger }}>
             {error}
           </Text>
-        ) : (
-          <Text selectable style={{ color: 'white' }}>
-            每次只拍一件物品
-          </Text>
-        )}
+        ) : null}
         <Pressable
-          accessibilityLabel="拍照"
           accessibilityRole="button"
-          disabled={loading || !ready}
-          onPress={takePhoto}
+          disabled={loading || !photos.length}
+          onPress={analyze}
           style={({ pressed }) => ({
-            width: 76,
-            height: 76,
-            borderRadius: 99,
-            borderWidth: 6,
-            borderColor: 'rgba(255,255,255,0.55)',
-            backgroundColor: 'white',
             alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed || loading ? 0.65 : 1,
+            padding: 16,
+            borderRadius: 14,
+            borderCurve: 'continuous',
+            backgroundColor: colors.green,
+            opacity: pressed || loading || !photos.length ? 0.65 : 1,
           })}>
-          {loading ? <ActivityIndicator color={colors.green} /> : null}
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>
+              解析照片
+            </Text>
+          )}
         </Pressable>
-      </View>
-    </View>
+      </ScrollView>
+    </>
   );
 }

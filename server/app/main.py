@@ -22,7 +22,7 @@ def analyze(
     user_id: str = Depends(require_user),
 ) -> AssetRecognition:
     try:
-        return OpenAIService(get_settings()).analyze(request.image_url, user_id)
+        return OpenAIService(get_settings()).analyze(request.image_urls, user_id)
     except RuntimeError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
 

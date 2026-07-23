@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Image } from 'expo-image';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
   Pressable,
@@ -9,6 +8,7 @@ import {
   View,
 } from 'react-native';
 
+import { AssetPhotoGallery } from '@/components/asset-photo-gallery';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors } from '@/constants/colors';
 import { estimateAsset } from '@/lib/api';
@@ -52,19 +52,29 @@ export default function AssetDetailScreen() {
   const latest = historyQuery.data?.[0];
   return (
     <>
-      <Stack.Screen options={{ title: asset.name }} />
+      <Stack.Screen
+        options={{
+          title: asset.name,
+          headerRight: () => (
+            <Link
+              href={{
+                pathname: '/asset/[id]/edit',
+                params: { id: asset.id },
+              }}
+              asChild>
+              <Pressable accessibilityRole="button">
+                <Text style={{ color: colors.green, fontWeight: '700' }}>
+                  编辑
+                </Text>
+              </Pressable>
+            </Link>
+          ),
+        }}
+      />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ padding: 20, gap: 18 }}>
-        <Image
-          source={asset.photo_url}
-          contentFit="cover"
-          style={{
-            width: '100%',
-            aspectRatio: 1.3,
-            borderRadius: 20,
-          }}
-        />
+        <AssetPhotoGallery urls={asset.photo_urls ?? []} />
         <View
           style={{
             padding: 18,

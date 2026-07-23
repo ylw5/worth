@@ -12,10 +12,15 @@ function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
-async function withPhotoUrl(asset: Asset): Promise<Asset> {
-  const { data, error } = await bucket.createSignedUrl(asset.photo_path, 3600);
-  fail(error);
-  return { ...asset, photo_url: data?.signedUrl };
+async function withPhotoUrls(asset: Asset): Promise<Asset> {
+  const photo_urls = await Promise.all(
+    asset.photo_paths.map(async (path) => {
+      const { data, error } = await bucket.createSignedUrl(path, 3600);
+      fail(error);
+      return data?.signedUrl ?? '';
+    }),
+  );
+  return { ...asset, photo_urls };
 }
 
 export async function listAssets(): Promise<Asset[]> {
@@ -24,7 +29,7 @@ export async function listAssets(): Promise<Asset[]> {
     .select('*')
     .order('created_at', { ascending: false });
   fail(error);
-  return Promise.all(((data ?? []) as Asset[]).map(withPhotoUrl));
+  return Promise.all(((data ?? []) as Asset[]).map(withPhotoUrls));
 }
 
 export async function getAsset(id: string): Promise<Asset> {
@@ -34,7 +39,7 @@ export async function getAsset(id: string): Promise<Asset> {
     .eq('id', id)
     .single();
   fail(error);
-  return withPhotoUrl(data as Asset);
+  return withPhotoUrls(data as Asset);
 }
 
 export async function getValuations(assetId: string): Promise<Valuation[]> {
@@ -69,19 +74,61 @@ export async function uploadPhoto(
   return { path, signedUrl: data.signedUrl };
 }
 
-export async function removePhoto(path: string) {
-  const { error } = await bucket.remove([path]);
+export async function removePhotos(paths: string[]) {
+  if (!paths.length) return;
+  const { error } = await bucket.remove(paths);
   fail(error);
+}
+
+export async function uploadPhotos(base64Images: string[], userId: string) {
+  if (
+    base64Images.length < 1 ||
+    base64Images.length > 5 ||
+    base64Images.some((image) => !image)
+  ) {
+    throw new Error('每件物品需要 1–5 张有效照片');
+  }
+  const results = await Promise.allSettled(
+    base64Images.map((image) => uploadPhoto(image, userId)),
+  );
+  const uploaded = results.flatMap((result) =>
+    result.status === 'fulfilled' ? [result.value] : [],
+  );
+  const failed = results.find((result) => result.status === 'rejected');
+  if (failed) {
+    await removePhotos(uploaded.map((item) => item.path)).catch(() => undefined);
+    throw failed.reason;
+  }
+  return uploaded;
 }
 
 export async function createAsset(
   userId: string,
-  photoPath: string,
+  photoPaths: string[],
   input: AssetInput,
 ): Promise<Asset> {
   const { data, error } = await supabase
     .from('assets')
-    .insert({ ...input, user_id: userId, photo_path: photoPath })
+    .insert({ ...input, user_id: userId, photo_paths: photoPaths })
+    .select('*')
+    .single();
+  fail(error);
+  return data as Asset;
+}
+
+export async function updateAsset(
+  id: string,
+  input: AssetInput,
+  photoPaths?: string[],
+): Promise<Asset> {
+  const { data, error } = await supabase
+    .from('assets')
+    .update({
+      ...input,
+      ...(photoPaths ? { photo_paths: photoPaths } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
     .select('*')
     .single();
   fail(error);

@@ -26,11 +26,11 @@
     "plugins": [
       "expo-router",
       [
-        "expo-camera",
+        "expo-image-picker",
         {
-          "cameraPermission": "允许 Worth 使用相机拍摄并识别你的资产",
-          "recordAudioAndroid": false,
-          "barcodeScannerEnabled": false
+          "cameraPermission": "允许 Worth 使用相机拍摄你的物品",
+          "photosPermission": "允许 Worth 从相册选择物品照片",
+          "microphonePermission": false
         }
       ],
       [

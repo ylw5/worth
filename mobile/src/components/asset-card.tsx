@@ -23,7 +23,7 @@ export function AssetCard({ asset }: { asset: Asset }) {
           opacity: pressed ? 0.7 : 1,
         })}>
         <Image
-          source={asset.photo_url}
+          source={asset.photo_urls?.[0]}
           contentFit="cover"
           style={{ width: 82, height: 82, borderRadius: 14 }}
         />
