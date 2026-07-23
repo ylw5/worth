@@ -1,15 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
 import { SymbolView } from 'expo-symbols';
 import { Link, Stack } from 'expo-router';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { AssetCard } from '@/components/asset-card';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors } from '@/constants/colors';
+import { getAssetGridColumns } from '@/lib/asset-grid';
 import { listAssets } from '@/lib/assets';
 import { formatCurrency } from '@/lib/format';
 
+const gridGap = 12;
+const pagePadding = 20;
+
 export default function AssetsScreen() {
+  const { width } = useWindowDimensions();
+  const columns = getAssetGridColumns(width);
+  const cardWidth =
+    (width - pagePadding * 2 - gridGap * (columns - 1)) / columns;
   const query = useQuery({ queryKey: ['assets'], queryFn: listAssets });
   const assets = query.data ?? [];
   const total = assets.reduce(
@@ -122,9 +136,14 @@ export default function AssetsScreen() {
           <Text selectable style={{ color: colors.text, fontWeight: '700' }}>
             最近添加
           </Text>
-          {assets.map((asset) => (
-            <AssetCard key={asset.id} asset={asset} />
-          ))}
+          <View
+            style={{ flexDirection: 'row', flexWrap: 'wrap', gap: gridGap }}>
+            {assets.map((asset) => (
+              <View key={asset.id} style={{ width: cardWidth }}>
+                <AssetCard asset={asset} />
+              </View>
+            ))}
+          </View>
           {!query.isLoading && !assets.length ? (
             <View
               style={{
