@@ -24,21 +24,20 @@ class MarketWorkflow(WorkflowEntrypoint):
         run_id = event["payload"]["run_id"]
         db = database(self.env)
 
-        @step.do("claim")
+        @step.do()
         async def claim():
             return await db.rpc(
                 "claim_analysis_run",
                 {"p_run_id": run_id},
             )
 
-        @step.do("load asset")
+        @step.do()
         async def load_asset(claim):
             if not claim:
                 return None
             return await db.asset(claim["asset_id"])
 
         @step.do(
-            "collect and filter",
             config={
                 "retries": {
                     "limit": 2,
@@ -56,7 +55,7 @@ class MarketWorkflow(WorkflowEntrypoint):
             result = await collect_market_result(self.env, load_asset)
             return result.model_dump(mode="json")
 
-        @step.do("save snapshot")
+        @step.do()
         async def save_snapshot(collect_and_filter):
             if not collect_and_filter:
                 return {"status": "skipped"}
