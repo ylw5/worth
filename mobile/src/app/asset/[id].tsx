@@ -3,17 +3,11 @@ import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AssetPhotoGallery } from '@/components/asset-photo-gallery';
-import { MarketSnapshotCard } from '@/components/market-snapshot-card';
-import { MarketTrendCard } from '@/components/market-trend-card';
+import { MarketValuationCard } from '@/components/market-valuation-card';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, radius, spacing, typography } from '@/constants/colors';
 import { assetStatusLabels } from '@/lib/asset-status';
-import {
-  getAsset,
-  getAssetSale,
-  getMarketInsight,
-  getValuations,
-} from '@/lib/assets';
+import { getAsset, getAssetSale, getMarketInsight } from '@/lib/assets';
 import { formatCurrency, formatDate, specsToText } from '@/lib/format';
 
 export default function AssetDetailScreen() {
@@ -21,11 +15,6 @@ export default function AssetDetailScreen() {
   const assetQuery = useQuery({
     queryKey: ['asset', id],
     queryFn: () => getAsset(id),
-    enabled: Boolean(id),
-  });
-  const historyQuery = useQuery({
-    queryKey: ['valuations', id],
-    queryFn: () => getValuations(id),
     enabled: Boolean(id),
   });
   const saleQuery = useQuery({
@@ -107,10 +96,7 @@ export default function AssetDetailScreen() {
             {insightQuery.error.message}
           </Text>
         ) : insightQuery.data ? (
-          <>
-            <MarketSnapshotCard insight={insightQuery.data} />
-            <MarketTrendCard snapshots={insightQuery.data.snapshots} />
-          </>
+          <MarketValuationCard insight={insightQuery.data} />
         ) : (
           <View
             style={{
@@ -206,42 +192,6 @@ export default function AssetDetailScreen() {
                   }}
                 />
               ) : null}
-            </View>
-          ))}
-        </View>
-
-        <View style={{ gap: spacing.md }}>
-          <Text
-            selectable
-            style={{ color: colors.textPrimary, ...typography.sectionTitle }}>
-            价格历史
-          </Text>
-          {historyQuery.data?.map((valuation, index) => (
-            <View
-              key={valuation.id}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                padding: spacing.lg,
-                borderRadius: radius.medium,
-                borderCurve: 'continuous',
-                backgroundColor: colors.surface,
-              }}>
-              <Text
-                selectable
-                style={{ color: colors.textSecondary, ...typography.label }}>
-                {formatDate(valuation.created_at)}
-              </Text>
-              <Text
-                selectable
-                style={{
-                  ...typography.body,
-                  color: index === 0 ? colors.accent : colors.textPrimary,
-                  fontWeight: '700',
-                  fontVariant: ['tabular-nums'],
-                }}>
-                {formatCurrency(valuation.estimated_price)}
-              </Text>
             </View>
           ))}
         </View>

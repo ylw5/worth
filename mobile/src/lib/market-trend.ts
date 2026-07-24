@@ -1,8 +1,16 @@
+import { formatCurrency } from './format.ts';
+
 export type TrendRange = '30d' | '90d' | 'all';
 
 type TrendRow = {
   snapshot_date: string;
   estimated_price: number;
+};
+
+export const trendRangeLabels: Record<TrendRange, string> = {
+  '30d': '30 天',
+  '90d': '90 天',
+  all: '全部',
 };
 
 export function jobCopy(run: { status: string } | null) {
@@ -33,6 +41,22 @@ export function trendStats(rows: TrendRow[]) {
     high: Math.max(...prices),
     low: Math.min(...prices),
   };
+}
+
+export function trendChangeCopy(
+  stats: ReturnType<typeof trendStats>,
+  range: TrendRange,
+): string {
+  const label = trendRangeLabels[range];
+  if (!stats) return '行情积累中';
+  if (stats.percent === null) return `${label} —`;
+  const signed =
+    stats.change > 0
+      ? `+${formatCurrency(stats.change)}`
+      : formatCurrency(stats.change);
+  const pct =
+    stats.percent > 0 ? `+${stats.percent}%` : `${stats.percent}%`;
+  return `${label} ${signed}（${pct}）`;
 }
 
 export function plotTrend(rows: TrendRow[], width: number, height: number) {

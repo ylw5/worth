@@ -4,6 +4,8 @@ import {
   filterTrend,
   jobCopy,
   plotTrend,
+  trendChangeCopy,
+  trendRangeLabels,
   trendStats,
 } from '../src/lib/market-trend.ts';
 
@@ -32,4 +34,18 @@ assert.equal(jobCopy({ status: 'running' }), '行情更新中');
 assert.equal(
   jobCopy({ status: 'failed' }),
   '本次更新失败，仍展示上次结果',
+);
+assert.equal(trendRangeLabels['30d'], '30 天');
+assert.equal(
+  trendChangeCopy({ change: 20, percent: 20, high: 120, low: 90 }, '30d'),
+  '30 天 +¥20（+20%）',
+);
+assert.equal(
+  trendChangeCopy({ change: -5, percent: -4.2, high: 100, low: 90 }, '90d'),
+  '90 天 -¥5（-4.2%）',
+);
+assert.equal(trendChangeCopy(null, '30d'), '行情积累中');
+assert.equal(
+  trendChangeCopy({ change: 0, percent: null, high: 0, low: 0 }, 'all'),
+  '全部 —',
 );
