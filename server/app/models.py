@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Annotated, Literal, Optional, Self
 
 from pydantic import BeforeValidator, BaseModel, Field, model_validator
@@ -313,3 +314,68 @@ class SellPlanResult(BaseModel):
     coverage_ratio: float
     is_reachable: bool
     items: list[SellPlanItem]
+
+
+SellPlanReadinessState = Literal[
+    "needs_confirmation",
+    "needs_valuation",
+    "stale_valuation",
+    "ready",
+    "excluded",
+]
+
+
+class SellPlanPrepareRequest(BaseModel):
+    wishlist_item_id: str = Field(min_length=1, max_length=100)
+    plan_date: date
+    refresh_valuations: bool = False
+
+
+class SellPlanReadinessItem(BaseModel):
+    id: str
+    name: str
+    status: AssetStatus
+    readiness: SellPlanReadinessState
+    conservative_price: Optional[float] = Field(default=None, gt=0)
+    latest_valuation_at: Optional[str] = None
+    status_confirmed_at: Optional[str] = None
+
+
+class SellPlanReadinessCounts(BaseModel):
+    needs_confirmation: int = Field(ge=0)
+    needs_valuation: int = Field(ge=0)
+    stale_valuation: int = Field(ge=0)
+    ready: int = Field(ge=0)
+    excluded: int = Field(ge=0)
+
+
+class SellPlanItemReason(BaseModel):
+    item_id: str = Field(min_length=1)
+    reason: str = Field(min_length=1, max_length=300)
+
+
+class SellPlanExplanation(BaseModel):
+    summary: str = Field(min_length=1, max_length=600)
+    item_reasons: list[SellPlanItemReason] = Field(max_length=100)
+    evidence_gaps: list[str] = Field(max_length=10)
+    question: str = Field(default="", max_length=300)
+
+    @model_validator(mode="after")
+    def validate_unique_item_reasons(self) -> Self:
+        item_ids = [item.item_id for item in self.item_reasons]
+        if len(item_ids) != len(set(item_ids)):
+            raise ValueError("sell plan item reasons must be unique")
+        return self
+
+
+class SellPlanPreparedResult(BaseModel):
+    plan: SellPlanResult
+    readiness: list[SellPlanReadinessItem]
+    readiness_counts: SellPlanReadinessCounts
+    confirmed_sellable_total: float = Field(ge=0)
+    unconfirmed_potential_total: float = Field(ge=0)
+    refresh_failures: int = Field(ge=0)
+    input_fingerprint: str
+    calculation_version: str
+    valuation_as_of: Optional[str] = None
+    explanation: SellPlanExplanation

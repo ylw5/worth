@@ -78,6 +78,21 @@ export async function setAssetStatus(
   fail(error);
 }
 
+export async function confirmAssetSellability(
+  updates: {
+    id: string;
+    status: Exclude<AssetStatus, 'sold'>;
+  }[],
+) {
+  if (!updates.length) {
+    throw new Error('请至少确认一件资产');
+  }
+  const { error } = await supabase.rpc('confirm_asset_sellability', {
+    p_updates: updates,
+  });
+  fail(error);
+}
+
 export async function recordAssetSale(
   id: string,
   soldAt: string,

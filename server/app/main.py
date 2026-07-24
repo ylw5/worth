@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Iterator
 from uuid import uuid4
 
@@ -44,11 +45,17 @@ from .models import (
     PurchaseEvaluationRequest,
     PurchaseEvaluationResult,
     SellPlanRequest,
+    SellPlanPrepareRequest,
+    SellPlanPreparedResult,
     SellPlanResult,
     ValuationResult,
 )
 from .product import fetch_product_page
 from .sell_plan import recommend_sell_plan
+from .sell_plan_orchestration import (
+    classify_sell_plan_assets,
+    prepare_sell_plan_from_assets,
+)
 from .valuation import build_valuation
 
 
@@ -60,6 +67,15 @@ def get_user_supabase(access_token: str) -> SupabaseClient:
     client = create_client(settings.supabase_url, settings.supabase_anon_key)
     client.postgrest.auth(access_token)
     return client
+
+
+SELL_PLAN_ASSET_FIELDS = (
+    "id,name,brand,model,specs,category,subcategory,condition,"
+    "search_query,status,status_confirmed_at,status_source,"
+    "latest_market_price,latest_market_price_low,"
+    "latest_market_price_high,latest_valuation_at,updated_at"
+)
+MAX_SELL_PLAN_REFRESHES = 5
 
 
 app = FastAPI(title="Worth API")
@@ -502,3 +518,252 @@ def recommend_plan(
 ) -> SellPlanResult:
     del user
     return recommend_sell_plan(request.target_price, request.assets)
+
+
+def _load_sell_plan_facts(
+    supabase_client: SupabaseClient,
+    *,
+    user_id: str,
+    wishlist_item_id: str,
+) -> tuple[dict, list[dict]]:
+    try:
+        wishlist_response = (
+            supabase_client
+            .table("wishlist_items")
+            .select("id,user_id,name,target_price")
+            .eq("id", wishlist_item_id)
+            .eq("user_id", user_id)
+            .limit(1)
+            .execute()
+        )
+        wishlist_rows = wishlist_response.data or []
+        if not wishlist_rows:
+            raise HTTPException(status_code=404, detail="心愿不存在")
+        assets_response = (
+            supabase_client
+            .table("assets")
+            .select(SELL_PLAN_ASSET_FIELDS)
+            .eq("user_id", user_id)
+            .neq("status", "sold")
+            .order("updated_at", desc=True)
+            .execute()
+        )
+    except HTTPException:
+        raise
+    except Exception as error:
+        raise HTTPException(
+            status_code=503,
+            detail="暂时无法读取卖出方案数据，请稍后重试",
+        ) from error
+    return wishlist_rows[0], list(assets_response.data or [])
+
+
+def _refresh_sell_plan_valuations(
+    supabase_client: SupabaseClient,
+    *,
+    user: AuthenticatedUser,
+    assets: list[dict],
+) -> int:
+    priority = {
+        "needs_valuation": 0,
+        "stale_valuation": 1,
+        "ready": 2,
+    }
+    candidates = sorted(
+        [
+            item
+            for item in classify_sell_plan_assets(assets)
+            if item.readiness in priority
+        ],
+        key=lambda item: priority[item.readiness],
+    )[:MAX_SELL_PLAN_REFRESHES]
+    if not candidates:
+        return 0
+
+    settings = get_settings()
+    try:
+        market_client = MarketClient(settings.xianyu_cookie)
+        matching_workflow = build_text_workflows(
+            settings
+        ).candidate_matching
+    except Exception:
+        return len(candidates)
+
+    assets_by_id = {str(asset["id"]): asset for asset in assets}
+    failures = 0
+    for readiness_item in candidates:
+        asset = assets_by_id[readiness_item.id]
+        try:
+            asset_input = AssetInput(
+                name=asset["name"],
+                brand=asset.get("brand") or "",
+                model=asset.get("model") or "",
+                specs=asset.get("specs") or {},
+                category=asset["category"],
+                subcategory=asset.get("subcategory") or "",
+                condition=asset["condition"],
+                search_query=asset["search_query"],
+            )
+            market_candidates = market_client.search(
+                asset_input.search_query
+            )
+            matching_ids = matching_workflow.matching_ids(
+                asset_input,
+                market_candidates,
+                user_id=user.id,
+                request_id=uuid4().hex,
+            )
+            valuation = build_valuation(
+                asset_input.search_query,
+                market_candidates,
+                matching_ids,
+            )
+            if (
+                valuation.estimated_price is None
+                or valuation.price_low is None
+                or valuation.price_high is None
+            ):
+                failures += 1
+                continue
+            supabase_client.rpc(
+                "record_valuation",
+                {
+                    "p_asset_id": readiness_item.id,
+                    "p_estimated_price": valuation.estimated_price,
+                    "p_price_low": valuation.price_low,
+                    "p_price_high": valuation.price_high,
+                    "p_sample_count": valuation.sample_count,
+                    "p_query": valuation.query,
+                    "p_sample_summary": [
+                        item.model_dump(mode="json")
+                        for item in valuation.sample_summary
+                    ],
+                },
+            ).execute()
+            valuation_at = datetime.now(timezone.utc).isoformat()
+            asset.update(
+                {
+                    "latest_market_price": valuation.estimated_price,
+                    "latest_market_price_low": valuation.price_low,
+                    "latest_market_price_high": valuation.price_high,
+                    "latest_valuation_at": valuation_at,
+                    "updated_at": valuation_at,
+                }
+            )
+        except Exception:
+            failures += 1
+            logger.exception(
+                "Sell plan valuation refresh failed",
+                extra={
+                    "user_id": user.id,
+                    "asset_id": readiness_item.id,
+                },
+            )
+    return failures
+
+
+def _explain_sell_plan(
+    prepared: SellPlanPreparedResult,
+    *,
+    target_name: str,
+    user: AuthenticatedUser,
+) -> SellPlanPreparedResult:
+    try:
+        explanation = build_text_workflows(
+            get_settings()
+        ).sell_plan_explanation.explain(
+            target_name,
+            prepared,
+            user_id=user.id,
+            request_id=uuid4().hex,
+        )
+    except Exception:
+        logger.exception(
+            "Sell plan explanation failed; using deterministic fallback",
+            extra={"user_id": user.id},
+        )
+        return prepared
+    return prepared.model_copy(update={"explanation": explanation})
+
+
+def _save_sell_plan_snapshot(
+    supabase_client: SupabaseClient,
+    *,
+    user_id: str,
+    wishlist_item_id: str,
+    plan_date: str,
+    prepared: SellPlanPreparedResult,
+) -> None:
+    plan = prepared.plan
+    try:
+        supabase_client.table("sell_plan_snapshots").upsert(
+            {
+                "user_id": user_id,
+                "wishlist_item_id": wishlist_item_id,
+                "plan_date": plan_date,
+                "target_price": plan.target_price,
+                "estimated_total": plan.estimated_total,
+                "coverage_ratio": plan.coverage_ratio,
+                "is_reachable": plan.is_reachable,
+                "items": [
+                    item.model_dump(mode="json") for item in plan.items
+                ],
+                "refresh_failures": prepared.refresh_failures,
+                "input_fingerprint": prepared.input_fingerprint,
+                "readiness_counts": (
+                    prepared.readiness_counts.model_dump(mode="json")
+                ),
+                "calculation_version": prepared.calculation_version,
+                "valuation_as_of": prepared.valuation_as_of,
+                "explanation": prepared.explanation.model_dump(mode="json"),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+            on_conflict="user_id,wishlist_item_id,plan_date",
+        ).execute()
+    except Exception as error:
+        raise HTTPException(
+            status_code=503,
+            detail="卖出方案已计算，但暂时无法保存，请稍后重试",
+        ) from error
+
+
+@app.post(
+    "/sell-plans/prepare",
+    response_model=SellPlanPreparedResult,
+)
+def prepare_sell_plan(
+    request: SellPlanPrepareRequest,
+    user: AuthenticatedUser = Depends(require_user),
+) -> SellPlanPreparedResult:
+    supabase_client = get_user_supabase(user.access_token)
+    wishlist, assets = _load_sell_plan_facts(
+        supabase_client,
+        user_id=user.id,
+        wishlist_item_id=request.wishlist_item_id,
+    )
+    refresh_failures = 0
+    if request.refresh_valuations:
+        refresh_failures = _refresh_sell_plan_valuations(
+            supabase_client,
+            user=user,
+            assets=assets,
+        )
+
+    prepared = prepare_sell_plan_from_assets(
+        float(wishlist["target_price"]),
+        assets,
+        refresh_failures=refresh_failures,
+    )
+    prepared = _explain_sell_plan(
+        prepared,
+        target_name=str(wishlist["name"]),
+        user=user,
+    )
+    _save_sell_plan_snapshot(
+        supabase_client,
+        user_id=user.id,
+        wishlist_item_id=request.wishlist_item_id,
+        plan_date=request.plan_date.isoformat(),
+        prepared=prepared,
+    )
+    return prepared

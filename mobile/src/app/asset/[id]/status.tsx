@@ -34,6 +34,9 @@ export default function AssetStatusScreen() {
         queryClient.invalidateQueries({ queryKey: ['asset', id] }),
         queryClient.invalidateQueries({ queryKey: ['asset-sale', id] }),
         queryClient.invalidateQueries({ queryKey: ['assets'] }),
+        queryClient.invalidateQueries({ queryKey: ['sell-plan-assets'] }),
+        queryClient.invalidateQueries({ queryKey: ['sell-plan'] }),
+        queryClient.invalidateQueries({ queryKey: ['sell-plan-history'] }),
         queryClient.invalidateQueries({ queryKey: ['purchase-evaluations'] }),
         queryClient.invalidateQueries({ queryKey: ['agent-memories'] }),
         queryClient.invalidateQueries({ queryKey: ['agent-followups'] }),
@@ -51,6 +54,8 @@ export default function AssetStatusScreen() {
     if (status === asset.status) {
       if (status === 'sold') {
         router.push({ pathname: '/asset/[id]/sale', params: { id } });
+      } else {
+        mutation.mutate(status);
       }
       return;
     }
@@ -82,6 +87,20 @@ export default function AssetStatusScreen() {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}>
+        {!asset.status_confirmed_at ? (
+          <View
+            style={{
+              padding: spacing.lg,
+              borderRadius: radius.medium,
+              backgroundColor: colors.greenSoft,
+            }}>
+            <Text
+              selectable
+              style={{ color: colors.textPrimary, ...typography.body }}>
+              这个状态还没有经过你确认。即使仍是“持有”，也请点一次当前状态完成确认。
+            </Text>
+          </View>
+        ) : null}
         {assetStatuses.map((status) => {
           const selected = status === asset.status;
           return (
@@ -114,7 +133,7 @@ export default function AssetStatusScreen() {
               </Text>
               {selected ? (
                 <Text style={{ ...typography.label, color: colors.onDark }}>
-                  当前
+                  {asset.status_confirmed_at ? '已确认' : '点此确认'}
                 </Text>
               ) : null}
             </Pressable>

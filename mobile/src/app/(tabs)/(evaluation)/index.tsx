@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SymbolView } from 'expo-symbols';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -49,14 +49,14 @@ export default function EvaluationScreen() {
   const { session } = useSession();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ evaluationId?: string }>();
   const history = useQuery({
     queryKey: ['purchase-evaluations'],
     queryFn: listPurchaseEvaluations,
   });
   const [open, setOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(
-    typeof params.id === 'string' ? params.id : null,
+    typeof params.evaluationId === 'string' ? params.evaluationId : null,
   );
   const [conversationTitle, setConversationTitle] = useState('聊天');
   const generalThread = useQuery({
@@ -75,11 +75,17 @@ export default function EvaluationScreen() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (typeof params.id === 'string' && params.id) {
-      const timer = setTimeout(() => setActiveId(params.id as string), 0);
+    if (
+      typeof params.evaluationId === 'string' &&
+      params.evaluationId
+    ) {
+      const timer = setTimeout(
+        () => setActiveId(params.evaluationId as string),
+        0,
+      );
       return () => clearTimeout(timer);
     }
-  }, [params.id]);
+  }, [params.evaluationId]);
 
   const handleTitleChange = useCallback((title: string) => {
     setConversationTitle(title);
@@ -92,6 +98,7 @@ export default function EvaluationScreen() {
     setPhotos([]);
     setError('');
     setOpen(false);
+    router.replace('/(tabs)/(evaluation)');
   };
 
   const openConversation = (id: string) => {
@@ -100,6 +107,7 @@ export default function EvaluationScreen() {
     setPhotos([]);
     setError('');
     setOpen(false);
+    router.setParams({ evaluationId: id });
   };
 
   const analyze = async () => {

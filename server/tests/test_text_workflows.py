@@ -19,6 +19,7 @@ from app.ai.workflows.text import (
     GeneralChatWorkflow,
     ProductClassificationWorkflow,
     ProductInterpretationWorkflow,
+    SellPlanExplanationWorkflow,
 )
 from app.config import Settings
 from app.models import (
@@ -26,6 +27,7 @@ from app.models import (
     EvaluationChatMessage,
     MarketCandidate,
 )
+from app.sell_plan_orchestration import prepare_sell_plan_from_assets
 
 
 class SequenceRunner:
@@ -50,6 +52,23 @@ class SequenceRunner:
         )
 
 
+def prepared_sell_plan():
+    return prepare_sell_plan_from_assets(
+        1000,
+        [
+            {
+                "id": "asset-1",
+                "name": "Headphones",
+                "status": "idle",
+                "status_confirmed_at": "2026-07-25T01:00:00+00:00",
+                "latest_market_price": 1200,
+                "latest_market_price_low": 1000,
+                "latest_valuation_at": "2026-07-25T01:00:00+00:00",
+            }
+        ],
+    )
+
+
 def asset() -> AssetInput:
     return AssetInput(
         name="Sony headphones",
@@ -67,6 +86,49 @@ def candidates() -> list[MarketCandidate]:
         MarketCandidate(item_id="1", title="Sony XM6", price=2000),
         MarketCandidate(item_id="2", title="Sony case", price=100),
     ]
+
+
+def test_sell_plan_explanation_preserves_deterministic_item_ids() -> None:
+    runner = SequenceRunner(
+        [
+            (
+                '{"summary":"一件已确认资产可以覆盖目标。",'
+                '"item_reasons":[{"item_id":"asset-1",'
+                '"reason":"按保守估价 1000 元计入。"}],'
+                '"evidence_gaps":[],"question":""}'
+            )
+        ]
+    )
+
+    result = SellPlanExplanationWorkflow(runner).explain(
+        "Ticket",
+        prepared_sell_plan(),
+        user_id="user-1",
+        request_id="request-1",
+    )
+
+    assert [item.item_id for item in result.item_reasons] == ["asset-1"]
+
+
+def test_sell_plan_explanation_rejects_changed_item_ids() -> None:
+    runner = SequenceRunner(
+        [
+            (
+                '{"summary":"Result",'
+                '"item_reasons":[{"item_id":"invented",'
+                '"reason":"Not allowed"}],'
+                '"evidence_gaps":[],"question":""}'
+            )
+        ]
+    )
+
+    with pytest.raises(StructuredOutputError):
+        SellPlanExplanationWorkflow(runner).explain(
+            "Ticket",
+            prepared_sell_plan(),
+            user_id="user-1",
+            request_id="request-1",
+        )
 
 
 def test_product_classification_uses_structured_contract() -> None:

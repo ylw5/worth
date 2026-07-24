@@ -54,6 +54,8 @@ export type Asset = AssetWriteInput & {
   photo_cutout_paths: Record<string, string>;
   photo_cutout_urls?: Record<string, string>;
   status: AssetStatus;
+  status_confirmed_at: string | null;
+  status_source: 'default' | 'user' | 'system';
   latest_market_price: number | null;
   latest_market_price_low: number | null;
   latest_market_price_high: number | null;

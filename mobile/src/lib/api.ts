@@ -10,6 +10,7 @@ import type {
 } from '@/lib/evaluations';
 import type {
   SellPlanAsset,
+  SellPlanPreparedResult,
   SellPlanResult,
 } from '@/lib/sell-plans';
 import { parseSseEvent, splitSseBuffer } from '@/lib/sse';
@@ -160,6 +161,17 @@ export const recommendSellPlan = (
   request<SellPlanResult>('/sell-plans/recommend', {
     target_price: targetPrice,
     assets,
+  });
+
+export const prepareSellPlan = (
+  wishlistItemId: string,
+  planDate: string,
+  refreshValuations = false,
+) =>
+  request<SellPlanPreparedResult>('/sell-plans/prepare', {
+    wishlist_item_id: wishlistItemId,
+    plan_date: planDate,
+    refresh_valuations: refreshValuations,
   });
 
 export async function streamPurchaseEvaluation(

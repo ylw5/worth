@@ -380,6 +380,9 @@ export default function CaptureScreen() {
       }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['assets'] }),
+        queryClient.invalidateQueries({ queryKey: ['sell-plan-assets'] }),
+        queryClient.invalidateQueries({ queryKey: ['sell-plan'] }),
+        queryClient.invalidateQueries({ queryKey: ['sell-plan-history'] }),
         queryClient.invalidateQueries({ queryKey: ['purchase-evaluations'] }),
         queryClient.invalidateQueries({ queryKey: ['agent-memories'] }),
         queryClient.invalidateQueries({ queryKey: ['agent-followups'] }),

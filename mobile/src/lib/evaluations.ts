@@ -165,8 +165,11 @@ export async function getPurchaseEvaluation(
     .from('purchase_evaluations')
     .select('*')
     .eq('id', id)
-    .single();
+    .maybeSingle();
   fail(error);
+  if (!data) {
+    throw new Error('该购买评估不存在或已被删除');
+  }
   const evaluation = data as PurchaseEvaluation;
   const image_urls = await Promise.all(
     (evaluation.image_paths ?? []).map(async (path) => {

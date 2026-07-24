@@ -24,6 +24,7 @@ from .workflows import (
     ProductImageRecognitionWorkflow,
     ProductInterpretationWorkflow,
     PurchaseEvaluationWorkflow,
+    SellPlanExplanationWorkflow,
 )
 
 if TYPE_CHECKING:
@@ -44,6 +45,7 @@ class TextWorkflowBundle:
     product_interpretation: ProductInterpretationWorkflow
     candidate_matching: CandidateMatchingWorkflow
     general_chat: GeneralChatWorkflow
+    sell_plan_explanation: SellPlanExplanationWorkflow
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,6 +152,7 @@ def _build_text_router(settings: Settings) -> ModelRouter:
         "product_interpretation",
         "candidate_matching",
         "general_chat",
+        "sell_plan_explanation",
     }
 
     if settings.deepseek_api_key:
@@ -225,6 +228,7 @@ def build_text_workflows(settings: Settings) -> TextWorkflowBundle:
         product_interpretation=ProductInterpretationWorkflow(runner),
         candidate_matching=CandidateMatchingWorkflow(runner),
         general_chat=GeneralChatWorkflow(runner),
+        sell_plan_explanation=SellPlanExplanationWorkflow(runner),
     )
 
 

@@ -10,7 +10,7 @@ export default function EvaluationDetailRedirect() {
     <Redirect
       href={{
         pathname: '/(tabs)/(evaluation)',
-        params: { id },
+        params: { evaluationId: id },
       }}
     />
   );
