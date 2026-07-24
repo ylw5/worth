@@ -51,7 +51,7 @@ export type PurchaseEvaluationResult = {
 export type EvaluationDecision = 'pending' | 'buy' | 'skip';
 
 export const evaluationDecisionLabels: Record<EvaluationDecision, string> = {
-  pending: '评估中',
+  pending: '进行中',
   buy: '建议买',
   skip: '建议不买',
 };

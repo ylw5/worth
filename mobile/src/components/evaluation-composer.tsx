@@ -6,7 +6,6 @@ import {
   Alert,
   Pressable,
   ScrollView,
-  Text,
   TextInput,
   View,
 } from 'react-native';
@@ -201,6 +200,7 @@ export function EvaluationComposer({
           minHeight: 42,
           flexDirection: 'row',
           alignItems: 'center',
+          justifyContent: 'space-between',
           gap: 10,
         }}>
         <Pressable
@@ -220,13 +220,6 @@ export function EvaluationComposer({
             <Icon name={addIcon} size={24} color={colors.text} />
           </Host>
         </Pressable>
-
-        <Text
-          selectable
-          numberOfLines={1}
-          style={{ flex: 1, color: colors.muted, fontSize: 13 }}>
-          链接 · 文字 · 图片 · 拍照
-        </Text>
 
         <Pressable
           accessibilityRole="button"

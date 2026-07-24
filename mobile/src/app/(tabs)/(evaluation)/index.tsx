@@ -1,19 +1,22 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SymbolView } from 'expo-symbols';
-import { router, Stack } from 'expo-router';
-import { useState } from 'react';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ChatConversation } from '@/components/chat-conversation';
 import { ChatHistoryDrawer } from '@/components/chat-history-drawer';
 import { EvaluationComposer } from '@/components/evaluation-composer';
-import { colors } from '@/constants/colors';
+import { colors, spacing } from '@/constants/colors';
 import {
   analyzeProductPhotos,
   evaluatePurchase,
@@ -37,17 +40,52 @@ import { useSession } from '@/providers/session-provider';
 
 export default function EvaluationScreen() {
   const { session } = useSession();
+  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const params = useLocalSearchParams<{ id?: string }>();
   const history = useQuery({
     queryKey: ['purchase-evaluations'],
     queryFn: listPurchaseEvaluations,
   });
   const [open, setOpen] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(
+    typeof params.id === 'string' ? params.id : null,
+  );
+  const [conversationTitle, setConversationTitle] = useState('聊天');
   const [prompt, setPrompt] = useState('');
   const [photos, setPhotos] = useState<AssetPhoto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [chatReply, setChatReply] = useState('');
+
+  useEffect(() => {
+    if (typeof params.id === 'string' && params.id) {
+      setActiveId(params.id);
+    }
+  }, [params.id]);
+
+  const handleTitleChange = useCallback((title: string) => {
+    setConversationTitle(title);
+  }, []);
+
+  const startNewChat = () => {
+    setActiveId(null);
+    setConversationTitle('聊天');
+    setPrompt('');
+    setPhotos([]);
+    setError('');
+    setChatReply('');
+    setOpen(false);
+  };
+
+  const openConversation = (id: string) => {
+    setActiveId(id);
+    setPrompt('');
+    setPhotos([]);
+    setError('');
+    setChatReply('');
+    setOpen(false);
+  };
 
   const analyze = async () => {
     if (!session) return;
@@ -97,7 +135,7 @@ export default function EvaluationScreen() {
           if (interpreted.intent === 'chat' || !interpreted.product) {
             setChatReply(
               interpreted.reply ||
-                '你好！想评估某件商品时，可以描述它、粘贴链接或发一张图片。',
+                '你好！想聊聊某件商品时，可以描述它、粘贴链接或发一张图片。',
             );
             setPrompt('');
             return;
@@ -119,41 +157,70 @@ export default function EvaluationScreen() {
       });
       setPrompt('');
       setPhotos([]);
-      router.push({
-        pathname: '/(tabs)/(evaluation)/[id]',
-        params: { id: evaluation.id },
-      });
+      setConversationTitle(evaluation.product_title);
+      setActiveId(evaluation.id);
     } catch (caught) {
       if (!saved && uploadedPaths.length) {
         await removePhotos(uploadedPaths).catch(() => undefined);
       }
-      setError(caught instanceof Error ? caught.message : '评估失败');
+      setError(caught instanceof Error ? caught.message : '发送失败');
     } finally {
       setLoading(false);
     }
   };
 
+  const headerTitle = activeId ? conversationTitle : '聊天';
+
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: '聊天',
-          headerLargeTitle: false,
-          headerLeft: () => (
+      <Stack.Screen options={{ headerShown: false }} />
+      <Drawer
+        open={open}
+        onOpen={() => setOpen(true)}
+        onClose={() => setOpen(false)}
+        drawerPosition="left"
+        drawerType="front"
+        drawerStyle={{ width: '82%', backgroundColor: colors.surface }}
+        overlayStyle={{ backgroundColor: 'rgba(11, 11, 13, 0.28)' }}
+        renderDrawerContent={() => (
+          <ChatHistoryDrawer
+            items={history.data ?? []}
+            loading={history.isLoading}
+            errorMessage={history.error?.message}
+            selectedId={activeId}
+            onClose={() => setOpen(false)}
+            onSelect={openConversation}
+            onNewChat={startNewChat}
+          />
+        )}>
+        <KeyboardAvoidingView
+          behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1, backgroundColor: colors.background }}>
+          <View
+            style={{
+              paddingTop: insets.top + spacing.sm,
+              paddingHorizontal: spacing.lg,
+              paddingBottom: spacing.sm,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+            }}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={open ? '关闭历史' : '打开历史'}
-              onPress={() => setOpen((value) => !value)}
+              accessibilityLabel="打开历史"
+              onPress={() => setOpen(true)}
               hitSlop={8}
-              style={{
-                width: 36,
-                height: 36,
-                marginLeft: 4,
+              style={({ pressed }) => ({
+                width: 40,
+                height: 40,
                 alignItems: 'center',
                 justifyContent: 'center',
                 borderRadius: 99,
-                backgroundColor: colors.surfaceMuted,
-              }}>
+                backgroundColor: colors.surface,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: colors.border,
+                opacity: pressed ? 0.7 : 1,
+              })}>
               <SymbolView
                 name={{
                   ios: 'line.3.horizontal',
@@ -164,79 +231,100 @@ export default function EvaluationScreen() {
                 tintColor={colors.textPrimary}
               />
             </Pressable>
-          ),
-        }}
-      />
-      <Drawer
-        open={open}
-        onOpen={() => setOpen(true)}
-        onClose={() => setOpen(false)}
-        drawerPosition="left"
-        drawerType="front"
-        drawerStyle={{ width: '80%', backgroundColor: colors.surface }}
-        overlayStyle={{ backgroundColor: 'rgba(11, 11, 13, 0.35)' }}
-        renderDrawerContent={() => (
-          <ChatHistoryDrawer
-            items={history.data ?? []}
-            loading={history.isLoading}
-            errorMessage={history.error?.message}
-            onSelect={(id) => {
-              setOpen(false);
-              router.push({
-                pathname: '/(tabs)/(evaluation)/[id]',
-                params: { id },
-              });
-            }}
-            onNewChat={() => {
-              setPrompt('');
-              setPhotos([]);
-              setError('');
-              setChatReply('');
-              setOpen(false);
-            }}
-          />
-        )}>
-        <KeyboardAvoidingView
-          behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined}
-          style={{ flex: 1 }}>
-          <ScrollView
-            contentInsetAdjustmentBehavior="automatic"
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ padding: 20, gap: 22 }}>
-            <EvaluationComposer
-              value={prompt}
-              photos={photos}
-              loading={loading}
-              onChangeText={setPrompt}
-              onChangePhotos={setPhotos}
-              onError={setError}
-              onSubmit={analyze}
+            <Text
+              selectable
+              numberOfLines={1}
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                fontSize: 17,
+                fontWeight: '600',
+                color: colors.textPrimary,
+              }}>
+              {headerTitle}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="新聊天"
+              onPress={startNewChat}
+              hitSlop={8}
+              style={({ pressed }) => ({
+                width: 40,
+                height: 40,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 99,
+                backgroundColor: colors.surface,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderColor: colors.border,
+                opacity: pressed ? 0.7 : 1,
+              })}>
+              <SymbolView
+                name={{
+                  ios: 'square.and.pencil',
+                  android: 'edit',
+                  web: 'edit',
+                }}
+                size={18}
+                tintColor={colors.textPrimary}
+              />
+            </Pressable>
+          </View>
+
+          {activeId ? (
+            <ChatConversation
+              evaluationId={activeId}
+              onTitleChange={handleTitleChange}
             />
+          ) : (
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{
+                flexGrow: 1,
+                paddingHorizontal: spacing.xl,
+                paddingTop: spacing.lg,
+                paddingBottom: spacing.xl,
+                gap: spacing.lg,
+              }}>
+              <EvaluationComposer
+                value={prompt}
+                photos={photos}
+                loading={loading}
+                onChangeText={setPrompt}
+                onChangePhotos={setPhotos}
+                onError={setError}
+                onSubmit={analyze}
+              />
 
-            {error ? (
-              <Text selectable style={{ color: colors.danger }}>
-                {error}
-              </Text>
-            ) : null}
-
-            {chatReply ? (
-              <View
-                style={{
-                  maxWidth: '88%',
-                  alignSelf: 'flex-start',
-                  paddingHorizontal: 14,
-                  paddingVertical: 11,
-                  borderRadius: 16,
-                  backgroundColor: colors.greenSoft,
-                }}>
-                <Text
-                  selectable
-                  style={{ color: colors.text, lineHeight: 22, fontSize: 15 }}>
-                  {chatReply}
+              {error ? (
+                <Text selectable style={{ color: colors.danger }}>
+                  {error}
                 </Text>
-              </View>
-            ) : null}
-          </ScrollView>
+              ) : null}
+
+              {chatReply ? (
+                <View
+                  style={{
+                    maxWidth: '88%',
+                    alignSelf: 'flex-start',
+                    paddingHorizontal: 14,
+                    paddingVertical: 11,
+                    borderRadius: 16,
+                    backgroundColor: colors.greenSoft,
+                  }}>
+                  <Text
+                    selectable
+                    style={{
+                      color: colors.text,
+                      lineHeight: 22,
+                      fontSize: 15,
+                    }}>
+                    {chatReply}
+                  </Text>
+                </View>
+              ) : null}
+            </ScrollView>
+          )}
         </KeyboardAvoidingView>
       </Drawer>
     </>
