@@ -10,13 +10,43 @@ import {
   type AssetPhoto,
 } from '@/lib/photos';
 
+function photoStatus(photo: AssetPhoto) {
+  if (
+    photo.recognitionStatus === 'processing' ||
+    photo.cutoutStatus === 'processing'
+  )
+    return '处理中';
+  if (
+    photo.recognitionStatus === 'failed' &&
+    photo.cutoutStatus === 'failed'
+  )
+    return '处理失败';
+  if (photo.recognitionStatus === 'failed') return '解析失败';
+  if (photo.cutoutStatus === 'failed') return '抠图失败';
+  if (
+    photo.recognitionStatus === 'succeeded' &&
+    photo.cutoutStatus === 'succeeded'
+  )
+    return '已解析';
+  if (photo.recognitionStatus || photo.cutoutStatus) return '等待处理';
+  return '';
+}
+
 export function AssetPhotoPicker({
   photos,
+  disabled = false,
+  allowEmpty = false,
+  onAdd,
   onChange,
+  onRetry,
   onError,
 }: {
   photos: AssetPhoto[];
+  disabled?: boolean;
+  allowEmpty?: boolean;
+  onAdd?: (photos: AssetPhoto[]) => void;
   onChange: (photos: AssetPhoto[]) => void;
+  onRetry?: (photo: AssetPhoto) => void;
   onError: (message: string) => void;
 }) {
   const add = (assets: ImagePicker.ImagePickerAsset[]) => {
@@ -37,7 +67,8 @@ export function AssetPhotoPicker({
       return;
     }
     onError('');
-    onChange([...photos, ...next]);
+    if (onAdd) onAdd(next);
+    else onChange([...photos, ...next]);
   };
 
   const takePhoto = async () => {
@@ -105,21 +136,51 @@ export function AssetPhotoPicker({
           rowHeight={140}
           columnGap={10}
           activeItemScale={1.04}
+          sortEnabled={!disabled}
           keyExtractor={(photo) => photo.id}
           onDragEnd={({ data }) => onChange(data)}
-          renderItem={({ item: photo, index }) => (
-            <View style={{ width: 104, gap: 6 }}>
+          renderItem={({ item: photo, index }) => {
+            const failed =
+              photo.recognitionStatus === 'failed' ||
+              photo.cutoutStatus === 'failed';
+            return (
+              <View style={{ width: 104, gap: 6 }}>
               <Pressable
+                disabled={disabled}
+                accessibilityRole="button"
                 accessibilityLabel={
                   index === 0 ? '当前封面' : `将第 ${index + 1} 张设为封面`
                 }
                 accessibilityHint="长按拖动可调整顺序"
                 onPress={() => onChange(setCover(photos, index))}>
                 <Image
-                  source={photo.uri}
-                  contentFit="cover"
-                  style={{ width: 104, height: 104, borderRadius: radius.small }}
+                  source={photo.cutoutUrl ?? photo.uri}
+                  contentFit={photo.cutoutUrl ? 'contain' : 'cover'}
+                  style={{
+                    width: 104,
+                    height: 104,
+                    borderRadius: radius.small,
+                    backgroundColor: colors.surfaceMuted,
+                    opacity: disabled ? 0.65 : 1,
+                  }}
                 />
+                {photoStatus(photo) ? (
+                  <Text
+                    style={{
+                      position: 'absolute',
+                      top: 6,
+                      right: 6,
+                      color: colors.onDark,
+                      backgroundColor: 'rgba(11,11,13,0.58)',
+                      paddingHorizontal: 7,
+                      paddingVertical: 3,
+                      borderRadius: radius.pill,
+                      overflow: 'hidden',
+                      fontSize: 11,
+                    }}>
+                    {photoStatus(photo)}
+                  </Text>
+                ) : null}
                 <Text
                   style={{
                     position: 'absolute',
@@ -136,26 +197,52 @@ export function AssetPhotoPicker({
                   {index === 0 ? '封面' : '设为封面'}
                 </Text>
               </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                disabled={photos.length === 1}
-                onPress={() =>
-                  onChange(photos.filter((item) => item.id !== photo.id))
-                }>
-                <Text
-                  style={{
-                    color: colors.danger,
-                    textAlign: 'center',
-                    opacity: photos.length === 1 ? 0.4 : 1,
-                  }}>
-                  删除
-                </Text>
-              </Pressable>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-around',
+                }}>
+                {failed && onRetry ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={disabled}
+                    onPress={() => onRetry(photo)}>
+                    <Text
+                      style={{
+                        color: colors.textPrimary,
+                        opacity: disabled ? 0.4 : 1,
+                      }}>
+                      重试
+                    </Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={disabled || (!allowEmpty && photos.length === 1)}
+                  onPress={() =>
+                    onChange(
+                      photos.filter((item) => item.id !== photo.id),
+                    )
+                  }>
+                  <Text
+                    style={{
+                      color: colors.danger,
+                      opacity:
+                        disabled || (!allowEmpty && photos.length === 1)
+                          ? 0.4
+                          : 1,
+                    }}>
+                    删除
+                  </Text>
+                </Pressable>
+              </View>
             </View>
-          )}
+            );
+          }}
         />
         {photos.length < maxAssetPhotos ? (
           <Pressable
+            disabled={disabled}
             accessibilityRole="button"
             accessibilityLabel="添加照片"
             onPress={chooseSource}
@@ -171,7 +258,7 @@ export function AssetPhotoPicker({
               borderStyle: 'dashed',
               borderColor: colors.border,
               backgroundColor: colors.surface,
-              opacity: pressed ? 0.65 : 1,
+              opacity: pressed || disabled ? 0.65 : 1,
             })}>
             <Text style={{ color: colors.textSecondary, fontSize: 28 }}>＋</Text>
             <Text

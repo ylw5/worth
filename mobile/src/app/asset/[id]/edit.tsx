@@ -18,12 +18,13 @@ import { AssetFormFields } from '@/components/asset-form-fields';
 import { AssetPhotoPicker } from '@/components/asset-photo-picker';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, radius, spacing, typography } from '@/constants/colors';
-import { analyzePhotos, estimateAsset } from '@/lib/api';
+import { analyzePhotos, cutoutPhoto, estimateAsset } from '@/lib/api';
 import {
   getAsset,
   removePhotos,
   recordValuation,
   updateAsset,
+  uploadCover,
   uploadPhotos,
 } from '@/lib/assets';
 import { specsToText, textToSpecs } from '@/lib/format';
@@ -43,6 +44,8 @@ function AssetEditForm({ asset }: { asset: Asset }) {
       path,
       uri: asset.photo_urls?.[index] ?? '',
       analysisUrl: asset.photo_urls?.[index],
+      cutoutPath: asset.photo_cutout_paths[path],
+      cutoutUrl: asset.photo_cutout_urls?.[path],
     })),
   );
   const [form, setForm] = useState<AssetInput>({
@@ -122,10 +125,38 @@ function AssetEditForm({ asset }: { asset: Asset }) {
     setPendingAction('reanalyze');
     setError('');
     try {
+      const newPhotoIds = new Set(
+        photos.filter((photo) => !photo.path).map((photo) => photo.id),
+      );
       const prepared = await preparePhotos(photos);
       const recognition = await analyzePhotos(
         prepared.map((photo) => photo.analysisUrl ?? photo.uri),
+        form,
       );
+      let withCutouts = prepared;
+      for (const photo of prepared) {
+        if (!newPhotoIds.has(photo.id) || photo.cutoutPath) continue;
+        try {
+          const base64 = await cutoutPhoto(
+            photo.analysisUrl ?? photo.uri,
+          );
+          if (!base64) continue;
+          const cutout = await uploadCover(base64, asset.user_id);
+          stagedPaths.current.add(cutout.path);
+          withCutouts = withCutouts.map((item) =>
+            item.id === photo.id
+              ? {
+                  ...item,
+                  cutoutPath: cutout.path,
+                  cutoutUrl: cutout.signedUrl,
+                }
+              : item,
+          );
+        } catch {
+          // A valid edit can still use the original photo.
+        }
+      }
+      setPhotos(withCutouts);
       setForm((current) => ({
         ...recognition,
         purchase_date: current.purchase_date,
@@ -164,21 +195,33 @@ function AssetEditForm({ asset }: { asset: Asset }) {
     let prepared = photos;
     try {
       prepared = await preparePhotos(photos);
+      const photoCutoutPaths = Object.fromEntries(
+        prepared.flatMap((photo) =>
+          photo.path && photo.cutoutPath
+            ? [[photo.path, photo.cutoutPath]]
+            : [],
+        ),
+      );
       await updateAsset(
         asset.id,
         input,
         prepared.map((photo) => photo.path as string),
+        photoCutoutPaths,
       );
     } catch (caught) {
       const staged = [...stagedPaths.current];
       await removePhotos(staged).catch(() => undefined);
       stagedPaths.current.clear();
       setPhotos(
-        prepared.map((photo) =>
-          photo.path && staged.includes(photo.path)
-            ? { ...photo, path: undefined, analysisUrl: undefined }
-            : photo,
-        ),
+        prepared.map((photo) => ({
+          ...photo,
+          ...(photo.path && staged.includes(photo.path)
+            ? { path: undefined, analysisUrl: undefined }
+            : {}),
+          ...(photo.cutoutPath && staged.includes(photo.cutoutPath)
+            ? { cutoutPath: undefined, cutoutUrl: undefined }
+            : {}),
+        })),
       );
       setError(caught instanceof Error ? caught.message : '保存失败');
       setPendingAction(null);
@@ -186,16 +229,26 @@ function AssetEditForm({ asset }: { asset: Asset }) {
     }
 
     const savedPaths = prepared.map((photo) => photo.path as string);
+    const savedCutoutPaths = prepared.flatMap((photo) =>
+      photo.cutoutPath ? [photo.cutoutPath] : [],
+    );
     const unusedStaged = [...stagedPaths.current].filter(
-      (path) => !savedPaths.includes(path),
+      (path) =>
+        !savedPaths.includes(path) && !savedCutoutPaths.includes(path),
     );
     const removedPaths = originalPaths.filter(
       (path) => !savedPaths.includes(path),
     );
+    const removedCutoutPaths = removedPaths.flatMap((path) => {
+      const cutoutPath = asset.photo_cutout_paths[path];
+      return cutoutPath ? [cutoutPath] : [];
+    });
     stagedPaths.current.clear();
-    await removePhotos([...unusedStaged, ...removedPaths]).catch(
-      () => undefined,
-    );
+    await removePhotos([
+      ...unusedStaged,
+      ...removedPaths,
+      ...removedCutoutPaths,
+    ]).catch(() => undefined);
 
     const valuationUpdated = await tryValuation(async () => {
       const valuation = await estimateAsset(input);

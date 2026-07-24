@@ -47,6 +47,8 @@ export type Asset = AssetWriteInput & {
   user_id: string;
   photo_paths: string[];
   photo_urls?: string[];
+  photo_cutout_paths: Record<string, string>;
+  photo_cutout_urls?: Record<string, string>;
   latest_market_price: number | null;
   latest_valuation_at: string | null;
   created_at: string;

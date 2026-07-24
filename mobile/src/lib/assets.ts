@@ -13,14 +13,27 @@ function fail(error: { message: string } | null) {
 }
 
 async function withPhotoUrls(asset: Asset): Promise<Asset> {
-  const photo_urls = await Promise.all(
-    asset.photo_paths.map(async (path) => {
-      const { data, error } = await bucket.createSignedUrl(path, 3600);
-      fail(error);
-      return data?.signedUrl ?? '';
-    }),
-  );
-  return { ...asset, photo_urls };
+  const signedUrl = async (path: string) => {
+    const { data, error } = await bucket.createSignedUrl(path, 3600);
+    fail(error);
+    return data?.signedUrl ?? '';
+  };
+  const cutoutPaths = asset.photo_cutout_paths ?? {};
+  const [photo_urls, cutoutEntries] = await Promise.all([
+    Promise.all(asset.photo_paths.map(signedUrl)),
+    Promise.all(
+      Object.entries(cutoutPaths).map(
+        async ([photoPath, cutoutPath]) =>
+          [photoPath, await signedUrl(cutoutPath)] as const,
+      ),
+    ),
+  ]);
+  return {
+    ...asset,
+    photo_cutout_paths: cutoutPaths,
+    photo_urls,
+    photo_cutout_urls: Object.fromEntries(cutoutEntries),
+  };
 }
 
 export async function listAssets(): Promise<Asset[]> {
@@ -52,16 +65,17 @@ export async function getValuations(assetId: string): Promise<Valuation[]> {
   return (data ?? []) as Valuation[];
 }
 
-export async function uploadPhoto(
+async function uploadImage(
   base64: string,
   userId: string,
+  extension: 'jpg' | 'png',
 ): Promise<{ path: string; signedUrl: string }> {
   const file = Uint8Array.from(atob(base64), (byte) => byte.charCodeAt(0));
   const path = `${userId}/${Date.now()}-${Math.random()
     .toString(36)
-    .slice(2)}.jpg`;
+    .slice(2)}.${extension}`;
   const { error } = await bucket.upload(path, file, {
-    contentType: 'image/jpeg',
+    contentType: extension === 'png' ? 'image/png' : 'image/jpeg',
     upsert: false,
   });
   fail(error);
@@ -69,10 +83,19 @@ export async function uploadPhoto(
     path,
     600,
   );
-  fail(signedUrlError);
-  if (!data?.signedUrl) throw new Error('无法读取照片');
+  if (signedUrlError || !data?.signedUrl) {
+    await bucket.remove([path]).catch(() => undefined);
+    fail(signedUrlError);
+    throw new Error('无法读取照片');
+  }
   return { path, signedUrl: data.signedUrl };
 }
+
+export const uploadPhoto = (base64: string, userId: string) =>
+  uploadImage(base64, userId, 'jpg');
+
+export const uploadCover = (base64: string, userId: string) =>
+  uploadImage(base64, userId, 'png');
 
 export async function removePhotos(paths: string[]) {
   if (!paths.length) return;
@@ -106,10 +129,16 @@ export async function createAsset(
   userId: string,
   photoPaths: string[],
   input: AssetWriteInput,
+  photoCutoutPaths: Record<string, string> = {},
 ): Promise<Asset> {
   const { data, error } = await supabase
     .from('assets')
-    .insert({ ...input, user_id: userId, photo_paths: photoPaths })
+    .insert({
+      ...input,
+      user_id: userId,
+      photo_paths: photoPaths,
+      photo_cutout_paths: photoCutoutPaths,
+    })
     .select('*')
     .single();
   fail(error);
@@ -120,12 +149,16 @@ export async function updateAsset(
   id: string,
   input: AssetWriteInput,
   photoPaths?: string[],
+  photoCutoutPaths?: Record<string, string>,
 ): Promise<Asset> {
   const { data, error } = await supabase
     .from('assets')
     .update({
       ...input,
       ...(photoPaths ? { photo_paths: photoPaths } : {}),
+      ...(photoCutoutPaths
+        ? { photo_cutout_paths: photoCutoutPaths }
+        : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)

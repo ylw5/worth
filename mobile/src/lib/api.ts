@@ -47,13 +47,34 @@ type RecognitionInput = Omit<
   'purchase_date' | 'purchase_price'
 >;
 
-export const analyzePhotos = async (imageUrls: string[]) => ({
+export const analyzePhotos = async (
+  imageUrls: string[],
+  currentAsset?: AssetInput,
+) => ({
   ...(await request<RecognitionInput>('/analyze', {
     image_urls: imageUrls,
+    current_asset: currentAsset
+      ? {
+          name: currentAsset.name,
+          brand: currentAsset.brand,
+          model: currentAsset.model,
+          specs: currentAsset.specs,
+          category: currentAsset.category,
+          condition: currentAsset.condition,
+          search_query: currentAsset.search_query,
+        }
+      : null,
   })),
   purchase_date: '',
   purchase_price: '',
 });
+
+export async function cutoutPhoto(imageUrl: string) {
+  const result = await request<{ image_base64: string | null }>('/cutout', {
+    image_url: imageUrl,
+  });
+  return result.image_base64;
+}
 
 export const estimateAsset = (asset: AssetInput | AssetWriteInput) =>
   request<ValuationResult>('/estimate', {

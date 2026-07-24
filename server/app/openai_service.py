@@ -24,7 +24,10 @@ class OpenAIService:
         self.model = settings.openai_model
 
     def analyze(
-        self, image_urls: list[str], user_id: str
+        self,
+        image_urls: list[str],
+        user_id: str,
+        current_asset: AssetInput | None = None,
     ) -> AssetRecognition:
         images = [
             {
@@ -54,7 +57,15 @@ class OpenAIService:
                     "content": [
                         {
                             "type": "input_text",
-                            "text": "这些照片是同一件资产，请合并识别。",
+                            "text": (
+                                "这些照片是同一件资产，请合并识别。"
+                                if current_asset is None
+                                else (
+                                    "当前资产信息如下："
+                                    f"{json.dumps(current_asset.model_dump(), ensure_ascii=False)}。"
+                                    "根据这些新增照片补充或修正完整资产信息。"
+                                )
+                            ),
                         },
                         *images,
                     ],

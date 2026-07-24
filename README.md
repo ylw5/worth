@@ -42,11 +42,13 @@ npx supabase db push --db-url $env:POSTGRES_URL_NON_POOLING --include-all
 
 ## 2. 配置 API
 
+服务端需要 Python 3.11–3.13；`rembg` 当前不支持 Python 3.10 及以下或 3.14 及以上。
+
 macOS / Linux：
 
 ```bash
 cd server
-python3 -m venv .venv
+python3.11 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 cd ..
 vercel env pull server/.env --environment=development --yes
@@ -56,7 +58,7 @@ Windows PowerShell：
 
 ```powershell
 Set-Location server
-py -m venv .venv
+py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 Set-Location ..
 vercel env pull server/.env --environment=development --yes

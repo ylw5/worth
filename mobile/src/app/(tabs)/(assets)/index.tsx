@@ -115,22 +115,24 @@ export default function AssetsScreen() {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: spacing.sm }}>
+            contentContainerStyle={{
+              gap: spacing.xl,
+              alignItems: 'center',
+            }}>
             <Pressable
               accessibilityRole="button"
               onPress={() => setSelectedCategory(null)}
               style={{
-                height: 38,
-                paddingHorizontal: spacing.lg,
+                height: 28,
+                paddingHorizontal:
+                  selectedCategory === null ? spacing.md : 0,
                 borderRadius: radius.pill,
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor:
                   selectedCategory === null
                     ? colors.textPrimary
-                    : colors.surface,
-                borderWidth: selectedCategory === null ? 0 : 1,
-                borderColor: colors.border,
+                    : 'transparent',
               }}>
               <Text
                 style={{
@@ -143,36 +145,35 @@ export default function AssetsScreen() {
                 全部
               </Text>
             </Pressable>
-            {categories.map(([category]) => (
-              <Pressable
-                key={category}
-                accessibilityRole="button"
-                onPress={() => setSelectedCategory(category)}
-                style={{
-                  height: 38,
-                  paddingHorizontal: spacing.lg,
-                  borderRadius: radius.pill,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor:
-                    selectedCategory === category
-                      ? colors.textPrimary
-                      : colors.surface,
-                  borderWidth: selectedCategory === category ? 0 : 1,
-                  borderColor: colors.border,
-                }}>
-                <Text
+            {categories.map(([category]) => {
+              const selected = selectedCategory === category;
+              return (
+                <Pressable
+                  key={category}
+                  accessibilityRole="button"
+                  onPress={() => setSelectedCategory(category)}
                   style={{
-                    color:
-                      selectedCategory === category
+                    height: 28,
+                    paddingHorizontal: selected ? spacing.md : 0,
+                    borderRadius: radius.pill,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: selected
+                      ? colors.textPrimary
+                      : 'transparent',
+                  }}>
+                  <Text
+                    style={{
+                      color: selected
                         ? colors.onDark
                         : colors.textSecondary,
-                    ...typography.label,
-                  }}>
-                  {category}
-                </Text>
-              </Pressable>
-            ))}
+                      ...typography.label,
+                    }}>
+                    {category}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
         ) : null}
 

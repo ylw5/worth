@@ -3,5 +3,6 @@ httpx[socks]>=0.28,<1
 openai>=2,<3
 pydantic-settings>=2,<3
 pytest>=8,<9
+rembg[cpu]>=2.0.77,<3
 requests>=2.32,<3
 uvicorn[standard]>=0.34,<1

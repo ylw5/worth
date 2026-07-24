@@ -51,12 +51,21 @@ class AIAssetRecognition(BaseModel):
     search_query: str
 
 
-class AnalyzeRequest(BaseModel):
-    image_urls: list[str] = Field(min_length=1, max_length=5)
-
-
 class AssetInput(AssetRecognition):
     pass
+
+
+class AnalyzeRequest(BaseModel):
+    image_urls: list[str] = Field(min_length=1, max_length=5)
+    current_asset: Optional[AssetInput] = None
+
+
+class CutoutRequest(BaseModel):
+    image_url: str
+
+
+class CutoutResponse(BaseModel):
+    image_base64: Optional[str] = None
 
 
 class MarketCandidate(BaseModel):

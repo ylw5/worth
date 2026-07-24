@@ -1,9 +1,12 @@
 from unittest.mock import Mock
 
 import pytest
+from fastapi.testclient import TestClient
 from openai.lib._pydantic import to_strict_json_schema
 from pydantic import ValidationError
 
+from app.auth import require_user
+from app.main import app
 from app.models import (
     AIAssetRecognition,
     AnalyzeRequest,
@@ -72,3 +75,53 @@ def test_condition_rejects_free_text() -> None:
             condition="有一点旧",
             search_query="相机",
         )
+
+
+def test_analyze_includes_current_asset_context() -> None:
+    parsed = AIAssetRecognition(
+        name="相机",
+        brand="富士",
+        model="X100VI",
+        specs=[],
+        category="数码",
+        condition="轻微使用痕迹",
+        search_query="富士 X100VI",
+    )
+    current = AssetRecognition(
+        name="相机",
+        category="数码",
+        condition="无法判断",
+        search_query="相机",
+    )
+    service = object.__new__(OpenAIService)
+    service.client = Mock()
+    service.client.responses.parse.return_value.output_parsed = parsed
+    service.model = "test-model"
+
+    service.analyze(["https://example.com/back.jpg"], "user", current)
+
+    text = service.client.responses.parse.call_args.kwargs[
+        "input"
+    ][1]["content"][0]["text"]
+    assert '"name": "相机"' in text
+    assert "根据这些新增照片补充或修正" in text
+
+
+def test_cutout_returns_optional_png(monkeypatch) -> None:
+    cutout = Mock(return_value="png-base64")
+    monkeypatch.setattr("app.main.try_remove_background", cutout)
+    monkeypatch.setattr(
+        "app.main.get_settings",
+        lambda: Mock(supabase_url="https://project.supabase.co"),
+    )
+    app.dependency_overrides[require_user] = lambda: "user"
+    try:
+        response = TestClient(app).post(
+            "/cutout",
+            json={"image_url": "https://project.supabase.co/a.jpg"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {"image_base64": "png-base64"}
