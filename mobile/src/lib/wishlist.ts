@@ -4,8 +4,17 @@ import type { WishlistInput } from '@/lib/wishlist-input';
 export type WishlistItem = WishlistInput & {
   id: string;
   user_id: string;
+  actual_price: number | null;
+  fulfilled_at: string | null;
   created_at: string;
 };
+
+const normalizeWishlistItem = (item: WishlistItem): WishlistItem => ({
+  ...item,
+  target_price: Number(item.target_price),
+  actual_price:
+    item.actual_price === null ? null : Number(item.actual_price),
+});
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -17,7 +26,7 @@ export async function listWishlistItems(): Promise<WishlistItem[]> {
     .select('*')
     .order('created_at', { ascending: false });
   fail(error);
-  return (data ?? []) as WishlistItem[];
+  return ((data ?? []) as WishlistItem[]).map(normalizeWishlistItem);
 }
 
 export async function getWishlistItem(id: string): Promise<WishlistItem> {
@@ -27,7 +36,7 @@ export async function getWishlistItem(id: string): Promise<WishlistItem> {
     .eq('id', id)
     .single();
   fail(error);
-  return data as WishlistItem;
+  return normalizeWishlistItem(data as WishlistItem);
 }
 
 export async function createWishlistItem(
@@ -40,7 +49,7 @@ export async function createWishlistItem(
     .select('*')
     .single();
   fail(error);
-  return data as WishlistItem;
+  return normalizeWishlistItem(data as WishlistItem);
 }
 
 export async function deleteWishlistItem(id: string) {
