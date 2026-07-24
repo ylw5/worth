@@ -54,11 +54,8 @@ async def research(env, asset: dict):
                 }
             )
     client = AsyncOpenAI(
-        api_key=env.CLOUDFLARE_AI_GATEWAY_TOKEN,
-        base_url=(
-            "https://api.cloudflare.com/client/v4/accounts/"
-            f"{env.CLOUDFLARE_ACCOUNT_ID}/ai/v1"
-        ),
+        api_key=env.AI_GATEWAY_API_KEY,
+        base_url="https://ai-gateway.vercel.sh/v1",
     )
     response = await client.responses.parse(
         model=env.OPENAI_MODEL,

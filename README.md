@@ -166,8 +166,8 @@ configure these secrets without committing or printing them:
 cd cloudflare
 npx wrangler@latest secret put SUPABASE_SERVICE_ROLE_KEY
 npx wrangler@latest secret put XIANYU_COOKIE
-npx wrangler@latest secret put CLOUDFLARE_AI_GATEWAY_TOKEN
-npx wrangler@latest deploy
+npx wrangler@latest secret put AI_GATEWAY_API_KEY
+uv run pywrangler deploy
 ```
 
 Inspect `analysis_runs` before debugging the mobile UI. Each successful run
