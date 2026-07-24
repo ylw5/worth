@@ -6,15 +6,19 @@ import {
   getWishlistCarouselMetrics,
 } from '../src/lib/wishlist-carousel.ts';
 
+const assertApprox = (actual, expected) => {
+  assert.ok(Math.abs(actual - expected) < 1e-9);
+};
+
 test('derives card width, side padding, and snap interval for peeking carousel', () => {
   const metrics = getWishlistCarouselMetrics(390, {
     cardWidthRatio: 0.86,
     gap: 12,
   });
-  assert.equal(metrics.cardWidth, 335.4);
+  assertApprox(metrics.cardWidth, 335.4);
   assert.equal(metrics.gap, 12);
-  assert.equal(metrics.sidePadding, 27.3);
-  assert.equal(metrics.snapInterval, 347.4);
+  assertApprox(metrics.sidePadding, 27.3);
+  assertApprox(metrics.snapInterval, 347.4);
 });
 
 test('maps scroll offset to a clamped carousel index', () => {
