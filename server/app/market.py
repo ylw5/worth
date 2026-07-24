@@ -43,7 +43,8 @@ class MarketClient:
         if not cookie:
             raise RuntimeError("Market data source is not configured")
         self.session = requests.Session()
-        self.session.cookies.update(_parse_cookie(cookie))
+        for name, value in _parse_cookie(cookie).items():
+            self.session.cookies.set(name, value, domain=".goofish.com")
 
     def search(self, keyword: str, pages: int = 3) -> list[MarketCandidate]:
         items: dict[str, MarketCandidate] = {}
@@ -70,33 +71,41 @@ class MarketClient:
             "customGps": "",
         }
         data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-        timestamp = str(int(time.time() * 1000))
-        token = self.session.cookies.get("_m_h5_tk", "").split("_")[0]
-        params = {
-            "jsv": "2.7.2",
-            "appKey": "34839810",
-            "t": timestamp,
-            "sign": _sign(timestamp, token, data),
-            "v": "1.0",
-            "type": "originaljson",
-            "accountSite": "xianyu",
-            "dataType": "json",
-            "timeout": "20000",
-            "api": "mtop.taobao.idlemtopsearch.pc.search",
-            "sessionOption": "AutoLoginOnly",
-            "spm_cnt": "a21ybx.search.0.0",
-        }
-        response = self.session.post(
-            SEARCH_URL,
-            params=params,
-            headers=HEADERS,
-            data={"data": data},
-            timeout=20,
-        )
-        response.raise_for_status()
-        body = response.json()
-        if not any(value.startswith("SUCCESS") for value in body.get("ret", [])):
-            raise RuntimeError("Market search is temporarily unavailable")
+        for attempt in range(2):
+            timestamp = str(int(time.time() * 1000))
+            token = self.session.cookies.get(
+                "_m_h5_tk", "", domain=".goofish.com"
+            ).split("_")[0]
+            params = {
+                "jsv": "2.7.2",
+                "appKey": "34839810",
+                "t": timestamp,
+                "sign": _sign(timestamp, token, data),
+                "v": "1.0",
+                "type": "originaljson",
+                "accountSite": "xianyu",
+                "dataType": "json",
+                "timeout": "20000",
+                "api": "mtop.taobao.idlemtopsearch.pc.search",
+                "sessionOption": "AutoLoginOnly",
+                "spm_cnt": "a21ybx.search.0.0",
+            }
+            response = self.session.post(
+                SEARCH_URL,
+                params=params,
+                headers=HEADERS,
+                data={"data": data},
+                timeout=20,
+            )
+            response.raise_for_status()
+            body = response.json()
+            ret = body.get("ret", [])
+            if any(value.startswith("SUCCESS") for value in ret):
+                break
+            if attempt or not any(
+                value.startswith("FAIL_SYS_TOKEN_EXOIRED") for value in ret
+            ):
+                raise RuntimeError("Market search is temporarily unavailable")
         return [
             item
             for result in body.get("data", {}).get("resultList", [])
