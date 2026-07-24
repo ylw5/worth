@@ -14,6 +14,13 @@ export const formatDate = (value: string) =>
     day: 'numeric',
   }).format(new Date(value));
 
+export const formatDateOnly = (value: string) =>
+  new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(new Date(`${value}T00:00:00`));
+
 export const specsToText = (specs: Record<string, string>) =>
   Object.entries(specs)
     .map(([key, value]) => `${key}: ${value}`)

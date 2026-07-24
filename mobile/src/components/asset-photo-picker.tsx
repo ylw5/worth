@@ -14,10 +14,14 @@ export function AssetPhotoPicker({
   photos,
   onChange,
   onError,
+  title = '照片',
+  minimumPhotos = 1,
 }: {
   photos: AssetPhoto[];
   onChange: (photos: AssetPhoto[]) => void;
   onError: (message: string) => void;
+  title?: string;
+  minimumPhotos?: number;
 }) {
   const add = (assets: ImagePicker.ImagePickerAsset[]) => {
     const remaining = maxAssetPhotos - photos.length;
@@ -93,7 +97,7 @@ export function AssetPhotoPicker({
       <Text
         selectable
         style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>
-        照片 {photos.length}/{maxAssetPhotos}
+        {title} {photos.length}/{maxAssetPhotos}
       </Text>
       <ScrollView
         horizontal
@@ -138,7 +142,7 @@ export function AssetPhotoPicker({
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                disabled={photos.length === 1}
+                disabled={photos.length <= minimumPhotos}
                 onPress={() =>
                   onChange(photos.filter((item) => item.id !== photo.id))
                 }>
@@ -146,7 +150,7 @@ export function AssetPhotoPicker({
                   style={{
                     color: colors.danger,
                     textAlign: 'center',
-                    opacity: photos.length === 1 ? 0.4 : 1,
+                    opacity: photos.length <= minimumPhotos ? 0.4 : 1,
                   }}>
                   删除
                 </Text>

@@ -1,7 +1,12 @@
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { colors } from '@/constants/colors';
-import { categories, type AssetInput } from '@/types/domain';
+import {
+  assetStatusLabels,
+  assetStatuses,
+  categories,
+  type AssetInput,
+} from '@/types/domain';
 
 function Field({
   label,
@@ -95,6 +100,37 @@ export function AssetFormFields({
                   color: form.category === category ? 'white' : colors.green,
                 }}>
                 {category}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+      <Field
+        label="二级品类"
+        value={form.subcategory}
+        onChangeText={(subcategory) => onChange({ ...form, subcategory })}
+      />
+      <View style={{ gap: 8 }}>
+        <Text selectable style={{ color: colors.muted, fontSize: 13 }}>
+          当前状态
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {assetStatuses.map((status) => (
+            <Pressable
+              key={status}
+              onPress={() => onChange({ ...form, status })}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 99,
+                backgroundColor:
+                  form.status === status ? colors.green : colors.greenSoft,
+              }}>
+              <Text
+                style={{
+                  color: form.status === status ? 'white' : colors.green,
+                }}>
+                {assetStatusLabels[status]}
               </Text>
             </Pressable>
           ))}

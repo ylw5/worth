@@ -50,6 +50,8 @@ function AssetEditForm({ asset }: { asset: Asset }) {
     model: asset.model,
     specs: asset.specs,
     category: asset.category,
+    subcategory: asset.subcategory,
+    status: asset.status,
     condition: asset.condition,
     search_query: asset.search_query,
   });

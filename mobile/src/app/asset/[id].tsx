@@ -14,6 +14,7 @@ import { colors } from '@/constants/colors';
 import { estimateAsset } from '@/lib/api';
 import { getAsset, getValuations, recordValuation } from '@/lib/assets';
 import { formatCurrency, formatDate, specsToText } from '@/lib/format';
+import { assetStatusLabels } from '@/types/domain';
 
 export default function AssetDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -146,6 +147,8 @@ export default function AssetDetailScreen() {
           }}>
           {[
             ['分类', asset.category],
+            ['二级品类', asset.subcategory || '—'],
+            ['状态', assetStatusLabels[asset.status]],
             ['品牌型号', [asset.brand, asset.model].filter(Boolean).join(' ')],
             ['规格', specsToText(asset.specs) || '—'],
             ['成色', asset.condition || '—'],

@@ -4,7 +4,7 @@ import { Pressable, Text, View } from 'react-native';
 
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/format';
-import type { Asset } from '@/types/domain';
+import { assetStatusLabels, type Asset } from '@/types/domain';
 
 export function AssetCard({ asset }: { asset: Asset }) {
   return (
@@ -55,7 +55,7 @@ export function AssetCard({ asset }: { asset: Asset }) {
             </Text>
           </View>
           <Text selectable style={{ color: colors.muted, fontSize: 13 }}>
-            当前参考市价
+            {assetStatusLabels[asset.status]} · 当前参考市价
           </Text>
           <Text
             selectable

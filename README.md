@@ -1,6 +1,8 @@
 # Worth
 
-Worth 是一个使用 Expo 构建的个人实体资产管理 App。拍摄一件物品后，服务端使用 AI 提取资产信息；用户确认后保存，并获取当前参考市价。资产、照片和估价历史通过 Supabase 在 iOS 与 Android 间同步。
+Worth 是一个使用 Expo 构建的个人实体资产管理 App。拍摄一件物品后，服务端使用 AI 提取资产信息；用户确认后保存，并获取当前参考市价。资产、照片、估价历史和购物前评估对话通过 Supabase 在 iOS 与 Android 间同步。
+
+购物前评估支持商品链接、文字描述、相册导入和直接拍照。图片入口复用资产录入的多图选择、私有上传与 OpenAI 多模态识别基础设施，再转换为待购商品信息；评估生成后可在同一记录内持续多轮交流，完整消息由 Supabase 按用户隔离保存。
 
 ## 目录
 
@@ -62,11 +64,14 @@ Set-Location ..
 vercel env pull server/.env --environment=development --yes
 ```
 
-API 通过 Vercel AI Gateway 调用 OpenAI Responses API：
+资产和待购商品的图片识别继续通过 Vercel AI Gateway 调用 OpenAI Responses API；商品分类、市场候选文本筛选和评估对话优先调用 DeepSeek，未配置 DeepSeek 时回退到原有通道：
 
 ```dotenv
 AI_GATEWAY_API_KEY=
 OPENAI_MODEL=openai/gpt-5.4
+DEEPSEEK_API_KEY=
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
 SUPABASE_URL=
 SUPABASE_ANON_KEY=
 XIANYU_COOKIE=
@@ -117,7 +122,7 @@ EXPO_PUBLIC_ADMIN_EMAIL=
 EXPO_PUBLIC_ADMIN_PASSWORD=
 ```
 
-前两个值分别对应根目录 `.env.local` 中的 `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_ANON_KEY`。`EXPO_PUBLIC_API_URL` 可以留空，开发环境会从 Expo 自动推导 API 的局域网地址。
+前两个值分别对应根目录 `.env.local` 中的 `NEXT_PUBLIC_SUPABASE_URL` 和 `NEXT_PUBLIC_SUPABASE_ANON_KEY`。真机开发时建议把 `EXPO_PUBLIC_API_URL` 显式设置为开发机局域网地址，例如 `http://192.168.1.10:8000`；未设置时应用会依次尝试从 Expo Config、Expo Go 和 Web 开发地址推导。
 
 然后在 `mobile/` 目录启动：
 

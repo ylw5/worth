@@ -16,6 +16,10 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="heart.fill" md="favorite" />
         <NativeTabs.Trigger.Label>心愿单</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="(evaluation)">
+        <NativeTabs.Trigger.Icon sf="magnifyingglass" md="search" />
+        <NativeTabs.Trigger.Label>评估</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="(account)">
         <NativeTabs.Trigger.Icon sf="person.crop.circle" md="person" />
         <NativeTabs.Trigger.Label>账号</NativeTabs.Trigger.Label>

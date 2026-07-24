@@ -11,12 +11,30 @@ export const categories = [
 
 export type Category = (typeof categories)[number];
 
+export const assetStatuses = [
+  'in_use',
+  'idle',
+  'listed',
+  'sold',
+] as const;
+
+export type AssetStatus = (typeof assetStatuses)[number];
+
+export const assetStatusLabels: Record<AssetStatus, string> = {
+  in_use: '在用',
+  idle: '闲置',
+  listed: '已上架',
+  sold: '已卖出',
+};
+
 export type AssetInput = {
   name: string;
   brand: string;
   model: string;
   specs: Record<string, string>;
   category: Category;
+  subcategory: string;
+  status: AssetStatus;
   condition: string;
   search_query: string;
 };
@@ -27,6 +45,8 @@ export type Asset = AssetInput & {
   photo_paths: string[];
   photo_urls?: string[];
   latest_market_price: number | null;
+  latest_market_price_low: number | null;
+  latest_market_price_high: number | null;
   latest_valuation_at: string | null;
   created_at: string;
   updated_at: string;
