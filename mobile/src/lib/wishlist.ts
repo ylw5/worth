@@ -53,6 +53,11 @@ export async function createWishlistItem(
 }
 
 export async function deleteWishlistItem(id: string) {
-  const { error } = await supabase.from('wishlist_items').delete().eq('id', id);
+  const { data, error } = await supabase
+    .from('wishlist_items')
+    .delete()
+    .eq('id', id)
+    .select('id');
   fail(error);
+  if (!data?.length) throw new Error('已实现心愿请先撤销实现');
 }
