@@ -131,61 +131,40 @@ export default function AssetsScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{
               gap: spacing.xl,
-              alignItems: 'center',
+              alignItems: 'flex-end',
             }}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ selected: selectedStatus === null }}
-              onPress={() => setSelectedStatus(null)}
-              style={{
-                height: 28,
-                paddingHorizontal:
-                  selectedStatus === null ? spacing.md : 0,
-                borderRadius: radius.pill,
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor:
-                  selectedStatus === null
-                    ? colors.textPrimary
-                    : 'transparent',
-              }}>
-              <Text
-                style={{
-                  color:
-                    selectedStatus === null
-                      ? colors.onDark
-                      : colors.textSecondary,
-                  ...typography.label,
-                }}>
-                全部
-              </Text>
-            </Pressable>
-            {assetStatuses.map((status) => {
-              const selected = selectedStatus === status;
+            {(
+              [
+                { value: null, label: '全部' },
+                ...assetStatuses.map((status) => ({
+                  value: status,
+                  label: assetStatusLabels[status],
+                })),
+              ] as const
+            ).map((tab) => {
+              const selected = selectedStatus === tab.value;
               return (
                 <Pressable
-                  key={status}
-                  accessibilityRole="button"
+                  key={tab.label}
+                  accessibilityRole="tab"
                   accessibilityState={{ selected }}
-                  onPress={() => setSelectedStatus(status)}
+                  onPress={() => setSelectedStatus(tab.value)}
                   style={{
-                    height: 28,
-                    paddingHorizontal: selected ? spacing.md : 0,
-                    borderRadius: radius.pill,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: selected
+                    paddingBottom: spacing.sm,
+                    borderBottomWidth: 2,
+                    borderBottomColor: selected
                       ? colors.textPrimary
                       : 'transparent',
                   }}>
                   <Text
                     style={{
                       color: selected
-                        ? colors.onDark
+                        ? colors.textPrimary
                         : colors.textSecondary,
                       ...typography.label,
+                      fontWeight: selected ? '700' : '400',
                     }}>
-                    {assetStatusLabels[status]}
+                    {tab.label}
                   </Text>
                 </Pressable>
               );
