@@ -29,7 +29,7 @@
 - Consumes: `assets`、`analysis_runs`、`market_snapshots`
 - Produces: 每个在用物品 7 条 `source = 'demo_seed'` 快照，以及与 2026-07-25 快照一致的物品最新估值
 
-- [ ] **Step 1: 确认写入前状态**
+- [x] **Step 1: 确认写入前状态**
 
 运行只读查询，预期当前有 4 个未售物品且演示快照为 0：
 
@@ -38,7 +38,7 @@ select count(*) from assets where status <> 'sold';
 select count(*) from market_snapshots where source = 'demo_seed';
 ```
 
-- [ ] **Step 2: 在单个事务中执行幂等写入**
+- [x] **Step 2: 在单个事务中执行幂等写入**
 
 使用以下确定性波动系数：
 
@@ -54,7 +54,7 @@ select count(*) from market_snapshots where source = 'demo_seed';
 
 对当前 4 个物品按名称匹配基准价，upsert 每日成功任务和快照。估值四舍五入到分，最低价为估值的 90%，最高价为估值的 110%，`sample_count = 12`、`samples = []`、`source = 'demo_seed'`。随后把每个物品的最新估值字段同步为 2026-07-25 快照。
 
-- [ ] **Step 3: 验证数据库结果**
+- [x] **Step 3: 验证数据库结果**
 
 运行：
 
@@ -80,7 +80,7 @@ where a.status <> 'sold';
 
 预期 4 行，`latest_market_price = estimated_price` 且 `status = 'succeeded'`。
 
-- [ ] **Step 4: 验证前端读取形状**
+- [x] **Step 4: 验证前端读取形状**
 
 按详情页现有查询顺序读取每个物品快照：
 
