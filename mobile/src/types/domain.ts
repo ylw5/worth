@@ -11,13 +11,24 @@ export const categories = [
 
 export type Category = (typeof categories)[number];
 
+export const conditions = [
+  '全新未使用',
+  '几乎全新',
+  '轻微使用痕迹',
+  '明显使用痕迹',
+  '重度使用或有瑕疵',
+  '无法判断',
+] as const;
+
+export type Condition = (typeof conditions)[number];
+
 export type AssetInput = {
   name: string;
   brand: string;
   model: string;
   specs: Record<string, string>;
   category: Category;
-  condition: string;
+  condition: Condition;
   search_query: string;
   purchase_date: string;
   purchase_price: string;

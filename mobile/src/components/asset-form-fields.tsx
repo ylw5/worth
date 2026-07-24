@@ -8,7 +8,7 @@ import {
 
 import { PurchaseDateField } from '@/components/purchase-date-field';
 import { colors, radius, spacing, typography } from '@/constants/colors';
-import { categories, type AssetInput } from '@/types/domain';
+import { categories, conditions, type AssetInput } from '@/types/domain';
 
 function Field({
   label,
@@ -118,11 +118,43 @@ export function AssetFormFields({
           ))}
         </View>
       </View>
-      <Field
-        label="成色"
-        value={form.condition}
-        onChangeText={(condition) => onChange({ ...form, condition })}
-      />
+      <View style={{ gap: spacing.sm }}>
+        <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
+          成色
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
+          {conditions.map((condition) => (
+            <Pressable
+              accessibilityRole="radio"
+              accessibilityState={{ checked: form.condition === condition }}
+              aria-checked={form.condition === condition}
+              key={condition}
+              onPress={() => onChange({ ...form, condition })}
+              style={{
+                minHeight: 38,
+                paddingHorizontal: spacing.lg,
+                borderRadius: radius.pill,
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor:
+                  form.condition === condition
+                    ? colors.textPrimary
+                    : colors.surfaceMuted,
+              }}>
+              <Text
+                style={{
+                  color:
+                    form.condition === condition
+                      ? colors.onDark
+                      : colors.textSecondary,
+                  ...typography.label,
+                }}>
+                {condition}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
       <PurchaseDateField
         value={form.purchase_date}
         onChange={(purchase_date) => onChange({ ...form, purchase_date })}
