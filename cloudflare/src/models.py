@@ -44,7 +44,6 @@ class ValuationProfile(BaseModel):
     generation: str = ""
     release_date: date | None = None
     original_retail_price: float | None = Field(default=None, gt=0)
-    attributes: dict[str, str] = Field(default_factory=dict)
 
 
 class Evidence(BaseModel):
@@ -66,7 +65,6 @@ class Evidence(BaseModel):
     ] = "unknown"
     currency: str = "CNY"
     condition: str = ""
-    specifications: dict[str, str] = Field(default_factory=dict)
     retrieved_at: str
     relevant: bool
     product_name: str = ""
