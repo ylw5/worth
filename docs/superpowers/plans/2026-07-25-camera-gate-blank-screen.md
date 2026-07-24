@@ -38,7 +38,7 @@ const [awaitingInitialCamera, setAwaitingInitialCamera] = useState(
 
 Keep `openedInitialCamera` as the one-shot guard for launching the picker.
 
-- [ ] **Step 2: Clear the gate only after a confirmed first photo**
+- [x] **Step 2: Clear the gate only after a confirmed first photo**
 
 In the initial-camera `useEffect`, after a successful `pickerAssetsToPhotos` result and before/around `addInitialPhotos`, clear the gate:
 
@@ -59,7 +59,7 @@ await addInitialPhotos(firstPhoto);
 
 Leave cancel, permission denial, and catch paths as they are (still `returnHome` / `fail`) so the blank gate stays up until navigation completes.
 
-- [ ] **Step 3: Render blank UI while gated**
+- [x] **Step 3: Render blank UI while gated**
 
 At the top of the component return, when `awaitingInitialCamera` is true:
 
@@ -86,7 +86,7 @@ On a device/simulator with a camera:
 4. Empty-state `/capture` (no `camera=1`) still opens the empty form immediately.
 5. Deny camera permission → alert, then home; no form flash.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add 'mobile/src/app/(tabs)/(capture)/index.tsx'
