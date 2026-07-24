@@ -63,7 +63,11 @@ create policy wishlist_items_owner_select
 create policy wishlist_items_owner_insert
   on public.wishlist_items
   for insert to authenticated
-  with check ((select auth.uid()) = user_id);
+  with check (
+    (select auth.uid()) = user_id
+    and actual_price is null
+    and fulfilled_at is null
+  );
 
 create policy wishlist_items_owner_delete_unfulfilled
   on public.wishlist_items
@@ -145,7 +149,8 @@ begin
     select 1
     from jsonb_to_recordset(p_allocations)
       as item(source_type text, source_id uuid, amount numeric)
-    where source_type not in ('spending_resolution', 'asset_sale')
+    where source_type is null
+      or source_type not in ('spending_resolution', 'asset_sale')
       or source_id is null
       or amount is null
       or amount <= 0
