@@ -190,3 +190,35 @@ def test_continue_evaluation_sends_the_full_conversation_without_storage() -> No
         "content": "我主要通勤用",
     }
     assert answer == "可以先补充使用频率。"
+
+
+def test_openai_evaluation_prompt_uses_resolution_contract() -> None:
+    service = object.__new__(OpenAIService)
+    service.client = Mock()
+    service.client.responses.create.return_value.output_text = "价格是多少？"
+    service.model = "test-model"
+
+    from app.models import (
+        EvaluationChatMessage,
+        EvaluationFacts,
+        ParsedProduct,
+    )
+
+    service.continue_evaluation(
+        ParsedProduct(
+            title="耳机",
+            category="数码",
+            subcategory="耳机",
+            source_type="text",
+            source_text="耳机",
+        ),
+        [],
+        EvaluationFacts(total=0, in_use=0, idle=0, listed=0, sold=0),
+        [EvaluationChatMessage(role="user", content="我想买")],
+        "user",
+    )
+    prompt = service.client.responses.create.call_args.kwargs["input"][0][
+        "content"
+    ]
+    assert "价格未知时" in prompt
+    assert "[spending_resolution:金额]" in prompt

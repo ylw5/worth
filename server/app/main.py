@@ -1,5 +1,4 @@
 import json
-import re
 from functools import lru_cache
 from typing import Iterator
 
@@ -227,12 +226,7 @@ def evaluate_purchase(
             tool_executor,
         )
         if opening.strip():
-            result.narrative = re.sub(
-                r"\s*\[decision:(?:buy|skip)\]\s*",
-                "\n",
-                opening,
-                flags=re.IGNORECASE,
-            ).strip()
+            result.narrative = opening.strip()
     except (RuntimeError, OpenAIError):
         pass  # AI 不可用时回退到模板化事实叙述
     return result

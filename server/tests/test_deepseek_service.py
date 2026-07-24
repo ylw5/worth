@@ -3,7 +3,7 @@ from unittest.mock import Mock
 import pytest
 
 from app.config import Settings
-from app.deepseek_service import DeepSeekService
+from app.deepseek_service import DeepSeekService, _TOOLS_SYSTEM_PROMPT
 from app.models import (
     AssetInput,
     EvaluationChatMessage,
@@ -151,6 +151,33 @@ def test_continues_evaluation_with_prior_messages() -> None:
         "content": "我需要降噪",
     }
     assert result == "先看看现在这副耳机的使用频率。"
+
+
+def test_evaluation_prompt_requires_price_for_skip_resolution() -> None:
+    service = service_with("价格是多少？")
+    service.continue_evaluation(
+        ParsedProduct(
+            title="耳机",
+            category="数码",
+            subcategory="耳机",
+            source_type="text",
+            source_text="耳机",
+        ),
+        [],
+        EvaluationFacts(total=0, in_use=0, idle=0, listed=0, sold=0),
+        [EvaluationChatMessage(role="user", content="我想买")],
+        "user",
+    )
+    prompt = service.client.chat.completions.create.call_args.kwargs[
+        "messages"
+    ][0]["content"]
+    assert "价格未知时" in prompt
+    assert "[spending_resolution:金额]" in prompt
+
+
+def test_tool_prompt_uses_resolution_contract() -> None:
+    assert "价格未知时" in _TOOLS_SYSTEM_PROMPT
+    assert "[spending_resolution:金额]" in _TOOLS_SYSTEM_PROMPT
 
 
 def stream_chunk(content: str | None) -> Mock:
