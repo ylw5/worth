@@ -11,6 +11,7 @@ from .contracts import (
     AgentStreamEvent,
     ImageContentPart,
     ModelCapability,
+    ModelRequirements,
     ProviderRequest,
     ProviderResponse,
     RunContext,
@@ -23,6 +24,7 @@ from .contracts import (
 from .errors import (
     InvalidToolArgumentsError,
     ProviderProtocolError,
+    ProviderUnavailableError,
     RepeatedToolCallError,
     ToolExecutionError,
     ToolLoopLimitError,
@@ -54,12 +56,12 @@ class AgentRunner:
         self.max_repeated_call = max_repeated_call
         self.max_tool_output_chars = max_tool_output_chars
 
-    def _route(
+    def _requirements(
         self,
         request: AgentRunRequest,
         *,
         streaming: bool,
-    ) -> RoutedModel:
+    ) -> ModelRequirements:
         capabilities = set(request.requirements.capabilities)
         if request.tools:
             capabilities.add(ModelCapability.TOOLS)
@@ -76,10 +78,27 @@ class AgentRunner:
             capabilities.add(ModelCapability.STRUCTURED_OUTPUT)
         if streaming:
             capabilities.add(ModelCapability.STREAMING)
-        requirements = request.requirements.model_copy(
+        return request.requirements.model_copy(
             update={"capabilities": capabilities}
         )
-        return self.router.resolve(requirements)
+
+    def _routes(
+        self,
+        request: AgentRunRequest,
+        *,
+        streaming: bool,
+    ) -> list[RoutedModel]:
+        return self.router.resolve_candidates(
+            self._requirements(request, streaming=streaming)
+        )
+
+    def _route(
+        self,
+        request: AgentRunRequest,
+        *,
+        streaming: bool,
+    ) -> RoutedModel:
+        return self._routes(request, streaming=streaming)[0]
 
     @staticmethod
     def _provider_request(
@@ -229,12 +248,12 @@ class AgentRunner:
             usage=usage,
         )
 
-    def run(
+    def _run_routed(
         self,
         request: AgentRunRequest,
         context: RunContext,
+        routed: RoutedModel,
     ) -> AgentRunResult:
-        routed = self._route(request, streaming=False)
         allowed_tools = {tool.name for tool in request.tools}
         continuation = None
         pending_results: list[ToolResult] = []
@@ -286,6 +305,22 @@ class AgentRunner:
             )
             executions.extend(records)
 
+        raise AssertionError("unreachable")
+
+    def run(
+        self,
+        request: AgentRunRequest,
+        context: RunContext,
+    ) -> AgentRunResult:
+        candidates = self._routes(request, streaming=False)
+        last_unavailable: ProviderUnavailableError | None = None
+        for routed in candidates:
+            try:
+                return self._run_routed(request, context, routed)
+            except ProviderUnavailableError as error:
+                last_unavailable = error
+        if last_unavailable is not None:
+            raise last_unavailable
         raise AssertionError("unreachable")
 
     def stream(

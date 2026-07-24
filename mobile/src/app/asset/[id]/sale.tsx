@@ -39,6 +39,9 @@ function AssetSaleForm({
         queryClient.invalidateQueries({ queryKey: ['asset', id] }),
         queryClient.invalidateQueries({ queryKey: ['asset-sale', id] }),
         queryClient.invalidateQueries({ queryKey: ['assets'] }),
+        queryClient.invalidateQueries({ queryKey: ['purchase-evaluations'] }),
+        queryClient.invalidateQueries({ queryKey: ['agent-memories'] }),
+        queryClient.invalidateQueries({ queryKey: ['agent-followups'] }),
       ]);
       router.dismissTo({ pathname: '/asset/[id]', params: { id } });
     },

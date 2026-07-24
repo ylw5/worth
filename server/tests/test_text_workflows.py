@@ -151,6 +151,28 @@ def test_product_interpretation_validates_chat_shape() -> None:
     assert result.reply
 
 
+def test_product_interpretation_normalizes_common_category_alias() -> None:
+    runner = SequenceRunner(
+        [
+            (
+                '{"intent":"product","normalized_title":"电脑",'
+                '"category":"电子产品","subcategory":"电脑","reply":""}'
+            )
+        ]
+    )
+
+    result = ProductInterpretationWorkflow(runner).interpret(
+        "我想买电脑",
+        user_id="user-1",
+        request_id="request-1",
+    )
+
+    assert result.intent == "product"
+    assert result.category == "数码"
+    assert result.subcategory == "电脑"
+    assert len(runner.requests) == 1
+
+
 def test_product_interpretation_rejects_purchase_decision_reply() -> None:
     runner = SequenceRunner(
         [

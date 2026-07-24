@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Iterator
 from uuid import uuid4
 
@@ -49,6 +50,9 @@ from .models import (
 from .product import fetch_product_page
 from .sell_plan import recommend_sell_plan
 from .valuation import build_valuation
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_user_supabase(access_token: str) -> SupabaseClient:
@@ -113,20 +117,27 @@ def load_history_context(
     try:
         response = (
             supabase_client
-            .table("purchase_evaluations")
-            .select(
-                "id, product_title, category, subcategory, product_price,"
-                " decision, user_choice, outcome_status, linked_asset_id,"
-                " created_at"
-            )
+            .table("agent_memories")
+            .select("facts, created_at")
             .eq("user_id", user_id)
-            .order("created_at", desc=True)
+            .eq("is_active", True)
+            .order("updated_at", desc=True)
             .limit(100)
             .execute()
         )
     except Exception:
         return {}
-    records = response.data or []
+    records = [
+        {
+            **(row.get("facts") or {}),
+            "created_at": (row.get("facts") or {}).get(
+                "created_at",
+                row.get("created_at"),
+            ),
+        }
+        for row in (response.data or [])
+        if isinstance(row.get("facts"), dict)
+    ]
     if not records:
         return {}
     return summarize_evaluation_history(
@@ -254,13 +265,14 @@ def normalize_product_text(
     request: ProductTextRequest,
     user: AuthenticatedUser = Depends(require_user),
 ) -> ProductTextResponse:
+    request_id = uuid4().hex
     try:
         interpretation = build_text_workflows(
             get_settings()
         ).product_interpretation.interpret(
             request.text,
             user_id=user.id,
-            request_id=uuid4().hex,
+            request_id=request_id,
         )
         if interpretation.intent == "chat":
             return ProductTextResponse(
@@ -280,6 +292,22 @@ def normalize_product_text(
             ),
         )
     except (AIFoundationError, RuntimeError, OpenAIError) as error:
+        detail = (
+            error.as_detail().model_dump(mode="json")
+            if isinstance(error, AIFoundationError)
+            else {
+                "code": type(error).__name__,
+                "message": str(error),
+            }
+        )
+        logger.exception(
+            "Product text normalization failed",
+            extra={
+                "request_id": request_id,
+                "user_id": user.id,
+                "ai_error": detail,
+            },
+        )
         raise HTTPException(
             status_code=503,
             detail="商品描述暂时无法解析，请稍后重试",

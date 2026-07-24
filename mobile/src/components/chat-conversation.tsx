@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState, LoadingState } from '@/components/screen-state';
+import { PurchaseOutcomeControls } from '@/components/purchase-outcome-controls';
 import { colors, radius, spacing } from '@/constants/colors';
 import { streamPurchaseEvaluation } from '@/lib/api';
 import {
@@ -89,9 +90,12 @@ export function ChatConversation({
     (Boolean(openingUserContent) || Boolean(item?.image_urls?.length));
 
   useEffect(() => {
-    setDraft('');
-    setSendError('');
-    setStreamingReply('');
+    const timer = setTimeout(() => {
+      setDraft('');
+      setSendError('');
+      setStreamingReply('');
+    }, 0);
+    return () => clearTimeout(timer);
   }, [evaluationId]);
 
   useEffect(() => {
@@ -192,6 +196,8 @@ export function ChatConversation({
         {messagesQuery.error ? (
           <ErrorState message={messagesQuery.error.message} />
         ) : null}
+
+        <PurchaseOutcomeControls evaluation={item} />
 
         {showOpeningUser ? (
           <View style={{ gap: spacing.sm, alignItems: 'flex-end' }}>

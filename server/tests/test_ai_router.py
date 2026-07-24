@@ -88,6 +88,19 @@ def test_router_selects_by_task_and_capabilities() -> None:
     assert routed.provider.name == "deepseek"
 
 
+def test_router_returns_ranked_fallback_candidates() -> None:
+    candidates = build_router().resolve_candidates(
+        ModelRequirements(
+            capabilities={ModelCapability.TEXT},
+        )
+    )
+
+    assert [candidate.profile.name for candidate in candidates] == [
+        "vision-primary",
+        "text-tools",
+    ]
+
+
 def test_explicit_profile_fails_on_capability_mismatch() -> None:
     with pytest.raises(ModelCapabilityError):
         build_router().resolve(

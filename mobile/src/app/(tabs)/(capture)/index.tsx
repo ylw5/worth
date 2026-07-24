@@ -378,9 +378,12 @@ export default function CaptureScreen() {
       } catch {
         // The asset is valid even when its first valuation is temporarily unavailable.
       }
-      await queryClient
-        .invalidateQueries({ queryKey: ['assets'] })
-        .catch(() => undefined);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['assets'] }),
+        queryClient.invalidateQueries({ queryKey: ['purchase-evaluations'] }),
+        queryClient.invalidateQueries({ queryKey: ['agent-memories'] }),
+        queryClient.invalidateQueries({ queryKey: ['agent-followups'] }),
+      ]).catch(() => undefined);
       router.replace('/(tabs)/(assets)');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '保存失败');

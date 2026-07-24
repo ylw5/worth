@@ -471,20 +471,30 @@ class DbToolWrapper:
     ) -> list[dict]:
         """查询用户过往购物评估记录（倒序）。"""
         query = (
-            self._client.table("purchase_evaluations")
-            .select(
-                "id, product_title, category, subcategory, product_price,"
-                " decision, user_choice, outcome_status, linked_asset_id,"
-                " created_at"
-            )
+            self._client.table("agent_memories")
+            .select("facts, created_at")
             .eq("user_id", self._user_id)
+            .eq("is_active", True)
         )
         if category:
-            query = query.eq("category", category)
+            query = query.eq("facts->>category", category)
         response = (
-            query.order("created_at", desc=True).limit(limit).execute()
+            query.order("updated_at", desc=True)
+            .limit(limit)
+            .execute()
         )
-        return response.data if response.data else []
+        records = [
+            {
+                **(row.get("facts") or {}),
+                "created_at": (row.get("facts") or {}).get(
+                    "created_at",
+                    row.get("created_at"),
+                ),
+            }
+            for row in (response.data or [])
+            if isinstance(row.get("facts"), dict)
+        ]
+        return records
 
 
 class MarketToolWrapper:

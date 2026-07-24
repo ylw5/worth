@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal, Optional, Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BeforeValidator, BaseModel, Field, model_validator
 
 
 Category = Literal[
@@ -15,6 +15,47 @@ Category = Literal[
     "交通工具",
     "其他",
 ]
+
+
+AI_CATEGORY_ALIASES = {
+    "电子产品": "数码",
+    "数码产品": "数码",
+    "消费电子": "数码",
+    "3C": "数码",
+    "3C数码": "数码",
+    "电脑数码": "数码",
+    "家用电器": "家电",
+    "电器": "家电",
+    "家居": "家具",
+    "家居家具": "家具",
+    "服装": "服饰箱包",
+    "服饰": "服饰箱包",
+    "箱包": "服饰箱包",
+    "服装箱包": "服饰箱包",
+    "珠宝": "珠宝腕表",
+    "珠宝首饰": "珠宝腕表",
+    "腕表": "珠宝腕表",
+    "钟表": "珠宝腕表",
+    "收藏品": "收藏",
+    "汽车": "交通工具",
+    "摩托车": "交通工具",
+    "自行车": "交通工具",
+    "车辆": "交通工具",
+    "其它": "其他",
+    "未知": "其他",
+    "未分类": "其他",
+}
+
+
+def normalize_ai_category(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    normalized = value.strip()
+    return AI_CATEGORY_ALIASES.get(normalized, normalized)
+
+
+AICategory = Annotated[Category, BeforeValidator(normalize_ai_category)]
+
 
 Condition = Literal[
     "全新未使用",
@@ -57,7 +98,7 @@ class AIAssetRecognition(BaseModel):
     brand: str = Field(max_length=100)
     model: str = Field(max_length=100)
     specs: list[AssetSpec] = Field(max_length=50)
-    category: Category
+    category: AICategory
     subcategory: str = Field(max_length=50)
     condition: Condition
     search_query: str = Field(min_length=1, max_length=300)
@@ -134,14 +175,14 @@ class ProductImagesRequest(BaseModel):
 
 class AIProductClassification(BaseModel):
     normalized_title: str = Field(min_length=1, max_length=300)
-    category: Category
+    category: AICategory
     subcategory: str = Field(min_length=1, max_length=50)
 
 
 class AIProductInterpretation(BaseModel):
     intent: Literal["product", "chat"]
     normalized_title: str = Field(max_length=300)
-    category: Category
+    category: AICategory
     subcategory: str = Field(max_length=50)
     reply: str = Field(max_length=1000)
 
@@ -169,7 +210,7 @@ class AIProductInterpretation(BaseModel):
 class AIProductRecognition(BaseModel):
     title: str = Field(min_length=1, max_length=300)
     price: Optional[float] = Field(gt=0)
-    category: Category
+    category: AICategory
     subcategory: str = Field(min_length=1, max_length=50)
 
 

@@ -671,11 +671,14 @@ class TestCreateProductionExecutor:
     def test_factory_history_works(self):
         mock_db = make_db_chain([
             {
-                "product_title": "MacBook Air",
-                "category": "数码",
-                "subcategory": "电脑",
-                "product_price": 7999,
-                "decision": "skip",
+                "facts": {
+                    "product_title": "MacBook Air",
+                    "category": "数码",
+                    "subcategory": "电脑",
+                    "product_price": 7999,
+                    "decision": "skip",
+                    "created_at": "2026-07-01T10:00:00+00:00",
+                },
                 "created_at": "2026-07-01T10:00:00+00:00",
             },
         ])
@@ -919,16 +922,22 @@ class TestSummarizeEvaluationHistory:
 class TestDbHistoryHandler:
     def test_basic_query(self):
         mock_client = make_db_chain([
-            {"product_title": "a", "created_at": "2026-07-01"},
+            {
+                "facts": {
+                    "product_title": "a",
+                    "created_at": "2026-07-01",
+                },
+                "created_at": "2026-07-01",
+            },
         ])
         wrapper = DbToolWrapper(ToolExecutor(), "user-1", mock_client)
 
         result = wrapper.handle_get_evaluation_history()
 
-        mock_client.table.assert_called_once_with("purchase_evaluations")
+        mock_client.table.assert_called_once_with("agent_memories")
         chain = mock_client.table.return_value
-        # eq called only for user_id
-        assert chain.eq.call_count == 1
+        # eq called for user_id and active-memory filtering
+        assert chain.eq.call_count == 2
         chain.limit.assert_called_once_with(5)
         assert len(result) == 1
 
@@ -939,8 +948,8 @@ class TestDbHistoryHandler:
         wrapper.handle_get_evaluation_history("数码", 3)
 
         chain = mock_client.table.return_value
-        # eq called for user_id and category
-        assert chain.eq.call_count == 2
+        # user id, active-memory state, and JSON category are filtered in DB.
+        assert chain.eq.call_count == 3
         chain.limit.assert_called_once_with(3)
 
     def test_none_response_returns_empty(self):

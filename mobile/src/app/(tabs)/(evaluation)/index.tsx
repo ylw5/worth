@@ -76,7 +76,8 @@ export default function EvaluationScreen() {
 
   useEffect(() => {
     if (typeof params.id === 'string' && params.id) {
-      setActiveId(params.id);
+      const timer = setTimeout(() => setActiveId(params.id as string), 0);
+      return () => clearTimeout(timer);
     }
   }, [params.id]);
 

@@ -1,5 +1,5 @@
-import { Stack } from 'expo-router';
-import { ScrollView, Text, View } from 'react-native';
+import { Link, Stack } from 'expo-router';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { colors, radius, spacing, typography } from '@/constants/colors';
 import { useSession } from '@/providers/session-provider';
@@ -68,6 +68,29 @@ export default function AccountScreen() {
             </Text>
           </View>
         </View>
+        <Link href="/(tabs)/(account)/memories" asChild>
+          <Pressable
+            accessibilityRole="button"
+            style={({ pressed }) => ({
+              paddingHorizontal: spacing.lg,
+              paddingVertical: spacing.lg,
+              borderRadius: radius.large,
+              backgroundColor: colors.surface,
+              opacity: pressed ? 0.65 : 1,
+            })}>
+            <Text style={{ color: colors.textPrimary, ...typography.cardTitle }}>
+              Agent 记忆与回访
+            </Text>
+            <Text
+              style={{
+                marginTop: spacing.xs,
+                color: colors.textSecondary,
+                ...typography.label,
+              }}>
+              查看待回访事项，管理 Agent 可以跨对话引用的记忆
+            </Text>
+          </Pressable>
+        </Link>
       </ScrollView>
     </>
   );

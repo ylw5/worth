@@ -21,6 +21,7 @@ from app.ai.contracts import (
 from app.ai.errors import (
     ModelRouteNotFoundError,
     ProviderProtocolError,
+    ProviderUnavailableError,
     RepeatedToolCallError,
     ToolNotAllowedError,
     ToolOutputTooLargeError,
@@ -74,6 +75,20 @@ class SequenceProvider:
                 delta=response.text,
             )
         yield ProviderStreamEvent(type="completed", response=response)
+
+
+class UnavailableProvider(SequenceProvider):
+    def complete(
+        self,
+        request: ProviderRequest,
+        *,
+        continuation: Any = None,
+        tool_results: Sequence[ToolResult] = (),
+    ) -> ProviderResponse:
+        raise ProviderUnavailableError(
+            "primary unavailable",
+            provider=self.name,
+        )
 
 
 class AssetExecutor:
@@ -175,6 +190,46 @@ def test_runner_executes_tool_loop_and_returns_common_result() -> None:
     assert provider.tool_results[1][0].output == '[{"name":"耳机"}]'
     assert executor.contexts[0].user_id == "user-1"
     assert provider.requests[0].tools == [TOOL]
+
+
+def test_runner_falls_back_when_primary_provider_is_unavailable() -> None:
+    primary = UnavailableProvider([])
+    primary.name = "primary"
+    fallback = SequenceProvider(
+        [
+            ProviderResponse(
+                provider="fallback",
+                model="fallback-model",
+                text="fallback response",
+            )
+        ]
+    )
+    fallback.name = "fallback"
+    router = ModelRouter()
+    for provider, priority, model in (
+        (primary, 100, "primary-model"),
+        (fallback, 90, "fallback-model"),
+    ):
+        router.register_provider(provider)
+        router.register_profile(
+            ModelProfile(
+                name=provider.name,
+                provider=provider.name,
+                model=model,
+                capabilities={ModelCapability.TEXT},
+                priority=priority,
+            )
+        )
+
+    result = AgentRunner(router).run(
+        AgentRunRequest(
+            messages=[AIMessage(role="user", content="hello")],
+        ),
+        context(),
+    )
+
+    assert result.text == "fallback response"
+    assert result.provider == "fallback"
 
 
 def test_runner_rejects_unlisted_tool_call() -> None:

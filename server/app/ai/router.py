@@ -57,7 +57,10 @@ class ModelRouter:
             )
         self._profiles[profile.name] = profile
 
-    def resolve(self, requirements: ModelRequirements) -> RoutedModel:
+    def resolve_candidates(
+        self,
+        requirements: ModelRequirements,
+    ) -> list[RoutedModel]:
         if requirements.preferred_profile:
             profile = self._profiles.get(requirements.preferred_profile)
             if profile is None or not profile.enabled:
@@ -96,10 +99,12 @@ class ModelRouter:
                         "task": requirements.task,
                     },
                 )
-            return RoutedModel(
-                profile=profile,
-                provider=self._providers[profile.provider],
-            )
+            return [
+                RoutedModel(
+                    profile=profile,
+                    provider=self._providers[profile.provider],
+                )
+            ]
 
         candidates = [
             profile
@@ -127,11 +132,17 @@ class ModelRouter:
                     "provider": requirements.preferred_provider,
                 },
             )
-        profile = sorted(
+        profiles = sorted(
             candidates,
             key=lambda item: (-item.priority, item.name),
-        )[0]
-        return RoutedModel(
-            profile=profile,
-            provider=self._providers[profile.provider],
         )
+        return [
+            RoutedModel(
+                profile=profile,
+                provider=self._providers[profile.provider],
+            )
+            for profile in profiles
+        ]
+
+    def resolve(self, requirements: ModelRequirements) -> RoutedModel:
+        return self.resolve_candidates(requirements)[0]
