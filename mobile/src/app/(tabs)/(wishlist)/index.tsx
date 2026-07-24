@@ -26,7 +26,7 @@ import {
   getWishlistCarouselIndex,
   getWishlistCarouselMetrics,
 } from '@/lib/wishlist-carousel';
-import { sumSavings } from '@/lib/wishlist-progress';
+import { sumAmounts } from '@/lib/wishlist-progress';
 
 export default function WishlistScreen() {
   const queryClient = useQueryClient();
@@ -38,7 +38,7 @@ export default function WishlistScreen() {
     queryKey: ['spending-resolutions', 'confirmed-amounts'],
     queryFn: listConfirmedSpendingResolutionAmounts,
   });
-  const savedAmount = sumSavings(savingsQuery.data ?? []);
+  const savedAmount = sumAmounts(savingsQuery.data ?? []);
   const refetchSavings = savingsQuery.refetch;
   useFocusEffect(
     useCallback(() => {

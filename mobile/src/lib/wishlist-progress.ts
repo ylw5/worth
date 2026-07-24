@@ -1,4 +1,4 @@
-export const sumSavings = (amounts: number[]) =>
+export const sumAmounts = (amounts: number[]) =>
   amounts.reduce((total, amount) => total + amount, 0);
 
 export const getWishlistProgress = (

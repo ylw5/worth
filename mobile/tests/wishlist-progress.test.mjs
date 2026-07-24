@@ -3,18 +3,24 @@ import test from 'node:test';
 
 import {
   getWishlistProgress,
-  sumSavings,
+  sumAmounts,
 } from '../src/lib/wishlist-progress.ts';
 
-test('sums confirmed savings and derives capped wishlist progress', () => {
-  assert.equal(sumSavings([]), 0);
-  assert.equal(sumSavings([699, 237]), 936);
-  assert.deepEqual(getWishlistProgress(936, 1280), {
-    percentage: 73,
-    barPercentage: 73,
+test('sums separate funding sources and derives combined wishlist progress', () => {
+  const spendingTotal = sumAmounts([699, 237]);
+  const salesTotal = sumAmounts([500, 120]);
+  const fundedAmount = spendingTotal + salesTotal;
+
+  assert.equal(sumAmounts([]), 0);
+  assert.equal(spendingTotal, 936);
+  assert.equal(salesTotal, 620);
+  assert.equal(fundedAmount, 1556);
+  assert.deepEqual(getWishlistProgress(fundedAmount, 2000), {
+    percentage: 78,
+    barPercentage: 78,
   });
-  assert.deepEqual(getWishlistProgress(1500, 1280), {
-    percentage: 117,
+  assert.deepEqual(getWishlistProgress(fundedAmount, 1280), {
+    percentage: 122,
     barPercentage: 100,
   });
 });
