@@ -41,6 +41,8 @@ export function AssetPhotoPicker({
   onChange,
   onRetry,
   onError,
+  title = '照片',
+  minimumPhotos = 1,
 }: {
   photos: AssetPhoto[];
   disabled?: boolean;
@@ -49,6 +51,8 @@ export function AssetPhotoPicker({
   onChange: (photos: AssetPhoto[]) => void;
   onRetry?: (photo: AssetPhoto) => void;
   onError: (message: string) => void;
+  title?: string;
+  minimumPhotos?: number;
 }) {
   const add = (assets: ImagePicker.ImagePickerAsset[]) => {
     const remaining = maxAssetPhotos - photos.length;
@@ -116,7 +120,7 @@ export function AssetPhotoPicker({
       <Text
         selectable
         style={{ color: colors.textPrimary, ...typography.body, fontWeight: '700' }}>
-        照片 {photos.length}/{maxAssetPhotos}
+        {title} {photos.length}/{maxAssetPhotos}
       </Text>
       <ScrollView
         horizontal
@@ -210,7 +214,10 @@ export function AssetPhotoPicker({
                 ) : null}
                 <Pressable
                   accessibilityRole="button"
-                  disabled={disabled || (!allowEmpty && photos.length === 1)}
+                  disabled={
+                    disabled ||
+                    photos.length <= (allowEmpty ? 0 : minimumPhotos)
+                  }
                   onPress={() =>
                     onChange(
                       photos.filter((item) => item.id !== photo.id),
@@ -220,7 +227,8 @@ export function AssetPhotoPicker({
                     style={{
                       color: colors.danger,
                       opacity:
-                        disabled || (!allowEmpty && photos.length === 1)
+                        disabled ||
+                        photos.length <= (allowEmpty ? 0 : minimumPhotos)
                           ? 0.4
                           : 1,
                     }}>

@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SymbolView } from 'expo-symbols';
-import { Link, Stack } from 'expo-router';
+import { Link, router, Stack } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -130,6 +130,23 @@ export default function WishlistScreen() {
                 {item.notes}
               </Text>
             ) : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() =>
+                router.push({
+                  pathname: '/(tabs)/(wishlist)/[id]',
+                  params: { id: item.id },
+                })
+              }
+              style={({ pressed }) => ({
+                alignSelf: 'flex-start',
+                paddingVertical: 5,
+                opacity: pressed ? 0.6 : 1,
+              })}>
+              <Text style={{ color: colors.green, fontWeight: '700' }}>
+                查看今日卖出方案
+              </Text>
+            </Pressable>
           </View>
         ))}
         {!query.isLoading && !query.error && !query.data?.length ? (

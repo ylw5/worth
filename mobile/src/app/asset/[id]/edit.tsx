@@ -54,6 +54,7 @@ function AssetEditForm({ asset }: { asset: Asset }) {
     model: asset.model,
     specs: asset.specs,
     category: asset.category,
+    subcategory: asset.subcategory,
     condition: asset.condition,
     search_query: asset.search_query,
     purchase_date: asset.purchase_date ?? '',

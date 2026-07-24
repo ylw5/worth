@@ -79,6 +79,7 @@ export default function AssetDetailScreen() {
   const latest = historyQuery.data?.[0];
   const details: [string, string][] = [
     ['分类', asset.category],
+    ['二级品类', asset.subcategory || '—'],
     ['品牌型号', [asset.brand, asset.model].filter(Boolean).join(' ')],
     ['规格', specsToText(asset.specs) || '—'],
     ['成色', asset.condition || '—'],

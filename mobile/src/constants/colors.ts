@@ -10,6 +10,11 @@ export const colors = {
   accentSoft: '#EDF6FF',
   onDark: '#FFFFFF',
   danger: '#C9362B',
+  card: '#FFFFFF',
+  text: '#0B0B0D',
+  muted: '#727278',
+  green: '#78B4FF',
+  greenSoft: '#EDF6FF',
 } as const;
 
 export const spacing = {

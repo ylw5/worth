@@ -17,6 +17,9 @@ export function mergeRecognition(
     category: protectedFields.has('category')
       ? current.category
       : incoming.category,
+    subcategory: protectedFields.has('subcategory')
+      ? current.subcategory
+      : incoming.subcategory,
     condition: protectedFields.has('condition')
       ? current.condition
       : incoming.condition,

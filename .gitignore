@@ -1,12 +1,20 @@
 .DS_Store
 .env
-.env.*
+.env*
 !.env.example
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .venv/
 .vercel
-.env*
-!.env.example
 supabase/.temp/
+
+# Agent / IDE 工具产物
+.agents/
+.claude/
+.qoder/
+skills-lock.json
+
+# 防御性忽略（子目录已各自覆盖）
+node_modules/
+.expo/

@@ -118,6 +118,11 @@ export function AssetFormFields({
           ))}
         </View>
       </View>
+      <Field
+        label="二级品类"
+        value={form.subcategory}
+        onChangeText={(subcategory) => onChange({ ...form, subcategory })}
+      />
       <View style={{ gap: spacing.sm }}>
         <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
           成色

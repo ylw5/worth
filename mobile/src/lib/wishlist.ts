@@ -20,6 +20,16 @@ export async function listWishlistItems(): Promise<WishlistItem[]> {
   return (data ?? []) as WishlistItem[];
 }
 
+export async function getWishlistItem(id: string): Promise<WishlistItem> {
+  const { data, error } = await supabase
+    .from('wishlist_items')
+    .select('*')
+    .eq('id', id)
+    .single();
+  fail(error);
+  return data as WishlistItem;
+}
+
 export async function createWishlistItem(
   userId: string,
   input: WishlistInput,

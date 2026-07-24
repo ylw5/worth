@@ -141,6 +141,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="(evaluation)"
+        options={{
+          title: '评估',
+          tabBarIcon: ({ color }) => (
+            <TabIcon ios="magnifyingglass" android="search" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="(chat)"
         options={{
           title: '聊天',

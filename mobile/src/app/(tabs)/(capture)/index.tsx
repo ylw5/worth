@@ -46,6 +46,7 @@ const emptyForm: AssetInput = {
   model: '',
   specs: {},
   category: '其他',
+  subcategory: '',
   condition: '无法判断',
   search_query: '',
   purchase_date: '',
@@ -58,6 +59,7 @@ const recognizedFields: ProtectedField[] = [
   'model',
   'specs',
   'category',
+  'subcategory',
   'condition',
   'search_query',
 ];

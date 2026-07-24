@@ -142,4 +142,3 @@ create policy sell_plan_snapshots_owner on public.sell_plan_snapshots
         and wishlist_items.user_id = (select auth.uid())
     )
   );
-;

@@ -9,6 +9,7 @@ from app.auth import require_user
 from app.main import app
 from app.models import (
     AIAssetRecognition,
+    AIProductRecognition,
     AnalyzeRequest,
     AssetRecognition,
     AssetSpec,
@@ -31,6 +32,7 @@ def test_analyze_uses_strict_specs_and_preserves_public_shape() -> None:
         model="X100VI",
         specs=[AssetSpec(name="颜色", value="银色")],
         category="数码",
+        subcategory="相机",
         condition="轻微使用痕迹",
         search_query="富士 X100VI 银色",
     )
@@ -84,12 +86,14 @@ def test_analyze_includes_current_asset_context() -> None:
         model="X100VI",
         specs=[],
         category="数码",
+        subcategory="相机",
         condition="轻微使用痕迹",
         search_query="富士 X100VI",
     )
     current = AssetRecognition(
         name="相机",
         category="数码",
+        subcategory="相机",
         condition="无法判断",
         search_query="相机",
     )
@@ -125,3 +129,64 @@ def test_cutout_returns_optional_png(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json() == {"image_base64": "png-base64"}
+
+
+def test_analyze_product_reuses_multimodal_image_pipeline() -> None:
+    parsed = AIProductRecognition(
+        title="Sony WH-1000XM6",
+        price=2999,
+        category="数码",
+        subcategory="耳机",
+    )
+    service = object.__new__(OpenAIService)
+    service.client = Mock()
+    service.client.responses.parse.return_value.output_parsed = parsed
+    service.model = "test-model"
+
+    result = service.analyze_product(
+        ["https://example.com/product.jpg"],
+        "user",
+    )
+
+    request = service.client.responses.parse.call_args.kwargs
+    assert request["text_format"] is AIProductRecognition
+    assert request["input"][1]["content"][1]["image_url"] == (
+        "https://example.com/product.jpg"
+    )
+    assert result.source_type == "image"
+    assert result.title == "Sony WH-1000XM6"
+
+
+def test_continue_evaluation_sends_the_full_conversation_without_storage() -> None:
+    service = object.__new__(OpenAIService)
+    service.client = Mock()
+    service.client.responses.create.return_value.output_text = "可以先补充使用频率。"
+    service.model = "test-model"
+
+    from app.models import (
+        EvaluationChatMessage,
+        EvaluationFacts,
+        ParsedProduct,
+    )
+
+    answer = service.continue_evaluation(
+        ParsedProduct(
+            title="耳机",
+            category="数码",
+            subcategory="耳机",
+            source_type="text",
+            source_text="通勤降噪耳机",
+        ),
+        [],
+        EvaluationFacts(total=0, in_use=0, idle=0, listed=0, sold=0),
+        [EvaluationChatMessage(role="user", content="我主要通勤用")],
+        "user",
+    )
+
+    request = service.client.responses.create.call_args.kwargs
+    assert request["store"] is False
+    assert request["input"][-1] == {
+        "role": "user",
+        "content": "我主要通勤用",
+    }
+    assert answer == "可以先补充使用频率。"

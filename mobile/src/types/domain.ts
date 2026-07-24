@@ -1,4 +1,5 @@
 import type { AssetStatus } from '@/lib/asset-status';
+export type { AssetStatus } from '@/lib/asset-status';
 
 export const categories = [
   '数码',
@@ -30,6 +31,7 @@ export type AssetInput = {
   model: string;
   specs: Record<string, string>;
   category: Category;
+  subcategory: string;
   condition: Condition;
   search_query: string;
   purchase_date: string;
@@ -53,6 +55,8 @@ export type Asset = AssetWriteInput & {
   photo_cutout_urls?: Record<string, string>;
   status: AssetStatus;
   latest_market_price: number | null;
+  latest_market_price_low: number | null;
+  latest_market_price_high: number | null;
   latest_valuation_at: string | null;
   created_at: string;
   updated_at: string;
