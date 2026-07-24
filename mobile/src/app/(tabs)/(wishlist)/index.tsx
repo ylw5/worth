@@ -1,15 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SymbolView } from 'expo-symbols';
 import { Link, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
-  NativeScrollEvent,
-  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   Text,
+  type ViewToken,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -42,12 +41,13 @@ import {
   type WishlistItem,
 } from '@/lib/wishlist';
 import {
-  getWishlistCarouselIndex,
   getWishlistCarouselMetrics,
 } from '@/lib/wishlist-carousel';
 import { sumAmounts } from '@/lib/wishlist-progress';
 
 type FundingTab = 'spending' | 'sales';
+
+const carouselViewabilityConfig = { itemVisiblePercentThreshold: 50 };
 
 function WishlistFundingDetails({
   resolutions,
@@ -353,6 +353,7 @@ export default function WishlistScreen() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState('');
   const [undoingId, setUndoingId] = useState<string | null>(null);
+  const undoingIdRef = useRef<string | null>(null);
   const [undoError, setUndoError] = useState('');
 
   const { width: screenWidth } = useWindowDimensions();
@@ -376,23 +377,18 @@ export default function WishlistScreen() {
     allocationsQuery.isLoading;
   const fundingError =
     resolutionsQuery.error ?? salesQuery.error ?? allocationsQuery.error;
-  const [activeIndex, setActiveIndex] = useState(0);
-  const visibleActiveIndex = Math.min(
-    activeIndex,
-    Math.max(activeItems.length - 1, 0),
+  const [activeItemId, setActiveItemId] = useState<string | null>(null);
+  const visibleActiveIndex = Math.max(
+    activeItems.findIndex((item) => item.id === activeItemId),
+    0,
   );
 
-  const onCarouselScrollEnd = useCallback(
-    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      setActiveIndex(
-        getWishlistCarouselIndex(
-          event.nativeEvent.contentOffset.x,
-          snapInterval,
-          activeItems.length,
-        ),
-      );
+  const onViewableItemsChanged = useCallback(
+    ({ viewableItems }: { viewableItems: ViewToken<WishlistItem>[] }) => {
+      const firstVisibleItem = viewableItems.find((item) => item.isViewable);
+      setActiveItemId(firstVisibleItem?.item.id ?? null);
     },
-    [activeItems.length, snapInterval],
+    [],
   );
 
   const confirmDelete = (id: string, name: string) => {
@@ -420,6 +416,8 @@ export default function WishlistScreen() {
   };
 
   const undoFulfillment = async (id: string) => {
+    if (undoingIdRef.current) return;
+    undoingIdRef.current = id;
     setUndoingId(id);
     setUndoError('');
     try {
@@ -433,7 +431,8 @@ export default function WishlistScreen() {
     } catch (caught) {
       setUndoError(caught instanceof Error ? caught.message : '撤销失败');
     } finally {
-      setUndoingId(null);
+      if (undoingIdRef.current === id) undoingIdRef.current = null;
+      setUndoingId((current) => (current === id ? null : current));
     }
   };
 
@@ -525,7 +524,8 @@ export default function WishlistScreen() {
                   contentContainerStyle={{
                     paddingHorizontal: sidePadding,
                   }}
-                  onMomentumScrollEnd={onCarouselScrollEnd}
+                  onViewableItemsChanged={onViewableItemsChanged}
+                  viewabilityConfig={carouselViewabilityConfig}
                   renderItem={({ item, index }) => (
                     <WishlistCard
                       item={item}
@@ -624,6 +624,7 @@ export default function WishlistScreen() {
                     allocations={allocations}
                     resolutions={resolutions}
                     sales={sales}
+                    disabled={undoingId !== null}
                     undoing={undoingId === item.id}
                     onUndo={(id) => void undoFulfillment(id)}
                   />

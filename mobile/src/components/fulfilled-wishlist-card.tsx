@@ -23,6 +23,7 @@ type FulfilledWishlistCardProps = {
   allocations: WishlistFundingAllocation[];
   resolutions: ConfirmedSpendingResolution[];
   sales: AssetSaleWithName[];
+  disabled: boolean;
   undoing: boolean;
   onUndo: (id: string, name: string) => void;
 };
@@ -59,6 +60,7 @@ export function FulfilledWishlistCard({
   allocations,
   resolutions,
   sales,
+  disabled,
   undoing,
   onUndo,
 }: FulfilledWishlistCardProps) {
@@ -203,8 +205,8 @@ export function FulfilledWishlistCard({
       <Pressable
         accessibilityLabel={`撤销实现${item.name}`}
         accessibilityRole="button"
-        accessibilityState={{ disabled: undoing }}
-        disabled={undoing}
+        accessibilityState={{ disabled }}
+        disabled={disabled}
         onPress={confirmUndo}
         style={({ pressed }) => ({
           alignSelf: 'flex-start',
@@ -212,7 +214,7 @@ export function FulfilledWishlistCard({
           flexDirection: 'row',
           alignItems: 'center',
           gap: spacing.sm,
-          opacity: pressed || undoing ? 0.6 : 1,
+          opacity: pressed || disabled ? 0.6 : 1,
         })}>
         {undoing ? (
           <ActivityIndicator color={colors.danger} size="small" />
