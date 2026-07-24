@@ -1,6 +1,6 @@
 name = "worth-background"
 main = "src/main.py"
-compatibility_date = "2026-07-25"
+compatibility_date = "2026-07-24"
 compatibility_flags = ["python_workers", "python_workflows"]
 
 [vars]
