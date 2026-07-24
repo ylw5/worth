@@ -5,7 +5,7 @@ compatibility_flags = ["python_workers", "python_workflows"]
 
 [vars]
 OPENAI_MODEL = "openai/gpt-5.4"
-SUPABASE_URL = "https://etvfpaabcsgjorapopts.supabase.co"
+SUPABASE_URL = "https://erupkoghiiqiiyczivuc.supabase.co"
 
 [secrets]
 required = [

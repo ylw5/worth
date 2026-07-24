@@ -111,7 +111,7 @@ cd cloudflare
 npx wrangler@latest secret put SUPABASE_SERVICE_ROLE_KEY
 npx wrangler@latest secret put XIANYU_COOKIE
 npx wrangler@latest secret put AI_GATEWAY_API_KEY
-npx wrangler@latest deploy
+uv run pywrangler deploy
 ```
 
 密钥只输入到 Wrangler Secret 提示中，不写入 `.env`、配置文件或日志。
@@ -121,7 +121,7 @@ npx wrangler@latest deploy
 ```bash
 cd cloudflare
 uv run pytest -q
-npx wrangler@latest deploy --dry-run
+uv run pywrangler deploy --dry-run
 ```
 
 ## 4. 启动 App
