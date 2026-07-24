@@ -14,6 +14,7 @@ import {
   Pressable,
   ScrollView,
   Text,
+  View,
 } from 'react-native';
 
 import { AssetFormFields } from '@/components/asset-form-fields';
@@ -78,6 +79,9 @@ export default function CaptureScreen() {
   const [processing, setProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [awaitingInitialCamera, setAwaitingInitialCamera] = useState(
+    camera === '1',
+  );
   const saved = useRef(false);
   const openedInitialCamera = useRef(false);
 
@@ -274,6 +278,7 @@ export default function CaptureScreen() {
           fail('无法读取拍摄的照片');
           return;
         }
+        setAwaitingInitialCamera(false);
         await addInitialPhotos(firstPhoto);
       } catch (caught) {
         fail(caught instanceof Error ? caught.message : '拍照失败');
@@ -388,6 +393,15 @@ export default function CaptureScreen() {
       setSaving(false);
     }
   };
+
+  if (awaitingInitialCamera) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={{ flex: 1, backgroundColor: colors.background }} />
+      </>
+    );
+  }
 
   return (
     <>
