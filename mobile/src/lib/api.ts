@@ -68,8 +68,14 @@ export const estimateAsset = (asset: AssetInput) =>
 export const parseProduct = (url: string) =>
   request<ParsedProduct>('/products/parse', { url });
 
+export type ProductTextResult = {
+  intent: 'product' | 'chat';
+  product: ParsedProduct | null;
+  reply: string;
+};
+
 export const normalizeProductText = (text: string, price: number | null) =>
-  request<ParsedProduct>('/products/normalize-text', { text, price });
+  request<ProductTextResult>('/products/normalize-text', { text, price });
 
 export const analyzeProductPhotos = (imageUrls: string[]) =>
   request<ParsedProduct>('/products/analyze-images', {

@@ -89,6 +89,34 @@ def test_rejects_invalid_structured_result() -> None:
         service.classify_product("iPhone", "user")
 
 
+def test_interprets_greeting_as_chat_intent() -> None:
+    service = service_with(
+        '{"intent":"chat","normalized_title":"","category":"其他",'
+        '"subcategory":"","reply":"你好！想评估商品可以直接描述它。"}'
+    )
+
+    result = service.interpret_product_text("hello", "user")
+
+    assert result.intent == "chat"
+    assert result.reply == "你好！想评估商品可以直接描述它。"
+    request = service.client.chat.completions.create.call_args.kwargs
+    assert request["response_format"] == {"type": "json_object"}
+    assert request["temperature"] == 0
+
+
+def test_interprets_product_description_as_product_intent() -> None:
+    service = service_with(
+        '{"intent":"product","normalized_title":"Sony WH-1000XM6",'
+        '"category":"数码","subcategory":"耳机","reply":""}'
+    )
+
+    result = service.interpret_product_text("索尼降噪耳机 XM6", "user")
+
+    assert result.intent == "product"
+    assert result.normalized_title == "Sony WH-1000XM6"
+    assert result.subcategory == "耳机"
+
+
 def test_text_ai_prefers_deepseek_when_configured() -> None:
     service = build_text_ai(
         Settings(

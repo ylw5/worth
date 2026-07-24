@@ -26,6 +26,7 @@ import {
 } from '@/lib/evaluation-input';
 import {
   createPurchaseEvaluation,
+  evaluationDecisionLabels,
   listEvaluationAssets,
   listPurchaseEvaluations,
   type ParsedProduct,
@@ -45,6 +46,7 @@ export default function EvaluationScreen() {
   const [photos, setPhotos] = useState<AssetPhoto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [chatReply, setChatReply] = useState('');
 
   const analyze = async () => {
     if (!session) return;
@@ -56,6 +58,7 @@ export default function EvaluationScreen() {
 
     setLoading(true);
     setError('');
+    setChatReply('');
     let uploadedPaths: string[] = [];
     let saved = false;
     try {
@@ -86,10 +89,19 @@ export default function EvaluationScreen() {
             setError(description.error);
             return;
           }
-          product = await normalizeProductText(
+          const interpreted = await normalizeProductText(
             description.text,
             extractProductPrice(description.text),
           );
+          if (interpreted.intent === 'chat' || !interpreted.product) {
+            setChatReply(
+              interpreted.reply ||
+                '你好！想评估某件商品时，可以描述它、粘贴链接或发一张图片。',
+            );
+            setPrompt('');
+            return;
+          }
+          product = interpreted.product;
         }
       }
 
@@ -157,6 +169,24 @@ export default function EvaluationScreen() {
             </Text>
           ) : null}
 
+          {chatReply ? (
+            <View
+              style={{
+                maxWidth: '88%',
+                alignSelf: 'flex-start',
+                paddingHorizontal: 14,
+                paddingVertical: 11,
+                borderRadius: 16,
+                backgroundColor: colors.greenSoft,
+              }}>
+              <Text
+                selectable
+                style={{ color: colors.text, lineHeight: 22, fontSize: 15 }}>
+                {chatReply}
+              </Text>
+            </View>
+          ) : null}
+
           <View style={{ gap: 12 }}>
             <Text selectable style={{ color: colors.text, fontWeight: '700' }}>
               最近评估
@@ -187,9 +217,38 @@ export default function EvaluationScreen() {
                   style={{ color: colors.text, fontWeight: '700' }}>
                   {item.product_title}
                 </Text>
-                <Text selectable style={{ color: colors.green }}>
-                  {formatCurrency(item.product_price)}
-                </Text>
+                <View
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View
+                    style={{
+                      paddingHorizontal: 9,
+                      paddingVertical: 3,
+                      borderRadius: 999,
+                      backgroundColor:
+                        item.decision === 'buy'
+                          ? colors.green
+                          : item.decision === 'skip'
+                            ? colors.danger
+                            : colors.greenSoft,
+                    }}>
+                    <Text
+                      style={{
+                        color:
+                          !item.decision || item.decision === 'pending'
+                            ? colors.green
+                            : 'white',
+                        fontWeight: '700',
+                        fontSize: 12,
+                      }}>
+                      {evaluationDecisionLabels[item.decision ?? 'pending']}
+                    </Text>
+                  </View>
+                  {item.product_price !== null ? (
+                    <Text selectable style={{ color: colors.green }}>
+                      {formatCurrency(item.product_price)}
+                    </Text>
+                  ) : null}
+                </View>
                 <Text selectable style={{ color: colors.muted, fontSize: 13 }}>
                   {item.source_type === 'image'
                     ? '图片识别'

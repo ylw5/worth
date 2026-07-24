@@ -17,15 +17,18 @@ import { colors } from '@/constants/colors';
 import { streamPurchaseEvaluation } from '@/lib/api';
 import {
   createEvaluationMessage,
+  evaluationDecisionLabels,
+  extractDecision,
   getPurchaseEvaluation,
   listEvaluationMessages,
   productFromEvaluation,
+  stripDecisionMark,
+  updateEvaluationDecision,
   type EvaluationChatMessage,
   type StoredEvaluationMessage,
 } from '@/lib/evaluations';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { useSession } from '@/providers/session-provider';
-import { assetStatusLabels } from '@/types/domain';
 
 export default function EvaluationDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -51,6 +54,7 @@ export default function EvaluationDetailScreen() {
   if (!query.data) return <ErrorState message="评估记录不存在" />;
 
   const item = query.data;
+  const decision = item.decision ?? 'pending';
   const storedMessages = messagesQuery.data ?? [];
   const displayMessages: StoredEvaluationMessage[] = storedMessages.length
     ? storedMessages
@@ -95,16 +99,24 @@ export default function EvaluationDetailScreen() {
         history.slice(-100),
         setStreamingReply,
       );
+      const { decision: nextDecision, cleaned } = extractDecision(message);
       await createEvaluationMessage(
         item.id,
         session.user.id,
         'assistant',
-        message,
+        cleaned || message,
       );
+      if (nextDecision) {
+        // 结论写回失败（如迁移未应用）不应中断对话流程
+        await updateEvaluationDecision(item.id, nextDecision).catch(
+          () => undefined,
+        );
+      }
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ['evaluation-messages', id],
         }),
+        queryClient.invalidateQueries({ queryKey: ['purchase-evaluation', id] }),
         queryClient.invalidateQueries({ queryKey: ['purchase-evaluations'] }),
       ]);
     } catch (caught) {
@@ -151,11 +163,46 @@ export default function EvaluationDetailScreen() {
               style={{ color: colors.text, fontSize: 21, fontWeight: '800' }}>
               {item.product_title}
             </Text>
-            <Text
-              selectable
-              style={{ color: colors.green, fontSize: 28, fontWeight: '800' }}>
-              {formatCurrency(item.product_price)}
-            </Text>
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                flexWrap: 'wrap',
+              }}>
+              <View
+                style={{
+                  paddingHorizontal: 12,
+                  paddingVertical: 5,
+                  borderRadius: 999,
+                  backgroundColor:
+                    decision === 'buy'
+                      ? colors.green
+                      : decision === 'skip'
+                        ? colors.danger
+                        : colors.greenSoft,
+                }}>
+                <Text
+                  style={{
+                    color: decision === 'pending' ? colors.green : 'white',
+                    fontWeight: '800',
+                    fontSize: 15,
+                  }}>
+                  {evaluationDecisionLabels[decision]}
+                </Text>
+              </View>
+              {item.product_price !== null ? (
+                <Text
+                  selectable
+                  style={{
+                    color: colors.green,
+                    fontSize: 22,
+                    fontWeight: '800',
+                  }}>
+                  {formatCurrency(item.product_price)}
+                </Text>
+              ) : null}
+            </View>
             {item.source_text ? (
               <Text selectable style={{ color: colors.muted, lineHeight: 20 }}>
                 {item.source_text}
@@ -209,7 +256,7 @@ export default function EvaluationDetailScreen() {
                       lineHeight: 22,
                       fontSize: 15,
                     }}>
-                    {message.content}
+                    {stripDecisionMark(message.content)}
                   </Text>
                 </View>
               );
@@ -232,42 +279,12 @@ export default function EvaluationDetailScreen() {
                       lineHeight: 22,
                       fontSize: 15,
                     }}>
-                    {streamingReply}
+                    {stripDecisionMark(streamingReply)}
                   </Text>
                 ) : (
                   <ActivityIndicator color={colors.green} />
                 )}
               </View>
-            ) : null}
-          </View>
-
-          <View style={{ gap: 10 }}>
-            <Text selectable style={{ color: colors.text, fontWeight: '700' }}>
-              匹配到的资产
-            </Text>
-            {item.matched_assets.map((asset) => (
-              <View
-                key={asset.id}
-                style={{
-                  padding: 15,
-                  gap: 5,
-                  backgroundColor: colors.card,
-                  borderRadius: 14,
-                  borderCurve: 'continuous',
-                }}>
-                <Text selectable style={{ color: colors.text, fontWeight: '700' }}>
-                  {asset.name}
-                </Text>
-                <Text selectable style={{ color: colors.muted }}>
-                  {[asset.brand, asset.model].filter(Boolean).join(' ') || '—'} ·{' '}
-                  {assetStatusLabels[asset.status]}
-                </Text>
-              </View>
-            ))}
-            {!item.matched_assets.length ? (
-              <Text selectable style={{ color: colors.muted }}>
-                暂无可明确匹配的同类资产
-              </Text>
             ) : null}
           </View>
         </ScrollView>

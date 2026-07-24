@@ -4,8 +4,10 @@ from typing import Iterator, Protocol
 
 from .config import Settings
 from .deepseek_service import DeepSeekService
+from .evaluation_tools import ToolExecutor
 from .models import (
     AIProductClassification,
+    AIProductInterpretation,
     AssetInput,
     EvaluationAsset,
     EvaluationChatMessage,
@@ -22,6 +24,12 @@ class TextAIService(Protocol):
         title: str,
         user_id: str,
     ) -> AIProductClassification: ...
+
+    def interpret_product_text(
+        self,
+        text: str,
+        user_id: str,
+    ) -> AIProductInterpretation: ...
 
     def matching_ids(
         self,
@@ -46,6 +54,26 @@ class TextAIService(Protocol):
         facts: EvaluationFacts,
         messages: list[EvaluationChatMessage],
         user_id: str,
+    ) -> Iterator[str]: ...
+
+    def continue_evaluation_with_tools(
+        self,
+        product: ParsedProduct,
+        matched_assets: list[EvaluationAsset],
+        facts: EvaluationFacts,
+        messages: list[EvaluationChatMessage],
+        user_id: str,
+        tool_executor: ToolExecutor,
+    ) -> str: ...
+
+    def continue_evaluation_with_tools_stream(
+        self,
+        product: ParsedProduct,
+        matched_assets: list[EvaluationAsset],
+        facts: EvaluationFacts,
+        messages: list[EvaluationChatMessage],
+        user_id: str,
+        tool_executor: ToolExecutor,
     ) -> Iterator[str]: ...
 
 

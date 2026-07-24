@@ -48,6 +48,34 @@ export type PurchaseEvaluationResult = {
   narrative: string;
 };
 
+export type EvaluationDecision = 'pending' | 'buy' | 'skip';
+
+export const evaluationDecisionLabels: Record<EvaluationDecision, string> = {
+  pending: '评估中',
+  buy: '建议买',
+  skip: '建议不买',
+};
+
+const decisionMarkPattern = /\s*\[decision:(buy|skip)\]\s*/gi;
+
+export function extractDecision(message: string): {
+  decision: EvaluationDecision | null;
+  cleaned: string;
+} {
+  let decision: EvaluationDecision | null = null;
+  const cleaned = message
+    .replace(decisionMarkPattern, (_, value: string) => {
+      decision = value.toLowerCase() === 'buy' ? 'buy' : 'skip';
+      return '\n';
+    })
+    .trim();
+  return { decision, cleaned };
+}
+
+export function stripDecisionMark(message: string): string {
+  return message.replace(decisionMarkPattern, ' ');
+}
+
 export type PurchaseEvaluation = {
   id: string;
   user_id: string;
@@ -64,6 +92,7 @@ export type PurchaseEvaluation = {
   source_text: string;
   image_paths: string[];
   image_urls?: string[];
+  decision: EvaluationDecision;
   created_at: string;
   updated_at: string;
 };
@@ -156,6 +185,17 @@ export async function createPurchaseEvaluation(
     throw caught;
   }
   return evaluation;
+}
+
+export async function updateEvaluationDecision(
+  evaluationId: string,
+  decision: EvaluationDecision,
+): Promise<void> {
+  const { error } = await supabase
+    .from('purchase_evaluations')
+    .update({ decision })
+    .eq('id', evaluationId);
+  fail(error);
 }
 
 export async function listEvaluationMessages(

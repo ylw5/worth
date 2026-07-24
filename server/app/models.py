@@ -100,6 +100,14 @@ class AIProductClassification(BaseModel):
     subcategory: str
 
 
+class AIProductInterpretation(BaseModel):
+    intent: Literal["product", "chat"]
+    normalized_title: str
+    category: Category
+    subcategory: str
+    reply: str
+
+
 class AIProductRecognition(BaseModel):
     title: str
     price: Optional[float] = Field(gt=0)
@@ -115,6 +123,12 @@ class ParsedProduct(BaseModel):
     subcategory: str
     source_type: ProductSource = "url"
     source_text: str = ""
+
+
+class ProductTextResponse(BaseModel):
+    intent: Literal["product", "chat"]
+    product: Optional[ParsedProduct] = None
+    reply: str = ""
 
 
 class EvaluationAsset(BaseModel):
