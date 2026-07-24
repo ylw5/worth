@@ -40,6 +40,7 @@ async def collect_market_result(env, asset) -> MarketResult:
     client = AsyncOpenAI(
         api_key=env.AI_GATEWAY_API_KEY,
         base_url="https://ai-gateway.vercel.sh/v1",
+        timeout=120,
     )
     response = await client.responses.parse(
         model=env.OPENAI_MODEL,
