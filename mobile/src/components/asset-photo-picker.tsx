@@ -6,6 +6,7 @@ import Sortable from 'react-native-sortables';
 import { colors, radius, spacing, typography } from '@/constants/colors';
 import {
   maxAssetPhotos,
+  pickerAssetsToPhotos,
   setCover,
   type AssetPhoto,
 } from '@/lib/photos';
@@ -51,18 +52,9 @@ export function AssetPhotoPicker({
 }) {
   const add = (assets: ImagePicker.ImagePickerAsset[]) => {
     const remaining = maxAssetPhotos - photos.length;
-    const next = assets.slice(0, remaining).flatMap((asset, index) =>
-      asset.base64
-        ? [
-            {
-              id: `${asset.uri}-${Date.now()}-${index}`,
-              uri: asset.uri,
-              base64: asset.base64,
-            },
-          ]
-        : [],
-    );
-    if (next.length !== assets.slice(0, remaining).length) {
+    const selected = assets.slice(0, remaining);
+    const next = pickerAssetsToPhotos(selected, remaining);
+    if (next.length !== selected.length) {
       onError('无法读取所选照片');
       return;
     }

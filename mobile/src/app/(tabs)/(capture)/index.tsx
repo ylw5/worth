@@ -1,8 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { router, Stack, useNavigation } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import * as ImagePicker from 'expo-image-picker';
+import {
+  router,
+  Stack,
+  useLocalSearchParams,
+  useNavigation,
+} from 'expo-router';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -25,7 +32,10 @@ import {
   mergeRecognition,
   type ProtectedField,
 } from '@/lib/incremental-import';
-import type { AssetPhoto } from '@/lib/photos';
+import {
+  pickerAssetsToPhotos,
+  type AssetPhoto,
+} from '@/lib/photos';
 import { parsePurchaseInput } from '@/lib/purchase-input';
 import { useSession } from '@/providers/session-provider';
 import type { AssetInput } from '@/types/domain';
@@ -55,6 +65,7 @@ const recognizedFields: ProtectedField[] = [
 export default function CaptureScreen() {
   const navigation = useNavigation();
   const queryClient = useQueryClient();
+  const { camera } = useLocalSearchParams<{ camera?: string }>();
   const { session } = useSession();
   const [photos, setPhotoState] = useState<AssetPhoto[]>([]);
   const photosRef = useRef<AssetPhoto[]>([]);
@@ -66,6 +77,7 @@ export default function CaptureScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const saved = useRef(false);
+  const openedInitialCamera = useRef(false);
 
   const setPhotos = (
     update:
@@ -220,6 +232,52 @@ export default function CaptureScreen() {
       setProcessing(false);
     }
   };
+
+  const addInitialPhotos = useEffectEvent(addPhotos);
+
+  useEffect(() => {
+    if (camera !== '1' || openedInitialCamera.current || !session) return;
+    openedInitialCamera.current = true;
+
+    const returnHome = () => router.replace('/(tabs)/(assets)');
+    const fail = (message: string) =>
+      Alert.alert(
+        '无法拍照',
+        message,
+        [{ text: '知道了', onPress: returnHome }],
+        { cancelable: false },
+      );
+
+    void (async () => {
+      try {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          fail('需要相机权限才能拍照');
+          return;
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ['images'],
+          base64: true,
+          quality: 0.8,
+          cameraType: ImagePicker.CameraType.back,
+        });
+        if (result.canceled) {
+          returnHome();
+          return;
+        }
+
+        const firstPhoto = pickerAssetsToPhotos(result.assets, 1);
+        if (!firstPhoto.length) {
+          fail('无法读取拍摄的照片');
+          return;
+        }
+        await addInitialPhotos(firstPhoto);
+      } catch (caught) {
+        fail(caught instanceof Error ? caught.message : '拍照失败');
+      }
+    })();
+  }, [camera, session]);
 
   const retryPhoto = async (photo: AssetPhoto) => {
     if (processing) return;

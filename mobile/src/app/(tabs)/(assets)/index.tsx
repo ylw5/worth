@@ -72,7 +72,9 @@ export default function AssetsScreen() {
           title: '我的资产',
           headerLargeTitle: true,
           headerRight: () => (
-            <Link href="/capture" asChild>
+            <Link
+              href={{ pathname: '/capture', params: { camera: '1' } }}
+              asChild>
               <Pressable
                 accessibilityLabel="添加物品"
                 accessibilityRole="button"
