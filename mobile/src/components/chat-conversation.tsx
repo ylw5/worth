@@ -1,5 +1,4 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Host, Icon } from '@expo/ui';
 import { Image } from 'expo-image';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -9,10 +8,19 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
+import Animated, {
+  Easing,
+  interpolateColor,
+  type SharedValue,
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
+import { EvaluationComposer } from '@/components/evaluation-composer';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, radius, spacing } from '@/constants/colors';
 import { streamPurchaseEvaluation } from '@/lib/api';
@@ -32,11 +40,6 @@ import {
   type SpendingResolution,
 } from '@/lib/spending-resolutions';
 import { useSession } from '@/providers/session-provider';
-
-const sendIcon = Icon.select({
-  ios: 'arrow.up',
-  android: import('@expo/material-symbols/arrow_upward.xml'),
-});
 
 const formatResolutionAmount = (amount: number) =>
   new Intl.NumberFormat('zh-CN', {
@@ -220,8 +223,6 @@ export function ChatConversation({
     }
   };
 
-  const canSend = !sending && Boolean(draft.trim());
-
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
@@ -287,9 +288,7 @@ export function ChatConversation({
               content={stripDecisionMark(streamingReply)}
             />
           ) : (
-            <View style={{ paddingVertical: spacing.sm }}>
-              <ActivityIndicator color={colors.accent} />
-            </View>
+            <ThinkingShimmer />
           )
         ) : null}
       </ScrollView>
@@ -298,7 +297,7 @@ export function ChatConversation({
         style={{
           paddingHorizontal: spacing.lg,
           paddingTop: spacing.sm,
-          paddingBottom: keyboardVisible ? spacing.sm : spacing.md,
+          paddingBottom: keyboardVisible ? spacing.sm : spacing.xl,
         }}>
         {sendError ? (
           <Text
@@ -311,71 +310,88 @@ export function ChatConversation({
             {sendError}
           </Text>
         ) : null}
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'flex-end',
-            gap: spacing.sm,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.sm,
-            backgroundColor: colors.surface,
-            borderRadius: radius.pill,
-            borderCurve: 'continuous',
-            borderWidth: StyleSheet.hairlineWidth,
-            borderColor: colors.border,
-            boxShadow: '0 4px 16px rgba(11, 11, 13, 0.08)',
-          }}>
-          <TextInput
-            accessibilityLabel="回复"
-            multiline
-            onChangeText={setDraft}
-            placeholder="回复…"
-            placeholderTextColor={colors.textTertiary}
-            value={draft}
-            style={{
-              flex: 1,
-              maxHeight: 120,
-              minHeight: 40,
-              paddingHorizontal: spacing.xs,
-              paddingTop: 10,
-              paddingBottom: 10,
-              color: colors.textPrimary,
-              fontSize: 16,
-              lineHeight: 22,
-              textAlignVertical: 'top',
-            }}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="发送"
-            accessibilityState={{ disabled: !canSend }}
-            disabled={!canSend}
-            onPress={send}
-            style={({ pressed }) => ({
-              width: 36,
-              height: 36,
-              marginBottom: 2,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: radius.pill,
-              backgroundColor: canSend ? colors.accent : colors.surfaceMuted,
-              opacity: pressed ? 0.7 : 1,
-            })}>
-            {sending ? (
-              <ActivityIndicator color={colors.accent} size="small" />
-            ) : (
-              <Host matchContents>
-                <Icon
-                  name={sendIcon}
-                  size={18}
-                  color={canSend ? colors.onDark : colors.textTertiary}
-                />
-              </Host>
-            )}
-          </Pressable>
-        </View>
+        <EvaluationComposer
+          value={draft}
+          loading={sending}
+          accessibilityLabel="回复"
+          onChangeText={setDraft}
+          onSubmit={send}
+        />
       </View>
     </View>
+  );
+}
+
+const THINKING_LABEL = '正在思考';
+
+function ThinkingShimmer() {
+  const progress = useSharedValue(0);
+
+  useEffect(() => {
+    progress.value = withRepeat(
+      withTiming(1, {
+        duration: 1600,
+        easing: Easing.inOut(Easing.ease),
+      }),
+      -1,
+      false,
+    );
+  }, [progress]);
+
+  return (
+    <View
+      accessibilityRole="text"
+      accessibilityLabel={THINKING_LABEL}
+      style={{
+        flexDirection: 'row',
+        alignSelf: 'flex-start',
+        paddingVertical: spacing.sm,
+      }}>
+      {THINKING_LABEL.split('').map((char, index) => (
+        <ThinkingShimmerChar
+          key={`${char}-${index}`}
+          char={char}
+          index={index}
+          progress={progress}
+        />
+      ))}
+    </View>
+  );
+}
+
+function ThinkingShimmerChar({
+  char,
+  index,
+  progress,
+}: {
+  char: string;
+  index: number;
+  progress: SharedValue<number>;
+}) {
+  const style = useAnimatedStyle(() => {
+    const peak = progress.value * (THINKING_LABEL.length + 1) - 0.5;
+    const distance = Math.abs(index - peak);
+    const highlight = Math.max(0, 1 - distance);
+    return {
+      color: interpolateColor(
+        highlight,
+        [0, 1],
+        [colors.textTertiary, colors.textPrimary],
+      ),
+    };
+  });
+
+  return (
+    <Animated.Text
+      style={[
+        {
+          fontSize: 16,
+          lineHeight: 24,
+        },
+        style,
+      ]}>
+      {char}
+    </Animated.Text>
   );
 }
 

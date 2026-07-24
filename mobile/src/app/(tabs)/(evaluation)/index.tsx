@@ -1,8 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SymbolView } from 'expo-symbols';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -56,13 +57,42 @@ export default function EvaluationScreen() {
   const [photos, setPhotos] = useState<AssetPhoto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [chatReply, setChatReply] = useState('');
+  const [starterMessages, setStarterMessages] = useState<
+    { id: string; role: 'user' | 'assistant'; content: string }[]
+  >([]);
+  const starterScrollRef = useRef<ScrollView>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
     if (typeof params.id === 'string' && params.id) {
       setActiveId(params.id);
     }
   }, [params.id]);
+
+  useEffect(() => {
+    if (!starterMessages.length) return;
+    const timer = setTimeout(() => {
+      starterScrollRef.current?.scrollToEnd({ animated: true });
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [starterMessages.length]);
+
+  useEffect(() => {
+    const showEvent =
+      process.env.EXPO_OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      process.env.EXPO_OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () =>
+      setKeyboardVisible(true),
+    );
+    const hideSub = Keyboard.addListener(hideEvent, () =>
+      setKeyboardVisible(false),
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const handleTitleChange = useCallback((title: string) => {
     setConversationTitle(title);
@@ -74,7 +104,7 @@ export default function EvaluationScreen() {
     setPrompt('');
     setPhotos([]);
     setError('');
-    setChatReply('');
+    setStarterMessages([]);
     setOpen(false);
   };
 
@@ -83,7 +113,7 @@ export default function EvaluationScreen() {
     setPrompt('');
     setPhotos([]);
     setError('');
-    setChatReply('');
+    setStarterMessages([]);
     setOpen(false);
   };
 
@@ -97,7 +127,6 @@ export default function EvaluationScreen() {
 
     setLoading(true);
     setError('');
-    setChatReply('');
     let uploadedPaths: string[] = [];
     let saved = false;
     try {
@@ -133,10 +162,15 @@ export default function EvaluationScreen() {
             extractProductPrice(description.text),
           );
           if (interpreted.intent === 'chat' || !interpreted.product) {
-            setChatReply(
+            const reply =
               interpreted.reply ||
-                '你好！想聊聊某件商品时，可以描述它、粘贴链接或发一张图片。',
-            );
+              '你好！想聊聊某件商品时，可以描述它、粘贴链接或发一张图片。';
+            const stamp = Date.now();
+            setStarterMessages((prev) => [
+              ...prev,
+              { id: `user-${stamp}`, role: 'user', content: text },
+              { id: `assistant-${stamp}`, role: 'assistant', content: reply },
+            ]);
             setPrompt('');
             return;
           }
@@ -277,53 +311,75 @@ export default function EvaluationScreen() {
               onTitleChange={handleTitleChange}
             />
           ) : (
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{
-                flexGrow: 1,
-                paddingHorizontal: spacing.xl,
-                paddingTop: spacing.lg,
-                paddingBottom: spacing.xl,
-                gap: spacing.lg,
-              }}>
-              <EvaluationComposer
-                value={prompt}
-                photos={photos}
-                loading={loading}
-                onChangeText={setPrompt}
-                onChangePhotos={setPhotos}
-                onError={setError}
-                onSubmit={analyze}
-              />
+            <View style={{ flex: 1 }}>
+              <ScrollView
+                ref={starterScrollRef}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{
+                  flexGrow: 1,
+                  paddingHorizontal: spacing.xl,
+                  paddingTop: spacing.md,
+                  paddingBottom: spacing.lg,
+                  gap: spacing.lg,
+                }}>
+                {starterMessages.map((message) => {
+                  const fromUser = message.role === 'user';
+                  return (
+                    <View
+                      key={message.id}
+                      style={{
+                        maxWidth: fromUser ? '82%' : '88%',
+                        alignSelf: fromUser ? 'flex-end' : 'flex-start',
+                        paddingHorizontal: 14,
+                        paddingVertical: 11,
+                        borderRadius: 16,
+                        backgroundColor: fromUser
+                          ? colors.accentSoft
+                          : colors.greenSoft,
+                      }}>
+                      <Text
+                        selectable
+                        style={{
+                          color: colors.text,
+                          lineHeight: 22,
+                          fontSize: 15,
+                        }}>
+                        {message.content}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
 
-              {error ? (
-                <Text selectable style={{ color: colors.danger }}>
-                  {error}
-                </Text>
-              ) : null}
-
-              {chatReply ? (
-                <View
-                  style={{
-                    maxWidth: '88%',
-                    alignSelf: 'flex-start',
-                    paddingHorizontal: 14,
-                    paddingVertical: 11,
-                    borderRadius: 16,
-                    backgroundColor: colors.greenSoft,
-                  }}>
+              <View
+                style={{
+                  paddingHorizontal: spacing.lg,
+                  paddingTop: spacing.sm,
+                  paddingBottom: keyboardVisible ? spacing.sm : spacing.xl,
+                }}>
+                {error ? (
                   <Text
                     selectable
                     style={{
-                      color: colors.text,
-                      lineHeight: 22,
-                      fontSize: 15,
+                      color: colors.danger,
+                      marginBottom: spacing.sm,
+                      paddingHorizontal: spacing.xs,
                     }}>
-                    {chatReply}
+                    {error}
                   </Text>
-                </View>
-              ) : null}
-            </ScrollView>
+                ) : null}
+                <EvaluationComposer
+                  value={prompt}
+                  photos={photos}
+                  loading={loading}
+                  accessibilityLabel="描述商品或粘贴链接"
+                  onChangeText={setPrompt}
+                  onChangePhotos={setPhotos}
+                  onError={setError}
+                  onSubmit={analyze}
+                />
+              </View>
+            </View>
           )}
         </KeyboardAvoidingView>
       </Drawer>

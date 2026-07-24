@@ -1,50 +1,46 @@
-import { Host, Icon } from '@expo/ui';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
+import { SymbolView } from 'expo-symbols';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
+  StyleSheet,
   TextInput,
   View,
 } from 'react-native';
 
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing } from '@/constants/colors';
 import { maxAssetPhotos, type AssetPhoto } from '@/lib/photos';
 
-const addIcon = Icon.select({
-  ios: 'plus',
-  android: import('@expo/material-symbols/add.xml'),
-});
-const sendIcon = Icon.select({
-  ios: 'arrow.up',
-  android: import('@expo/material-symbols/arrow_upward.xml'),
-});
-const closeIcon = Icon.select({
-  ios: 'xmark',
-  android: import('@expo/material-symbols/close.xml'),
-});
+const COMPOSER_CONTROL_SIZE = 48;
+const SEND_BUTTON_SIZE = 36;
 
 export function EvaluationComposer({
   value,
   photos,
   loading,
+  accessibilityLabel = '描述商品或粘贴链接',
   onChangeText,
   onChangePhotos,
   onError,
   onSubmit,
 }: {
   value: string;
-  photos: AssetPhoto[];
+  photos?: AssetPhoto[];
   loading: boolean;
+  accessibilityLabel?: string;
   onChangeText: (value: string) => void;
-  onChangePhotos: (photos: AssetPhoto[]) => void;
-  onError: (message: string) => void;
+  onChangePhotos?: (photos: AssetPhoto[]) => void;
+  onError?: (message: string) => void;
   onSubmit: () => void;
 }) {
+  const attachedPhotos = photos ?? [];
+  const allowPhotos = Boolean(onChangePhotos);
+
   const addPhotos = (assets: ImagePicker.ImagePickerAsset[]) => {
-    const remaining = maxAssetPhotos - photos.length;
+    if (!onChangePhotos || !onError) return;
+    const remaining = maxAssetPhotos - attachedPhotos.length;
     const selected = assets.slice(0, remaining);
     const next = selected.flatMap((asset, index) =>
       asset.base64
@@ -62,10 +58,11 @@ export function EvaluationComposer({
       return;
     }
     onError('');
-    onChangePhotos([...photos, ...next]);
+    onChangePhotos([...attachedPhotos, ...next]);
   };
 
   const takePhoto = async () => {
+    if (!onError) return;
     try {
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
@@ -85,6 +82,7 @@ export function EvaluationComposer({
   };
 
   const pickPhotos = async () => {
+    if (!onError) return;
     try {
       const permission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -95,7 +93,7 @@ export function EvaluationComposer({
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: true,
-        selectionLimit: maxAssetPhotos - photos.length,
+        selectionLimit: maxAssetPhotos - attachedPhotos.length,
         base64: true,
         quality: 0.8,
       });
@@ -106,7 +104,8 @@ export function EvaluationComposer({
   };
 
   const chooseSource = () => {
-    if (photos.length >= maxAssetPhotos) {
+    if (!onError) return;
+    if (attachedPhotos.length >= maxAssetPhotos) {
       onError(`最多添加 ${maxAssetPhotos} 张图片`);
       return;
     }
@@ -117,133 +116,151 @@ export function EvaluationComposer({
     ]);
   };
 
-  const disabled = loading || (!value.trim() && !photos.length);
+  const canSend =
+    !loading && (Boolean(value.trim()) || attachedPhotos.length > 0);
 
   return (
-    <View
-      style={{
-        gap: 10,
-        paddingHorizontal: 14,
-        paddingTop: 14,
-        paddingBottom: 11,
-        backgroundColor: colors.card,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: 26,
-        borderCurve: 'continuous',
-        boxShadow: '0 5px 18px rgba(29, 33, 30, 0.06)',
-      }}>
-      {photos.length ? (
+    <View style={{ gap: spacing.sm }}>
+      {attachedPhotos.length && onChangePhotos ? (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: 9 }}>
-          {photos.map((photo, index) => (
+          contentContainerStyle={{
+            gap: spacing.sm,
+            paddingLeft: allowPhotos ? COMPOSER_CONTROL_SIZE + spacing.sm : 0,
+          }}>
+          {attachedPhotos.map((photo, index) => (
             <View key={photo.id}>
               <Image
                 source={photo.uri}
                 contentFit="cover"
-                style={{ width: 68, height: 68, borderRadius: 12 }}
+                style={{ width: 64, height: 64, borderRadius: 12 }}
               />
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`删除第 ${index + 1} 张图片`}
                 onPress={() =>
                   onChangePhotos(
-                    photos.filter((candidate) => candidate.id !== photo.id),
+                    attachedPhotos.filter(
+                      (candidate) => candidate.id !== photo.id,
+                    ),
                   )
                 }
                 style={({ pressed }) => ({
                   position: 'absolute',
                   top: 4,
                   right: 4,
-                  width: 23,
-                  height: 23,
+                  width: 22,
+                  height: 22,
                   alignItems: 'center',
                   justifyContent: 'center',
                   borderRadius: 99,
-                  backgroundColor: 'rgba(29, 33, 30, 0.72)',
+                  backgroundColor: 'rgba(11, 11, 13, 0.72)',
                   opacity: pressed ? 0.65 : 1,
                 })}>
-                <Host matchContents>
-                  <Icon name={closeIcon} size={13} color="white" />
-                </Host>
+                <SymbolView
+                  name={{ ios: 'xmark', android: 'close', web: 'close' }}
+                  size={12}
+                  tintColor="white"
+                />
               </Pressable>
             </View>
           ))}
         </ScrollView>
       ) : null}
 
-      <TextInput
-        accessibilityLabel="描述商品或粘贴链接"
-        autoCapitalize="none"
-        autoCorrect={false}
-        multiline
-        onChangeText={onChangeText}
-        placeholder="描述商品、粘贴链接，或添加图片…"
-        placeholderTextColor="#A7AAA7"
-        value={value}
-        style={{
-          minHeight: photos.length ? 54 : 76,
-          maxHeight: 150,
-          paddingHorizontal: 3,
-          paddingTop: 2,
-          color: colors.text,
-          fontSize: 17,
-          lineHeight: 24,
-          textAlignVertical: 'top',
-        }}
-      />
-
       <View
         style={{
-          minHeight: 42,
           flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 10,
+          gap: spacing.sm,
         }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="添加图片或拍照"
-          onPress={chooseSource}
-          style={({ pressed }) => ({
-            width: 38,
-            height: 38,
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 99,
-            backgroundColor: colors.background,
-            opacity: pressed ? 0.62 : 1,
-          })}>
-          <Host matchContents>
-            <Icon name={addIcon} size={24} color={colors.text} />
-          </Host>
-        </Pressable>
+        {allowPhotos ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="添加图片或拍照"
+            onPress={chooseSource}
+            style={({ pressed }) => ({
+              width: COMPOSER_CONTROL_SIZE,
+              height: COMPOSER_CONTROL_SIZE,
+              flexShrink: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: radius.pill,
+              backgroundColor: colors.surfaceMuted,
+              opacity: pressed ? 0.7 : 1,
+            })}>
+            <SymbolView
+              name={{ ios: 'photo', android: 'image', web: 'image' }}
+              size={20}
+              tintColor={colors.textPrimary}
+            />
+          </Pressable>
+        ) : null}
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="发送并开始评估"
-          accessibilityState={{ disabled }}
-          disabled={disabled}
-          onPress={onSubmit}
-          style={({ pressed }) => ({
-            width: 42,
-            height: 42,
+        <View
+          style={{
+            flex: 1,
+            minWidth: 0,
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 99,
-            backgroundColor: disabled ? '#D8D9D7' : colors.green,
-            opacity: pressed ? 0.68 : 1,
-          })}>
-          {loading ? (
-            <ActivityIndicator color="white" size="small" />
-          ) : (
-            <Host matchContents>
-              <Icon name={sendIcon} size={22} color="white" />
-            </Host>
-          )}
-        </Pressable>
+            gap: spacing.sm,
+            height: COMPOSER_CONTROL_SIZE,
+            paddingLeft: spacing.md,
+            paddingRight: 4,
+            backgroundColor: colors.surface,
+            borderRadius: radius.pill,
+            borderCurve: 'continuous',
+            borderWidth: StyleSheet.hairlineWidth,
+            borderColor: colors.border,
+            boxShadow: '0 4px 16px rgba(11, 11, 13, 0.08)',
+          }}>
+          <TextInput
+            accessibilityLabel={accessibilityLabel}
+            autoCapitalize="none"
+            autoCorrect={false}
+            onChangeText={onChangeText}
+            value={value}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              height: COMPOSER_CONTROL_SIZE - 2,
+              paddingTop: 0,
+              paddingBottom: 0,
+              color: colors.textPrimary,
+              fontSize: 16,
+              lineHeight: 20,
+              textAlignVertical: 'center',
+            }}
+          />
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="发送"
+            accessibilityState={{ disabled: !canSend }}
+            disabled={!canSend}
+            onPress={onSubmit}
+            style={({ pressed }) => ({
+              width: SEND_BUTTON_SIZE,
+              height: SEND_BUTTON_SIZE,
+              flexShrink: 0,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: radius.pill,
+              backgroundColor: canSend ? colors.accent : colors.surfaceMuted,
+              opacity: pressed ? 0.7 : 1,
+            })}>
+            <SymbolView
+              name={{
+                ios: 'arrow.up',
+                android: 'arrow_upward',
+                web: 'arrow_upward',
+              }}
+              size={16}
+              tintColor={canSend ? colors.onDark : colors.textTertiary}
+            />
+          </Pressable>
+        </View>
       </View>
     </View>
   );
