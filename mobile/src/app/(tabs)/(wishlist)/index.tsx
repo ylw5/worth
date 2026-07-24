@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 
+import { FulfilledWishlistCard } from '@/components/fulfilled-wishlist-card';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { WishlistCard } from '@/components/wishlist-card';
 import { colors, radius, spacing, typography } from '@/constants/colors';
@@ -27,8 +28,18 @@ import {
   type ConfirmedSpendingResolution,
 } from '@/lib/spending-resolutions';
 import {
+  getAllocatedAmount,
+  getAvailableAmount,
+} from '@/lib/wishlist-allocations';
+import {
+  listWishlistFundingAllocations,
+  unfulfillWishlistItem,
+  type WishlistFundingAllocation,
+} from '@/lib/wishlist-fulfillment';
+import {
   deleteWishlistItem,
   listWishlistItems,
+  type WishlistItem,
 } from '@/lib/wishlist';
 import {
   getWishlistCarouselIndex,
@@ -41,15 +52,33 @@ type FundingTab = 'spending' | 'sales';
 function WishlistFundingDetails({
   resolutions,
   sales,
+  allocations,
 }: {
   resolutions: ConfirmedSpendingResolution[];
   sales: AssetSaleWithName[];
+  allocations: WishlistFundingAllocation[];
 }) {
   const [activeTab, setActiveTab] = useState<FundingTab>('spending');
   const spendingTotal = sumAmounts(
-    resolutions.map((resolution) => resolution.amount),
+    resolutions.map((resolution) =>
+      getAvailableAmount(
+        resolution.amount,
+        getAllocatedAmount(
+          allocations,
+          'spending_resolution',
+          resolution.id,
+        ),
+      ),
+    ),
   );
-  const salesTotal = sumAmounts(sales.map((sale) => sale.sale_price));
+  const salesTotal = sumAmounts(
+    sales.map((sale) =>
+      getAvailableAmount(
+        sale.sale_price,
+        getAllocatedAmount(allocations, 'asset_sale', sale.id),
+      ),
+    ),
+  );
   const tabs: { key: FundingTab; label: string }[] = [
     { key: 'spending', label: '忍住消费' },
     { key: 'sales', label: '已卖闲置' },
@@ -111,7 +140,7 @@ function WishlistFundingDetails({
         <Text
           selectable
           style={{ color: colors.textSecondary, ...typography.label }}>
-          累计金额
+          可用金额
         </Text>
         <Text
           selectable
@@ -127,9 +156,87 @@ function WishlistFundingDetails({
       <View style={{ gap: spacing.md }}>
         {activeTab === 'spending' ? (
           resolutions.length ? (
-            resolutions.map((resolution) => (
+            resolutions.map((resolution) => {
+              const usedAmount = getAllocatedAmount(
+                allocations,
+                'spending_resolution',
+                resolution.id,
+              );
+              const availableAmount = getAvailableAmount(
+                resolution.amount,
+                usedAmount,
+              );
+              return (
+                <View
+                  key={resolution.id}
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    gap: spacing.md,
+                    paddingVertical: spacing.sm,
+                  }}>
+                  <View style={{ flex: 1, gap: spacing.xs }}>
+                    <Text
+                      selectable
+                      numberOfLines={2}
+                      style={{
+                        color: colors.textPrimary,
+                        ...typography.body,
+                      }}>
+                      {resolution.product_snapshot.title}
+                    </Text>
+                    <Text
+                      selectable
+                      style={{
+                        color: colors.textSecondary,
+                        ...typography.caption,
+                      }}>
+                      {formatDate(resolution.confirmed_at)}
+                    </Text>
+                    <Text
+                      selectable
+                      style={{
+                        color: colors.textSecondary,
+                        ...typography.caption,
+                      }}>
+                      原 {formatCurrency(resolution.amount)} · 已使用{' '}
+                      {formatCurrency(usedAmount)}
+                    </Text>
+                  </View>
+                  <Text
+                    selectable
+                    style={{
+                      color: colors.textPrimary,
+                      ...typography.body,
+                      fontWeight: '600',
+                      fontVariant: ['tabular-nums'],
+                    }}>
+                    可用 {formatCurrency(availableAmount)}
+                  </Text>
+                </View>
+              );
+            })
+          ) : (
+            <Text
+              selectable
+              style={{ color: colors.textSecondary, ...typography.body }}>
+              还没有忍住消费记录
+            </Text>
+          )
+        ) : sales.length ? (
+          sales.map((sale) => {
+            const usedAmount = getAllocatedAmount(
+              allocations,
+              'asset_sale',
+              sale.id,
+            );
+            const availableAmount = getAvailableAmount(
+              sale.sale_price,
+              usedAmount,
+            );
+            return (
               <View
-                key={resolution.id}
+                key={sale.id}
                 style={{
                   flexDirection: 'row',
                   justifyContent: 'space-between',
@@ -144,7 +251,7 @@ function WishlistFundingDetails({
                       color: colors.textPrimary,
                       ...typography.body,
                     }}>
-                    {resolution.product_snapshot.title}
+                    {sale.asset.name}
                   </Text>
                   <Text
                     selectable
@@ -152,7 +259,16 @@ function WishlistFundingDetails({
                       color: colors.textSecondary,
                       ...typography.caption,
                     }}>
-                    {formatDate(resolution.confirmed_at)}
+                    {formatDateOnly(sale.sold_at)}
+                  </Text>
+                  <Text
+                    selectable
+                    style={{
+                      color: colors.textSecondary,
+                      ...typography.caption,
+                    }}>
+                    原 {formatCurrency(sale.sale_price)} · 已使用{' '}
+                    {formatCurrency(usedAmount)}
                   </Text>
                 </View>
                 <Text
@@ -163,58 +279,11 @@ function WishlistFundingDetails({
                     fontWeight: '600',
                     fontVariant: ['tabular-nums'],
                   }}>
-                  {formatCurrency(resolution.amount)}
+                  可用 {formatCurrency(availableAmount)}
                 </Text>
               </View>
-            ))
-          ) : (
-            <Text
-              selectable
-              style={{ color: colors.textSecondary, ...typography.body }}>
-              还没有忍住消费记录
-            </Text>
-          )
-        ) : sales.length ? (
-          sales.map((sale) => (
-            <View
-              key={sale.id}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                gap: spacing.md,
-                paddingVertical: spacing.sm,
-              }}>
-              <View style={{ flex: 1, gap: spacing.xs }}>
-                <Text
-                  selectable
-                  numberOfLines={2}
-                  style={{
-                    color: colors.textPrimary,
-                    ...typography.body,
-                  }}>
-                  {sale.asset.name}
-                </Text>
-                <Text
-                  selectable
-                  style={{
-                    color: colors.textSecondary,
-                    ...typography.caption,
-                  }}>
-                  {formatDateOnly(sale.sold_at)}
-                </Text>
-              </View>
-              <Text
-                selectable
-                style={{
-                  color: colors.textPrimary,
-                  ...typography.body,
-                  fontWeight: '600',
-                  fontVariant: ['tabular-nums'],
-                }}>
-                {formatCurrency(sale.sale_price)}
-              </Text>
-            </View>
-          ))
+            );
+          })
         ) : (
           <Text
             selectable
@@ -241,33 +310,76 @@ export default function WishlistScreen() {
     queryKey: ['asset-sales'],
     queryFn: listAssetSales,
   });
+  const allocationsQuery = useQuery({
+    queryKey: ['wishlist-funding-allocations'],
+    queryFn: listWishlistFundingAllocations,
+  });
   const resolutions = resolutionsQuery.data ?? [];
   const sales = salesQuery.data ?? [];
+  const allocations = allocationsQuery.data ?? [];
   const spendingTotal = sumAmounts(
-    resolutions.map((resolution) => resolution.amount),
+    resolutions.map((resolution) =>
+      getAvailableAmount(
+        resolution.amount,
+        getAllocatedAmount(
+          allocations,
+          'spending_resolution',
+          resolution.id,
+        ),
+      ),
+    ),
   );
-  const salesTotal = sumAmounts(sales.map((sale) => sale.sale_price));
+  const salesTotal = sumAmounts(
+    sales.map((sale) =>
+      getAvailableAmount(
+        sale.sale_price,
+        getAllocatedAmount(allocations, 'asset_sale', sale.id),
+      ),
+    ),
+  );
   const fundedAmount = spendingTotal + salesTotal;
   const refetchResolutions = resolutionsQuery.refetch;
   const refetchSales = salesQuery.refetch;
+  const refetchAllocations = allocationsQuery.refetch;
   useFocusEffect(
     useCallback(() => {
-      void Promise.all([refetchResolutions(), refetchSales()]);
-    }, [refetchResolutions, refetchSales]),
+      void Promise.all([
+        refetchResolutions(),
+        refetchSales(),
+        refetchAllocations(),
+      ]);
+    }, [refetchAllocations, refetchResolutions, refetchSales]),
   );
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState('');
+  const [undoingId, setUndoingId] = useState<string | null>(null);
+  const [undoError, setUndoError] = useState('');
 
   const { width: screenWidth } = useWindowDimensions();
   const { cardWidth, gap, sidePadding, snapInterval } =
     getWishlistCarouselMetrics(screenWidth, { gap: spacing.md });
   const items = query.data ?? [];
-  const fundingLoading = resolutionsQuery.isLoading || salesQuery.isLoading;
-  const fundingError = resolutionsQuery.error ?? salesQuery.error;
+  const activeItems = items.filter((item) => !item.fulfilled_at);
+  const fulfilledItems = items.flatMap((item) =>
+    item.actual_price !== null && item.fulfilled_at
+      ? [
+          item as WishlistItem & {
+            actual_price: number;
+            fulfilled_at: string;
+          },
+        ]
+      : [],
+  );
+  const fundingLoading =
+    resolutionsQuery.isLoading ||
+    salesQuery.isLoading ||
+    allocationsQuery.isLoading;
+  const fundingError =
+    resolutionsQuery.error ?? salesQuery.error ?? allocationsQuery.error;
   const [activeIndex, setActiveIndex] = useState(0);
   const visibleActiveIndex = Math.min(
     activeIndex,
-    Math.max(items.length - 1, 0),
+    Math.max(activeItems.length - 1, 0),
   );
 
   const onCarouselScrollEnd = useCallback(
@@ -276,11 +388,11 @@ export default function WishlistScreen() {
         getWishlistCarouselIndex(
           event.nativeEvent.contentOffset.x,
           snapInterval,
-          items.length,
+          activeItems.length,
         ),
       );
     },
-    [items.length, snapInterval],
+    [activeItems.length, snapInterval],
   );
 
   const confirmDelete = (id: string, name: string) => {
@@ -305,6 +417,24 @@ export default function WishlistScreen() {
         },
       },
     ]);
+  };
+
+  const undoFulfillment = async (id: string) => {
+    setUndoingId(id);
+    setUndoError('');
+    try {
+      await unfulfillWishlistItem(id);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['wishlist'] }),
+        queryClient.invalidateQueries({
+          queryKey: ['wishlist-funding-allocations'],
+        }),
+      ]);
+    } catch (caught) {
+      setUndoError(caught instanceof Error ? caught.message : '撤销失败');
+    } finally {
+      setUndoingId(null);
+    }
   };
 
   return (
@@ -345,6 +475,7 @@ export default function WishlistScreen() {
           {query.error ? <ErrorState message={query.error.message} /> : null}
           {fundingError ? <ErrorState message={fundingError.message} /> : null}
           {deleteError ? <ErrorState message={deleteError} /> : null}
+          {undoError ? <ErrorState message={undoError} /> : null}
         </View>
         {!query.isLoading &&
         !query.error &&
@@ -380,64 +511,125 @@ export default function WishlistScreen() {
         {!fundingLoading && !fundingError && items.length > 0 ? (
           <View
             style={{ flexGrow: 0, paddingTop: spacing.xl, gap: spacing.lg }}>
-            <FlatList
-              horizontal
-              data={items}
-              keyExtractor={(item) => item.id}
-              showsHorizontalScrollIndicator={false}
-              decelerationRate="fast"
-              snapToInterval={snapInterval}
-              snapToAlignment="start"
-              disableIntervalMomentum
-              contentContainerStyle={{
-                paddingHorizontal: sidePadding,
-              }}
-              onMomentumScrollEnd={onCarouselScrollEnd}
-              renderItem={({ item, index }) => (
-                <WishlistCard
-                  item={item}
-                  fundedAmount={fundedAmount}
-                  deleting={deletingId === item.id}
-                  onDelete={confirmDelete}
-                  style={{
-                    width: cardWidth,
-                    marginRight: index === items.length - 1 ? 0 : gap,
+            {activeItems.length ? (
+              <>
+                <FlatList
+                  horizontal
+                  data={activeItems}
+                  keyExtractor={(item) => item.id}
+                  showsHorizontalScrollIndicator={false}
+                  decelerationRate="fast"
+                  snapToInterval={snapInterval}
+                  snapToAlignment="start"
+                  disableIntervalMomentum
+                  contentContainerStyle={{
+                    paddingHorizontal: sidePadding,
                   }}
+                  onMomentumScrollEnd={onCarouselScrollEnd}
+                  renderItem={({ item, index }) => (
+                    <WishlistCard
+                      item={item}
+                      fundedAmount={fundedAmount}
+                      deleting={deletingId === item.id}
+                      onDelete={confirmDelete}
+                      style={{
+                        width: cardWidth,
+                        marginRight:
+                          index === activeItems.length - 1 ? 0 : gap,
+                      }}
+                    />
+                  )}
                 />
-              )}
+                {activeItems.length > 1 ? (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      justifyContent: 'center',
+                      gap: spacing.sm,
+                    }}>
+                    {activeItems.map((item, index) => (
+                      <View
+                        key={item.id}
+                        accessibilityLabel={
+                          index === visibleActiveIndex
+                            ? `第${index + 1}张，当前`
+                            : `第${index + 1}张`
+                        }
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: radius.pill,
+                          backgroundColor:
+                            index === visibleActiveIndex
+                              ? colors.accent
+                              : colors.border,
+                        }}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+              </>
+            ) : (
+              <View style={{ paddingHorizontal: spacing.xl }}>
+                <View
+                  style={{
+                    padding: spacing.lg,
+                    alignItems: 'center',
+                    gap: spacing.md,
+                    backgroundColor: colors.surface,
+                    borderRadius: radius.large,
+                    borderCurve: 'continuous',
+                  }}>
+                  <Text
+                    selectable
+                    style={{
+                      color: colors.textPrimary,
+                      ...typography.cardTitle,
+                    }}>
+                    还没有待实现的心愿
+                  </Text>
+                  <Link
+                    href="/(tabs)/(wishlist)/add"
+                    style={{ color: colors.accent }}>
+                    添加心愿
+                  </Link>
+                </View>
+              </View>
+            )}
+            <WishlistFundingDetails
+              resolutions={resolutions}
+              sales={sales}
+              allocations={allocations}
             />
-            {items.length > 1 ? (
+            {fulfilledItems.length ? (
               <View
                 style={{
-                  flexDirection: 'row',
-                  justifyContent: 'center',
-                  gap: spacing.sm,
+                  paddingHorizontal: spacing.xl,
+                  paddingTop: spacing.xxxl,
+                  gap: spacing.md,
                 }}>
-                {items.map((item, index) => (
-                  <View
+                <Text
+                  accessibilityRole="header"
+                  selectable
+                  style={{
+                    color: colors.textPrimary,
+                    ...typography.sectionTitle,
+                  }}>
+                  已实现
+                </Text>
+                {fulfilledItems.map((item) => (
+                  <FulfilledWishlistCard
                     key={item.id}
-                    accessibilityLabel={
-                      index === visibleActiveIndex
-                        ? `第${index + 1}张，当前`
-                        : `第${index + 1}张`
-                    }
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: radius.pill,
-                      backgroundColor:
-                        index === visibleActiveIndex
-                          ? colors.accent
-                          : colors.border,
-                    }}
+                    item={item}
+                    allocations={allocations}
+                    resolutions={resolutions}
+                    sales={sales}
+                    undoing={undoingId === item.id}
+                    onUndo={(id) => void undoFulfillment(id)}
                   />
                 ))}
               </View>
             ) : null}
-            <WishlistFundingDetails
-              resolutions={resolutions}
-              sales={sales}
-            />
           </View>
         ) : null}
       </ScrollView>

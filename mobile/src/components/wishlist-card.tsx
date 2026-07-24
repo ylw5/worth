@@ -176,6 +176,24 @@ export function WishlistCard({
           查看今日卖出方案
         </Text>
       </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`实现${item.name}`}
+        onPress={() =>
+          router.push({
+            pathname: '/(tabs)/(wishlist)/fulfill/[id]',
+            params: { id: item.id },
+          })
+        }
+        style={({ pressed }) => ({
+          alignSelf: 'flex-start',
+          paddingVertical: 5,
+          opacity: pressed ? 0.6 : 1,
+        })}>
+        <Text style={{ color: colors.accent, fontWeight: '700' }}>
+          实现心愿
+        </Text>
+      </Pressable>
     </View>
   );
 }
