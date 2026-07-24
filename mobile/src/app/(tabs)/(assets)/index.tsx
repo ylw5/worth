@@ -14,7 +14,13 @@ import { AssetCard } from '@/components/asset-card';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, radius, spacing, typography } from '@/constants/colors';
 import { getAssetGridColumns } from '@/lib/asset-grid';
-import { isCurrentAsset } from '@/lib/asset-status';
+import {
+  assetStatusLabels,
+  assetStatuses,
+  isCurrentAsset,
+  matchesAssetFilters,
+  type AssetStatus,
+} from '@/lib/asset-status';
 import { listAssets } from '@/lib/assets';
 import { formatCurrency } from '@/lib/format';
 
@@ -32,6 +38,7 @@ export default function AssetsScreen() {
     () => assets.filter(isCurrentAsset),
     [assets],
   );
+  const [selectedStatus, setSelectedStatus] = useState<AssetStatus | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const total = currentAssets.reduce(
@@ -45,18 +52,18 @@ export default function AssetsScreen() {
 
   const categories = useMemo(
     () =>
-      Object.entries(
-        currentAssets.reduce<Record<string, number>>((counts, asset) => {
-          counts[asset.category] = (counts[asset.category] ?? 0) + 1;
-          return counts;
+      Object.keys(
+        assets.reduce<Record<string, true>>((result, asset) => {
+          result[asset.category] = true;
+          return result;
         }, {}),
-      ).sort(([a], [b]) => a.localeCompare(b, 'zh-CN')),
-    [currentAssets],
+      ).sort((a, b) => a.localeCompare(b, 'zh-CN')),
+    [assets],
   );
 
-  const filteredAssets = selectedCategory
-    ? assets.filter((asset) => asset.category === selectedCategory)
-    : assets;
+  const filteredAssets = assets.filter((asset) =>
+    matchesAssetFilters(asset, selectedStatus, selectedCategory),
+  );
 
   return (
     <>
@@ -118,7 +125,7 @@ export default function AssetsScreen() {
         {query.isLoading ? <LoadingState /> : null}
         {query.error ? <ErrorState message={query.error.message} /> : null}
 
-        {categories.length > 1 ? (
+        <View style={{ gap: spacing.md }}>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -128,23 +135,24 @@ export default function AssetsScreen() {
             }}>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setSelectedCategory(null)}
+              accessibilityState={{ selected: selectedStatus === null }}
+              onPress={() => setSelectedStatus(null)}
               style={{
                 height: 28,
                 paddingHorizontal:
-                  selectedCategory === null ? spacing.md : 0,
+                  selectedStatus === null ? spacing.md : 0,
                 borderRadius: radius.pill,
                 alignItems: 'center',
                 justifyContent: 'center',
                 backgroundColor:
-                  selectedCategory === null
+                  selectedStatus === null
                     ? colors.textPrimary
                     : 'transparent',
               }}>
               <Text
                 style={{
                   color:
-                    selectedCategory === null
+                    selectedStatus === null
                       ? colors.onDark
                       : colors.textSecondary,
                   ...typography.label,
@@ -152,13 +160,14 @@ export default function AssetsScreen() {
                 全部
               </Text>
             </Pressable>
-            {categories.map(([category]) => {
-              const selected = selectedCategory === category;
+            {assetStatuses.map((status) => {
+              const selected = selectedStatus === status;
               return (
                 <Pressable
-                  key={category}
+                  key={status}
                   accessibilityRole="button"
-                  onPress={() => setSelectedCategory(category)}
+                  accessibilityState={{ selected }}
+                  onPress={() => setSelectedStatus(status)}
                   style={{
                     height: 28,
                     paddingHorizontal: selected ? spacing.md : 0,
@@ -176,13 +185,81 @@ export default function AssetsScreen() {
                         : colors.textSecondary,
                       ...typography.label,
                     }}>
-                    {category}
+                    {assetStatusLabels[status]}
                   </Text>
                 </Pressable>
               );
             })}
           </ScrollView>
-        ) : null}
+
+          {categories.length > 1 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{
+                gap: spacing.xl,
+                alignItems: 'center',
+              }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedCategory === null }}
+                onPress={() => setSelectedCategory(null)}
+                style={{
+                  height: 28,
+                  paddingHorizontal:
+                    selectedCategory === null ? spacing.md : 0,
+                  borderRadius: radius.pill,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor:
+                    selectedCategory === null
+                      ? colors.textPrimary
+                      : 'transparent',
+                }}>
+                <Text
+                  style={{
+                    color:
+                      selectedCategory === null
+                        ? colors.onDark
+                        : colors.textSecondary,
+                    ...typography.label,
+                  }}>
+                  全部
+                </Text>
+              </Pressable>
+              {categories.map((category) => {
+                const selected = selectedCategory === category;
+                return (
+                  <Pressable
+                    key={category}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => setSelectedCategory(category)}
+                    style={{
+                      height: 28,
+                      paddingHorizontal: selected ? spacing.md : 0,
+                      borderRadius: radius.pill,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: selected
+                        ? colors.textPrimary
+                        : 'transparent',
+                    }}>
+                    <Text
+                      style={{
+                        color: selected
+                          ? colors.onDark
+                          : colors.textSecondary,
+                        ...typography.label,
+                      }}>
+                      {category}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
+        </View>
 
         <View style={{ gap: spacing.md }}>
           {!query.isLoading && !filteredAssets.length ? (
@@ -198,7 +275,7 @@ export default function AssetsScreen() {
               <Text
                 selectable
                 style={{ color: colors.textPrimary, ...typography.sectionTitle }}>
-                {assets.length ? '该分类暂无资产' : '还没有资产'}
+                {assets.length ? '该筛选下暂无资产' : '还没有资产'}
               </Text>
               {!assets.length ? (
                 <Link href="/capture" style={{ color: colors.accent }}>

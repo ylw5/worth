@@ -11,3 +11,11 @@ export const assetStatusLabels: Record<AssetStatus, string> = {
 
 export const isCurrentAsset = (asset: { status: AssetStatus }) =>
   asset.status !== 'sold';
+
+export const matchesAssetFilters = (
+  asset: { status: AssetStatus; category: string },
+  status: AssetStatus | null,
+  category: string | null,
+) =>
+  (status === null || asset.status === status) &&
+  (category === null || asset.category === category);
