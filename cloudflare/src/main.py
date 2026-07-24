@@ -69,9 +69,6 @@ class MarketWorkflow(WorkflowEntrypoint):
             return {"status": "succeeded"}
 
         try:
-            await claim()
-            await load_asset()
-            await collect_and_filter()
             return await save_snapshot()
         except Exception as error:
             await db.rpc(
