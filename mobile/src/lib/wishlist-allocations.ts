@@ -92,8 +92,8 @@ export function parseFulfillmentPrice(
 ): { price: number } | { error: string } {
   const normalizedValue = value.trim();
   if (!normalizedValue) return { error: '请填写实际成交价' };
-  if ((normalizedValue.match(/^\+?\d*\.(\d+)$/)?.[1].length ?? 0) > 2) {
-    return { error: '实际成交价最多保留两位小数' };
+  if (!/^[+-]?\d+(?:\.\d{1,2})?$/.test(normalizedValue)) {
+    return { error: '请输入普通十进制金额，最多保留两位小数' };
   }
   const price = Number(normalizedValue);
   if (!Number.isFinite(price) || price <= 0) {

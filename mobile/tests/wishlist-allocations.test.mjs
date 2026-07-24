@@ -128,7 +128,13 @@ test('validates the actual fulfillment price', () => {
     error: '实际成交价必须大于 0',
   });
   assert.deepEqual(parseFulfillmentPrice('1.005'), {
-    error: '实际成交价最多保留两位小数',
+    error: '请输入普通十进制金额，最多保留两位小数',
+  });
+  assert.deepEqual(parseFulfillmentPrice('1.005e0'), {
+    error: '请输入普通十进制金额，最多保留两位小数',
+  });
+  assert.deepEqual(parseFulfillmentPrice('1e-3'), {
+    error: '请输入普通十进制金额，最多保留两位小数',
   });
   assert.deepEqual(parseFulfillmentPrice(' 3999.50 '), {
     price: 3999.5,
