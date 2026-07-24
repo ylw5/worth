@@ -122,9 +122,6 @@ export default function AssetsScreen() {
           </Text>
         </View>
 
-        {query.isLoading ? <LoadingState /> : null}
-        {query.error ? <ErrorState message={query.error.message} /> : null}
-
         <View style={{ gap: spacing.md }}>
           <ScrollView
             horizontal
@@ -241,7 +238,9 @@ export default function AssetsScreen() {
         </View>
 
         <View style={{ gap: spacing.md }}>
-          {!query.isLoading && !filteredAssets.length ? (
+          {query.isLoading ? <LoadingState /> : null}
+          {query.error ? <ErrorState message={query.error.message} /> : null}
+          {!query.isLoading && !query.error && !filteredAssets.length ? (
             <View
               style={{
                 padding: spacing.xxxl,
@@ -262,7 +261,8 @@ export default function AssetsScreen() {
                 </Link>
               ) : null}
             </View>
-          ) : (
+          ) : null}
+          {!query.isLoading && !query.error && filteredAssets.length ? (
             <View
               style={{ flexDirection: 'row', flexWrap: 'wrap', gap: gridGap }}>
               {filteredAssets.map((asset) => (
@@ -271,7 +271,7 @@ export default function AssetsScreen() {
                 </View>
               ))}
             </View>
-          )}
+          ) : null}
         </View>
       </ScrollView>
     </>
