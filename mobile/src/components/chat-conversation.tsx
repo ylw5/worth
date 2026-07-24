@@ -18,15 +18,14 @@ import { colors, radius, spacing } from '@/constants/colors';
 import { streamPurchaseEvaluation } from '@/lib/api';
 import {
   createEvaluationMessage,
-  extractDecision,
   getPurchaseEvaluation,
   listEvaluationMessages,
   productFromEvaluation,
   stripDecisionMark,
-  updateEvaluationDecision,
   type EvaluationChatMessage,
   type StoredEvaluationMessage,
 } from '@/lib/evaluations';
+import { saveEvaluationReply } from '@/lib/spending-resolutions';
 import { useSession } from '@/providers/session-provider';
 
 const sendIcon = Icon.select({
@@ -141,24 +140,16 @@ export function ChatConversation({
         history.slice(-100),
         setStreamingReply,
       );
-      const { decision: nextDecision, cleaned } = extractDecision(message);
-      await createEvaluationMessage(
-        item.id,
-        session.user.id,
-        'assistant',
-        cleaned || message,
-      );
-      if (nextDecision) {
-        await updateEvaluationDecision(item.id, nextDecision).catch(
-          () => undefined,
-        );
-      }
+      await saveEvaluationReply(item.id, message);
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: ['evaluation-messages', evaluationId],
         }),
         queryClient.invalidateQueries({
           queryKey: ['purchase-evaluation', evaluationId],
+        }),
+        queryClient.invalidateQueries({
+          queryKey: ['spending-resolution', evaluationId],
         }),
         queryClient.invalidateQueries({ queryKey: ['purchase-evaluations'] }),
       ]);

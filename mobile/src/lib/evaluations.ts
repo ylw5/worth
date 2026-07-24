@@ -1,4 +1,9 @@
 import { supabase } from '@/lib/supabase';
+import {
+  parseEvaluationReply,
+  stripEvaluationMarks,
+} from '@/lib/spending-resolution-markers';
+import { saveEvaluationReply } from '@/lib/spending-resolutions';
 import type { AssetStatus, Category } from '@/types/domain';
 
 export type ParsedProduct = {
@@ -56,24 +61,8 @@ export const evaluationDecisionLabels: Record<EvaluationDecision, string> = {
   skip: '建议不买',
 };
 
-const decisionMarkPattern = /\s*\[decision:(buy|skip)\]\s*/gi;
-
-export function extractDecision(message: string): {
-  decision: EvaluationDecision | null;
-  cleaned: string;
-} {
-  let decision: EvaluationDecision | null = null;
-  const cleaned = message
-    .replace(decisionMarkPattern, (_, value: string) => {
-      decision = value.toLowerCase() === 'buy' ? 'buy' : 'skip';
-      return '\n';
-    })
-    .trim();
-  return { decision, cleaned };
-}
-
 export function stripDecisionMark(message: string): string {
-  return message.replace(decisionMarkPattern, ' ');
+  return stripEvaluationMarks(message);
 }
 
 export type PurchaseEvaluation = {
@@ -149,6 +138,7 @@ export async function createPurchaseEvaluation(
   options: { imagePaths?: string[] } = {},
 ): Promise<PurchaseEvaluation> {
   const { product } = result;
+  const parsed = parseEvaluationReply(result.narrative);
   const { data, error } = await supabase
     .from('purchase_evaluations')
     .insert({
@@ -160,7 +150,7 @@ export async function createPurchaseEvaluation(
       subcategory: product.subcategory,
       matched_assets: result.matched_assets,
       facts: result.facts,
-      narrative: result.narrative,
+      narrative: parsed.cleaned,
       parser_snapshot: { product },
       source_type: product.source_type,
       source_text: product.source_text,
@@ -171,12 +161,7 @@ export async function createPurchaseEvaluation(
   fail(error);
   const evaluation = data as PurchaseEvaluation;
   try {
-    await createEvaluationMessage(
-      evaluation.id,
-      userId,
-      'assistant',
-      result.narrative,
-    );
+    await saveEvaluationReply(evaluation.id, result.narrative);
   } catch (caught) {
     await supabase
       .from('purchase_evaluations')
@@ -185,17 +170,6 @@ export async function createPurchaseEvaluation(
     throw caught;
   }
   return evaluation;
-}
-
-export async function updateEvaluationDecision(
-  evaluationId: string,
-  decision: EvaluationDecision,
-): Promise<void> {
-  const { error } = await supabase
-    .from('purchase_evaluations')
-    .update({ decision })
-    .eq('id', evaluationId);
-  fail(error);
 }
 
 export async function listEvaluationMessages(
