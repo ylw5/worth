@@ -1,13 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SymbolView } from 'expo-symbols';
 import { Link, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   Alert,
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
+  ScrollView,
   Text,
   useWindowDimensions,
   View,
@@ -16,11 +17,18 @@ import {
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { WishlistCard } from '@/components/wishlist-card';
 import { colors, radius, spacing, typography } from '@/constants/colors';
-import { listConfirmedSpendingResolutionAmounts } from '@/lib/spending-resolutions';
+import {
+  listAssetSales,
+  type AssetSaleWithName,
+} from '@/lib/assets';
+import { formatCurrency, formatDate, formatDateOnly } from '@/lib/format';
+import {
+  listConfirmedSpendingResolutions,
+  type ConfirmedSpendingResolution,
+} from '@/lib/spending-resolutions';
 import {
   deleteWishlistItem,
   listWishlistItems,
-  type WishlistItem,
 } from '@/lib/wishlist';
 import {
   getWishlistCarouselIndex,
@@ -28,22 +36,224 @@ import {
 } from '@/lib/wishlist-carousel';
 import { sumAmounts } from '@/lib/wishlist-progress';
 
+type FundingTab = 'spending' | 'sales';
+
+function WishlistFundingDetails({
+  resolutions,
+  sales,
+}: {
+  resolutions: ConfirmedSpendingResolution[];
+  sales: AssetSaleWithName[];
+}) {
+  const [activeTab, setActiveTab] = useState<FundingTab>('spending');
+  const spendingTotal = sumAmounts(
+    resolutions.map((resolution) => resolution.amount),
+  );
+  const salesTotal = sumAmounts(sales.map((sale) => sale.sale_price));
+  const tabs: { key: FundingTab; label: string; total: number }[] = [
+    { key: 'spending', label: '忍住消费', total: spendingTotal },
+    { key: 'sales', label: '已卖闲置', total: salesTotal },
+  ];
+  const activeTotal =
+    activeTab === 'spending' ? spendingTotal : salesTotal;
+
+  return (
+    <View
+      style={{
+        marginHorizontal: spacing.xl,
+        padding: spacing.lg,
+        gap: spacing.lg,
+        backgroundColor: colors.surface,
+        borderRadius: radius.large,
+        borderCurve: 'continuous',
+      }}>
+      <View
+        accessibilityRole="tablist"
+        style={{
+          flexDirection: 'row',
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+        }}>
+        {tabs.map((tab) => {
+          const selected = tab.key === activeTab;
+          return (
+            <Pressable
+              key={tab.key}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              onPress={() => setActiveTab(tab.key)}
+              style={{
+                flex: 1,
+                minHeight: 44,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderBottomWidth: 2,
+                borderBottomColor: selected
+                  ? colors.accent
+                  : 'transparent',
+              }}>
+              <Text
+                style={{
+                  color: selected
+                    ? colors.textPrimary
+                    : colors.textSecondary,
+                  ...typography.label,
+                  fontWeight: selected ? '700' : '400',
+                }}>
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={{ gap: spacing.xs }}>
+        <Text
+          selectable
+          style={{ color: colors.textSecondary, ...typography.label }}>
+          累计金额
+        </Text>
+        <Text
+          selectable
+          style={{
+            color: colors.textPrimary,
+            ...typography.sectionTitle,
+            fontVariant: ['tabular-nums'],
+          }}>
+          {formatCurrency(activeTotal)}
+        </Text>
+      </View>
+
+      <View style={{ gap: spacing.md }}>
+        {activeTab === 'spending' ? (
+          resolutions.length ? (
+            resolutions.map((resolution) => (
+              <View
+                key={resolution.id}
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  gap: spacing.md,
+                  paddingVertical: spacing.sm,
+                }}>
+                <View style={{ flex: 1, gap: spacing.xs }}>
+                  <Text
+                    selectable
+                    numberOfLines={2}
+                    style={{
+                      color: colors.textPrimary,
+                      ...typography.body,
+                    }}>
+                    {resolution.product_snapshot.title}
+                  </Text>
+                  <Text
+                    selectable
+                    style={{
+                      color: colors.textSecondary,
+                      ...typography.caption,
+                    }}>
+                    {formatDate(resolution.confirmed_at)}
+                  </Text>
+                </View>
+                <Text
+                  selectable
+                  style={{
+                    color: colors.textPrimary,
+                    ...typography.body,
+                    fontWeight: '600',
+                    fontVariant: ['tabular-nums'],
+                  }}>
+                  {formatCurrency(resolution.amount)}
+                </Text>
+              </View>
+            ))
+          ) : (
+            <Text
+              selectable
+              style={{ color: colors.textSecondary, ...typography.body }}>
+              还没有忍住消费记录
+            </Text>
+          )
+        ) : sales.length ? (
+          sales.map((sale) => (
+            <View
+              key={sale.id}
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                gap: spacing.md,
+                paddingVertical: spacing.sm,
+              }}>
+              <View style={{ flex: 1, gap: spacing.xs }}>
+                <Text
+                  selectable
+                  numberOfLines={2}
+                  style={{
+                    color: colors.textPrimary,
+                    ...typography.body,
+                  }}>
+                  {sale.asset.name}
+                </Text>
+                <Text
+                  selectable
+                  style={{
+                    color: colors.textSecondary,
+                    ...typography.caption,
+                  }}>
+                  {formatDateOnly(sale.sold_at)}
+                </Text>
+              </View>
+              <Text
+                selectable
+                style={{
+                  color: colors.textPrimary,
+                  ...typography.body,
+                  fontWeight: '600',
+                  fontVariant: ['tabular-nums'],
+                }}>
+                {formatCurrency(sale.sale_price)}
+              </Text>
+            </View>
+          ))
+        ) : (
+          <Text
+            selectable
+            style={{ color: colors.textSecondary, ...typography.body }}>
+            还没有已卖闲置记录
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
 export default function WishlistScreen() {
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ['wishlist'],
     queryFn: listWishlistItems,
   });
-  const savingsQuery = useQuery({
-    queryKey: ['spending-resolutions', 'confirmed-amounts'],
-    queryFn: listConfirmedSpendingResolutionAmounts,
+  const resolutionsQuery = useQuery({
+    queryKey: ['spending-resolutions', 'confirmed'],
+    queryFn: listConfirmedSpendingResolutions,
   });
-  const savedAmount = sumAmounts(savingsQuery.data ?? []);
-  const refetchSavings = savingsQuery.refetch;
+  const salesQuery = useQuery({
+    queryKey: ['asset-sales'],
+    queryFn: listAssetSales,
+  });
+  const resolutions = resolutionsQuery.data ?? [];
+  const sales = salesQuery.data ?? [];
+  const spendingTotal = sumAmounts(
+    resolutions.map((resolution) => resolution.amount),
+  );
+  const salesTotal = sumAmounts(sales.map((sale) => sale.sale_price));
+  const fundedAmount = spendingTotal + salesTotal;
+  const refetchResolutions = resolutionsQuery.refetch;
+  const refetchSales = salesQuery.refetch;
   useFocusEffect(
     useCallback(() => {
-      void refetchSavings();
-    }, [refetchSavings]),
+      void Promise.all([refetchResolutions(), refetchSales()]);
+    }, [refetchResolutions, refetchSales]),
   );
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState('');
@@ -52,13 +262,13 @@ export default function WishlistScreen() {
   const { cardWidth, gap, sidePadding, snapInterval } =
     getWishlistCarouselMetrics(screenWidth, { gap: spacing.md });
   const items = query.data ?? [];
+  const fundingLoading = resolutionsQuery.isLoading || salesQuery.isLoading;
+  const fundingError = resolutionsQuery.error ?? salesQuery.error;
   const [activeIndex, setActiveIndex] = useState(0);
-
-  useEffect(() => {
-    if (activeIndex >= items.length && items.length > 0) {
-      setActiveIndex(items.length - 1);
-    }
-  }, [activeIndex, items.length]);
+  const visibleActiveIndex = Math.min(
+    activeIndex,
+    Math.max(items.length - 1, 0),
+  );
 
   const onCarouselScrollEnd = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -125,19 +335,21 @@ export default function WishlistScreen() {
           ),
         }}
       />
-      <View style={{ flex: 1, backgroundColor: colors.background }}>
+      {/* ponytail: ScrollView is enough for personal history; paginate with a vertical FlatList only when record counts make rendering measurable. */}
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        style={{ flex: 1, backgroundColor: colors.background }}
+        contentContainerStyle={{ paddingBottom: spacing.xxxl }}>
         <View style={{ paddingHorizontal: spacing.xl, gap: spacing.md }}>
-          {query.isLoading || savingsQuery.isLoading ? <LoadingState /> : null}
+          {query.isLoading || fundingLoading ? <LoadingState /> : null}
           {query.error ? <ErrorState message={query.error.message} /> : null}
-          {savingsQuery.error ? (
-            <ErrorState message={savingsQuery.error.message} />
-          ) : null}
+          {fundingError ? <ErrorState message={fundingError.message} /> : null}
           {deleteError ? <ErrorState message={deleteError} /> : null}
         </View>
         {!query.isLoading &&
         !query.error &&
-        !savingsQuery.isLoading &&
-        !savingsQuery.error &&
+        !fundingLoading &&
+        !fundingError &&
         items.length === 0 ? (
           <View style={{ padding: spacing.xl }}>
             <View
@@ -165,7 +377,7 @@ export default function WishlistScreen() {
             </View>
           </View>
         ) : null}
-        {!savingsQuery.isLoading && !savingsQuery.error && items.length > 0 ? (
+        {!fundingLoading && !fundingError && items.length > 0 ? (
           <View
             style={{ flexGrow: 0, paddingTop: spacing.xl, gap: spacing.lg }}>
             <FlatList
@@ -181,141 +393,18 @@ export default function WishlistScreen() {
                 paddingHorizontal: sidePadding,
               }}
               onMomentumScrollEnd={onCarouselScrollEnd}
-              renderItem={({ item, index }) => {
-                const progress = getWishlistProgress(
-                  savedAmount,
-                  item.target_price,
-                );
-                return (
-                  <View
-                    style={{
-                      width: cardWidth,
-                      marginRight: index === items.length - 1 ? 0 : gap,
-                      padding: spacing.lg,
-                      gap: spacing.md,
-                      backgroundColor: colors.surface,
-                      borderRadius: radius.large,
-                      borderCurve: 'continuous',
-                    }}>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        gap: spacing.md,
-                      }}>
-                      <Text
-                        selectable
-                        style={{
-                          flex: 1,
-                          color: colors.textSecondary,
-                          ...typography.cardTitle,
-                        }}>
-                        {item.name}
-                      </Text>
-                      <Pressable
-                        accessibilityLabel={`删除${item.name}`}
-                        accessibilityRole="button"
-                        disabled={deletingId === item.id}
-                        hitSlop={8}
-                        onPress={() => confirmDelete(item.id, item.name)}>
-                        <Text
-                          style={{
-                            color: colors.danger,
-                            ...typography.label,
-                          }}>
-                          删除
-                        </Text>
-                      </Pressable>
-                    </View>
-                    <Text
-                      selectable
-                      style={{
-                        color: colors.textPrimary,
-                        fontSize: 34,
-                        fontWeight: '700',
-                        fontVariant: ['tabular-nums'],
-                      }}>
-                      {formatCurrency(savedAmount)} /{' '}
-                      {item.target_price.toLocaleString('zh-CN', {
-                        maximumFractionDigits: 0,
-                      })}
-                    </Text>
-                    <View
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: spacing.md,
-                      }}>
-                      <View
-                        accessibilityLabel={`${item.name}心愿进度`}
-                        accessibilityRole="progressbar"
-                        accessibilityValue={{
-                          min: 0,
-                          max: 100,
-                          now: progress.barPercentage,
-                          text: `${progress.percentage}%`,
-                        }}
-                        style={{
-                          flex: 1,
-                          height: 12,
-                          overflow: 'hidden',
-                          backgroundColor: colors.surfaceMuted,
-                          borderRadius: radius.pill,
-                        }}>
-                        <View
-                          style={{
-                            width: `${progress.barPercentage}%`,
-                            height: '100%',
-                            backgroundColor: colors.accent,
-                            borderRadius: radius.pill,
-                          }}
-                        />
-                      </View>
-                      <Text
-                        selectable
-                        style={{
-                          minWidth: 44,
-                          color: colors.textPrimary,
-                          fontSize: 18,
-                          fontWeight: '700',
-                          fontVariant: ['tabular-nums'],
-                        }}>
-                        {progress.percentage}%
-                      </Text>
-                    </View>
-                    {item.notes ? (
-                      <Text
-                        selectable
-                        numberOfLines={3}
-                        style={{
-                          color: colors.textSecondary,
-                          ...typography.body,
-                        }}>
-                        {item.notes}
-                      </Text>
-                    ) : null}
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={`查看${item.name}今日卖出方案`}
-                      onPress={() =>
-                        router.push({
-                          pathname: '/(tabs)/(wishlist)/[id]',
-                          params: { id: item.id },
-                        })
-                      }
-                      style={({ pressed }) => ({
-                        alignSelf: 'flex-start',
-                        paddingVertical: 5,
-                        opacity: pressed ? 0.6 : 1,
-                      })}>
-                      <Text
-                        style={{ color: colors.green, fontWeight: '700' }}>
-                        查看今日卖出方案
-                      </Text>
-                    </Pressable>
-                  </View>
-                );
-              }}
+              renderItem={({ item, index }) => (
+                <WishlistCard
+                  item={item}
+                  fundedAmount={fundedAmount}
+                  deleting={deletingId === item.id}
+                  onDelete={confirmDelete}
+                  style={{
+                    width: cardWidth,
+                    marginRight: index === items.length - 1 ? 0 : gap,
+                  }}
+                />
+              )}
             />
             {items.length > 1 ? (
               <View
@@ -323,13 +412,12 @@ export default function WishlistScreen() {
                   flexDirection: 'row',
                   justifyContent: 'center',
                   gap: spacing.sm,
-                  paddingBottom: spacing.xl,
                 }}>
                 {items.map((item, index) => (
                   <View
                     key={item.id}
                     accessibilityLabel={
-                      index === activeIndex
+                      index === visibleActiveIndex
                         ? `第${index + 1}张，当前`
                         : `第${index + 1}张`
                     }
@@ -338,15 +426,21 @@ export default function WishlistScreen() {
                       height: 8,
                       borderRadius: radius.pill,
                       backgroundColor:
-                        index === activeIndex ? colors.accent : colors.border,
+                        index === visibleActiveIndex
+                          ? colors.accent
+                          : colors.border,
                     }}
                   />
                 ))}
               </View>
             ) : null}
+            <WishlistFundingDetails
+              resolutions={resolutions}
+              sales={sales}
+            />
           </View>
         ) : null}
-      </View>
+      </ScrollView>
     </>
   );
 }

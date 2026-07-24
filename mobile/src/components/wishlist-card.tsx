@@ -8,18 +8,18 @@ import type { WishlistItem } from '@/lib/wishlist';
 
 export function WishlistCard({
   item,
-  savedAmount,
+  fundedAmount,
   deleting,
   onDelete,
   style,
 }: {
   item: WishlistItem;
-  savedAmount: number;
+  fundedAmount: number;
   deleting: boolean;
   onDelete: (id: string, name: string) => void;
   style?: StyleProp<ViewStyle>;
 }) {
-  const progress = getWishlistProgress(savedAmount, item.target_price);
+  const progress = getWishlistProgress(fundedAmount, item.target_price);
 
   return (
     <View
@@ -67,7 +67,7 @@ export function WishlistCard({
           fontWeight: '700',
           fontVariant: ['tabular-nums'],
         }}>
-        {formatCurrency(savedAmount)} /{' '}
+        {formatCurrency(fundedAmount)} /{' '}
         {item.target_price.toLocaleString('zh-CN', {
           maximumFractionDigits: 0,
         })}
