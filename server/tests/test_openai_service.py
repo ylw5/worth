@@ -4,7 +4,12 @@ import pytest
 from openai.lib._pydantic import to_strict_json_schema
 from pydantic import ValidationError
 
-from app.models import AIAssetRecognition, AnalyzeRequest, AssetSpec
+from app.models import (
+    AIAssetRecognition,
+    AnalyzeRequest,
+    AssetRecognition,
+    AssetSpec,
+)
 from app.openai_service import OpenAIService
 
 
@@ -57,3 +62,13 @@ def test_analyze_request_accepts_one_to_five_images(count: int) -> None:
         image_urls=["https://example.com/image.jpg"] * count
     )
     assert len(request.image_urls) == count
+
+
+def test_condition_rejects_free_text() -> None:
+    with pytest.raises(ValidationError):
+        AssetRecognition(
+            name="相机",
+            category="数码",
+            condition="有一点旧",
+            search_query="相机",
+        )

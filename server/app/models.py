@@ -16,6 +16,15 @@ Category = Literal[
     "其他",
 ]
 
+Condition = Literal[
+    "全新未使用",
+    "几乎全新",
+    "轻微使用痕迹",
+    "明显使用痕迹",
+    "重度使用或有瑕疵",
+    "无法判断",
+]
+
 
 class AssetRecognition(BaseModel):
     name: str
@@ -23,7 +32,7 @@ class AssetRecognition(BaseModel):
     model: str = ""
     specs: dict[str, str] = Field(default_factory=dict)
     category: Category
-    condition: str
+    condition: Condition
     search_query: str
 
 
@@ -38,7 +47,7 @@ class AIAssetRecognition(BaseModel):
     model: str
     specs: list[AssetSpec]
     category: Category
-    condition: str
+    condition: Condition
     search_query: str
 
 
