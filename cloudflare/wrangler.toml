@@ -17,7 +17,7 @@ required = [
 ]
 
 [triggers]
-crons = ["0 18 * * *", "0 19 * * 0"]
+crons = ["0 18 * * *", "0 19 * * SUN"]
 
 [[workflows]]
 name = "market-workflow"

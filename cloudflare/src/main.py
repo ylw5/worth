@@ -12,7 +12,7 @@ class Default(WorkerEntrypoint):
         return Response.json({"status": "ok"})
 
     async def scheduled(self, controller, env, ctx):
-        if controller.cron == "0 19 * * 0":
+        if controller.cron == "0 19 * * SUN":
             runs = await database(env).rpc("enqueue_weekly_forecast_runs")
             workflow = env.FORECAST_WORKFLOW
         else:
