@@ -25,13 +25,26 @@ import {
   type EvaluationChatMessage,
   type StoredEvaluationMessage,
 } from '@/lib/evaluations';
-import { saveEvaluationReply } from '@/lib/spending-resolutions';
+import {
+  confirmSpendingResolution,
+  getSpendingResolution,
+  saveEvaluationReply,
+  type SpendingResolution,
+} from '@/lib/spending-resolutions';
 import { useSession } from '@/providers/session-provider';
 
 const sendIcon = Icon.select({
   ios: 'arrow.up',
   android: import('@expo/material-symbols/arrow_upward.xml'),
 });
+
+const formatResolutionAmount = (amount: number) =>
+  new Intl.NumberFormat('zh-CN', {
+    style: 'currency',
+    currency: 'CNY',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(amount);
 
 export function ChatConversation({
   evaluationId,
@@ -59,6 +72,13 @@ export function ChatConversation({
     queryFn: () => listEvaluationMessages(evaluationId),
     enabled: Boolean(evaluationId),
   });
+  const resolutionQuery = useQuery({
+    queryKey: ['spending-resolution', evaluationId],
+    queryFn: () => getSpendingResolution(evaluationId),
+    enabled: Boolean(evaluationId),
+  });
+  const [confirmingResolution, setConfirmingResolution] = useState(false);
+  const [resolutionError, setResolutionError] = useState('');
 
   const item = query.data;
   const storedMessages = messagesQuery.data ?? [];
@@ -91,6 +111,7 @@ export function ChatConversation({
     setDraft('');
     setSendError('');
     setStreamingReply('');
+    setResolutionError('');
   }, [evaluationId]);
 
   useEffect(() => {
@@ -108,6 +129,23 @@ export function ChatConversation({
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState message={query.error.message} />;
   if (!item) return <ErrorState message="对话不存在" />;
+
+  const confirmResolution = async () => {
+    const resolution = resolutionQuery.data;
+    if (!resolution || resolution.confirmed_at || confirmingResolution) return;
+    setConfirmingResolution(true);
+    setResolutionError('');
+    try {
+      await confirmSpendingResolution(resolution.id);
+      await queryClient.invalidateQueries({
+        queryKey: ['spending-resolution', evaluationId],
+      });
+    } catch {
+      setResolutionError('确认失败，请重试');
+    } finally {
+      setConfirmingResolution(false);
+    }
+  };
 
   const send = async () => {
     const content = draft.trim();
@@ -207,11 +245,21 @@ export function ChatConversation({
         ) : null}
 
         {displayMessages.map((message) => (
-          <MessageBubble
-            key={message.id}
-            role={message.role}
-            content={stripDecisionMark(message.content)}
-          />
+          <View key={message.id} style={{ gap: spacing.sm }}>
+            <MessageBubble
+              role={message.role}
+              content={stripDecisionMark(message.content)}
+            />
+            {message.role === 'assistant' &&
+            resolutionQuery.data?.message_id === message.id ? (
+              <SpendingResolutionCard
+                resolution={resolutionQuery.data}
+                confirming={confirmingResolution}
+                error={resolutionError}
+                onConfirm={confirmResolution}
+              />
+            ) : null}
+          </View>
         ))}
 
         {sending ? (
@@ -341,6 +389,108 @@ function MessageBubble({
         }}>
         {content}
       </Text>
+    </View>
+  );
+}
+
+function SpendingResolutionCard({
+  resolution,
+  confirming,
+  error,
+  onConfirm,
+}: {
+  resolution: SpendingResolution;
+  confirming: boolean;
+  error: string;
+  onConfirm: () => void;
+}) {
+  const amount = formatResolutionAmount(resolution.amount);
+  const confirmedAt = resolution.confirmed_at;
+  const confirmed = confirmedAt !== null;
+
+  return (
+    <View
+      style={{
+        gap: spacing.md,
+        padding: spacing.lg,
+        backgroundColor: colors.surface,
+        borderRadius: radius.large,
+        borderCurve: 'continuous',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: colors.border,
+      }}>
+      <View style={{ gap: spacing.xs }}>
+        <Text
+          selectable
+          style={{
+            color: colors.textSecondary,
+            fontSize: 14,
+            lineHeight: 20,
+            fontVariant: ['tabular-nums'],
+          }}>
+          {confirmed ? `已忍住 ${amount}` : '这次先不买'}
+        </Text>
+        {confirmed ? (
+          <Text
+            selectable
+            style={{
+              color: colors.textTertiary,
+              fontSize: 12,
+              fontVariant: ['tabular-nums'],
+            }}>
+            {new Date(confirmedAt).toLocaleString('zh-CN')}
+          </Text>
+        ) : (
+          <Text
+            selectable
+            style={{
+              color: colors.textPrimary,
+              fontSize: 24,
+              fontWeight: '700',
+              lineHeight: 32,
+              fontVariant: ['tabular-nums'],
+            }}>
+            留下 {amount}
+          </Text>
+        )}
+      </View>
+
+      {!confirmed ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`确认不买，留下${amount}`}
+          accessibilityState={{ disabled: confirming }}
+          disabled={confirming}
+          onPress={onConfirm}
+          style={({ pressed }) => ({
+            minHeight: 44,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: radius.medium,
+            borderCurve: 'continuous',
+            backgroundColor: colors.textPrimary,
+            opacity: pressed || confirming ? 0.7 : 1,
+          })}>
+          {confirming ? (
+            <ActivityIndicator color={colors.onDark} size="small" />
+          ) : (
+            <Text
+              style={{
+                color: colors.onDark,
+                fontSize: 16,
+                fontWeight: '600',
+              }}>
+              确认不买
+            </Text>
+          )}
+        </Pressable>
+      ) : null}
+
+      {error ? (
+        <Text selectable style={{ color: colors.danger, fontSize: 12 }}>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
