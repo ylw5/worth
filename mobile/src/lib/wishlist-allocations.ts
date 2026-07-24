@@ -90,8 +90,12 @@ export function buildAllocationPreview(
 export function parseFulfillmentPrice(
   value: string,
 ): { price: number } | { error: string } {
-  if (!value.trim()) return { error: '请填写实际成交价' };
-  const price = Number(value);
+  const normalizedValue = value.trim();
+  if (!normalizedValue) return { error: '请填写实际成交价' };
+  if ((normalizedValue.match(/^\+?\d*\.(\d+)$/)?.[1].length ?? 0) > 2) {
+    return { error: '实际成交价最多保留两位小数' };
+  }
+  const price = Number(normalizedValue);
   if (!Number.isFinite(price) || price <= 0) {
     return { error: '实际成交价必须大于 0' };
   }
