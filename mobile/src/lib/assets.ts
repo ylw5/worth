@@ -14,6 +14,10 @@ function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
+export type AssetSaleWithName = AssetSale & {
+  asset: { name: string };
+};
+
 async function withPhotoUrls(asset: Asset): Promise<Asset> {
   const signedUrl = async (path: string) => {
     const { data, error } = await bucket.createSignedUrl(path, 3600);
@@ -65,6 +69,18 @@ export async function getAssetSale(assetId: string): Promise<AssetSale | null> {
     .maybeSingle();
   fail(error);
   return data as AssetSale | null;
+}
+
+export async function listAssetSales(): Promise<AssetSaleWithName[]> {
+  const { data, error } = await supabase
+    .from('asset_sales')
+    .select('*, asset:assets(name)')
+    .order('sold_at', { ascending: false });
+  fail(error);
+  return ((data ?? []) as unknown as AssetSaleWithName[]).map((sale) => ({
+    ...sale,
+    sale_price: Number(sale.sale_price),
+  }));
 }
 
 export async function setAssetStatus(

@@ -22,6 +22,10 @@ export type SpendingResolution = {
   confirmed_at: string | null;
 };
 
+export type ConfirmedSpendingResolution = SpendingResolution & {
+  confirmed_at: string;
+};
+
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
@@ -74,4 +78,19 @@ export async function listConfirmedSpendingResolutionAmounts(): Promise<
     .not('confirmed_at', 'is', null);
   fail(error);
   return (data ?? []).map(({ amount }) => Number(amount));
+}
+
+export async function listConfirmedSpendingResolutions(): Promise<
+  ConfirmedSpendingResolution[]
+> {
+  const { data, error } = await supabase
+    .from('spending_resolutions')
+    .select('*')
+    .not('confirmed_at', 'is', null)
+    .order('confirmed_at', { ascending: false });
+  fail(error);
+  return ((data ?? []) as ConfirmedSpendingResolution[]).map((resolution) => ({
+    ...resolution,
+    amount: Number(resolution.amount),
+  }));
 }
