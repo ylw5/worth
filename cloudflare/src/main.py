@@ -29,21 +29,20 @@ class MarketWorkflow(WorkflowEntrypoint):
         run_id = event["payload"]["run_id"]
         db = database(self.env)
 
-        @step.do("claim")
+        @step.do()
         async def claim():
             return await db.rpc(
                 "claim_analysis_run",
                 {"p_run_id": run_id},
             )
 
-        @step.do("load asset")
+        @step.do()
         async def load_asset(claim):
             if not claim:
                 return None
             return await db.asset(claim["asset_id"])
 
         @step.do(
-            "collect and filter",
             config={
                 "retries": {
                     "limit": 2,
@@ -61,7 +60,7 @@ class MarketWorkflow(WorkflowEntrypoint):
             result = await collect_market_result(self.env, load_asset)
             return result.model_dump(mode="json")
 
-        @step.do("save snapshot")
+        @step.do()
         async def save_snapshot(collect_and_filter):
             if not collect_and_filter:
                 return {"status": "skipped"}
@@ -92,20 +91,20 @@ class ForecastWorkflow(WorkflowEntrypoint):
         run_id = event["payload"]["run_id"]
         db = database(self.env)
 
-        @step.do("claim")
+        @step.do()
         async def claim():
             return await db.rpc(
                 "claim_analysis_run",
                 {"p_run_id": run_id},
             )
 
-        @step.do("load asset")
+        @step.do()
         async def load_asset(claim):
             if not claim:
                 return None
             return await db.asset(claim["asset_id"])
 
-        @step.do("load snapshots")
+        @step.do()
         async def load_snapshots(claim):
             if not claim:
                 return []
@@ -120,7 +119,6 @@ class ForecastWorkflow(WorkflowEntrypoint):
             )
 
         @step.do(
-            "bocha research",
             config={
                 "retries": {
                     "limit": 2,
@@ -143,7 +141,7 @@ class ForecastWorkflow(WorkflowEntrypoint):
                 ],
             }
 
-        @step.do("calculate forecast")
+        @step.do()
         async def calculate_forecast(
             load_asset,
             load_snapshots,
@@ -170,7 +168,7 @@ class ForecastWorkflow(WorkflowEntrypoint):
             )
             return result.model_dump(mode="json")
 
-        @step.do("save forecast")
+        @step.do()
         async def save_forecast(calculate_forecast):
             if not calculate_forecast:
                 return {"status": "skipped"}

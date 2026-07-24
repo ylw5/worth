@@ -1,4 +1,8 @@
-import httpx
+import json
+from urllib.parse import urlencode
+
+from js import Object, fetch
+from pyodide.ffi import to_js
 
 
 class Supabase:
@@ -11,34 +15,44 @@ class Supabase:
         }
 
     async def rpc(self, name: str, payload: dict | None = None):
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(
-                f"{self.base}/rpc/{name}",
-                headers=self.headers,
-                json=payload or {},
-            )
-        response.raise_for_status()
-        return response.json() if response.content else None
+        return await self._request(
+            f"{self.base}/rpc/{name}",
+            method="POST",
+            body=json.dumps(payload or {}),
+        )
 
     async def asset(self, asset_id: str):
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.get(
-                f"{self.base}/assets",
-                headers={
-                    **self.headers,
-                    "accept": "application/vnd.pgrst.object+json",
-                },
-                params={"id": f"eq.{asset_id}", "select": "*"},
-            )
-        response.raise_for_status()
-        return response.json()
+        return await self._request(
+            f"{self.base}/assets?{urlencode({
+                'id': f'eq.{asset_id}',
+                'select': '*',
+            })}",
+            headers={"accept": "application/vnd.pgrst.object+json"},
+        )
 
     async def rows(self, table: str, params: dict):
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.get(
-                f"{self.base}/{table}",
-                headers=self.headers,
-                params=params,
-            )
-        response.raise_for_status()
-        return response.json()
+        return await self._request(
+            f"{self.base}/{table}?{urlencode(params)}",
+        )
+
+    async def _request(
+        self,
+        url: str,
+        method: str = "GET",
+        body: str | None = None,
+        headers: dict | None = None,
+    ):
+        options = {
+            "method": method,
+            "headers": {**self.headers, **(headers or {})},
+        }
+        if body is not None:
+            options["body"] = body
+        response = await fetch(
+            url,
+            to_js(options, dict_converter=Object.fromEntries),
+        )
+        text = await response.text()
+        if not response.ok:
+            raise RuntimeError(f"Supabase request failed: {response.status}")
+        return json.loads(text) if text else None
