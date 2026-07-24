@@ -155,3 +155,64 @@ Set-Location ..\server
 ```
 
 没有服务端市场登录态时，识图、资产保存和同步仍可工作，但不会生成市场估价。
+
+## Background market analysis
+
+`cloudflare/` runs one daily Workflow per due market key. Set
+`SUPABASE_URL` and `CLOUDFLARE_ACCOUNT_ID` in `cloudflare/wrangler.toml`, then
+configure these secrets without committing or printing them:
+
+```bash
+cd cloudflare
+npx wrangler@latest secret put SUPABASE_SERVICE_ROLE_KEY
+npx wrangler@latest secret put XIANYU_COOKIE
+npx wrangler@latest secret put CLOUDFLARE_AI_GATEWAY_TOKEN
+npx wrangler@latest deploy
+```
+
+Inspect `analysis_runs` before debugging the mobile UI. Each successful run
+stores deduplicated active-listing evidence in `market_snapshots`; it is not
+completed-sale data.
+
+The Xianyu endpoint uses authenticated, non-public behavior. If a deployed run
+is rejected while the same cookie works locally, keep the database and Workflow
+unchanged and move only `cloudflare/src/market.py` behind a stable-egress
+collector.
+
+### Residual forecasts
+
+Weekly forecast runs use Bocha Web Search for public evidence and the existing
+model only to normalize cited facts. The numeric forecast is calculated by
+`cloudflare/src/forecast.py`. The app withholds future values until either four
+market dates span 21 days or three verifiable comparable-retention observations
+are available.
+
+Configure `BOCHA_API_KEY` as a Cloudflare secret. Search queries contain only
+public product identity fields; user identity, notes, photos, purchase price,
+and private storage URLs are not sent to Bocha.
+
+### Replacement comparison and backtesting
+
+Replacement comparison assumes the wishlist target price stays constant and
+excludes transaction fees. `forecast_backtest_results` compares each matured
+6/12-month estimate with a realized sale first, otherwise the nearest market
+snapshot within 30 days.
+
+Query matured outcomes with:
+
+```sql
+select
+  horizon_months,
+  count(*) as observations,
+  round(avg(absolute_percentage_error), 4)
+    as mean_absolute_percentage_error
+from public.forecast_backtest_results
+where observed_value is not null
+group by horizon_months
+order by horizon_months;
+```
+
+Do not auto-calibrate the model until a category has at least 30 matured
+observations for the same horizon. Before that threshold, report error only;
+changing coefficients from a handful of outcomes would make the forecast less
+stable rather than more accurate.

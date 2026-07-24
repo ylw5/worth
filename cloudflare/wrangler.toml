@@ -1,0 +1,22 @@
+name = "worth-background"
+main = "src/main.py"
+compatibility_date = "2026-07-24"
+compatibility_flags = ["python_workers", "python_workflows"]
+
+[vars]
+OPENAI_MODEL = "openai/gpt-5.4"
+SUPABASE_URL = ""
+CLOUDFLARE_ACCOUNT_ID = ""
+
+[triggers]
+crons = ["0 18 * * *", "0 19 * * 0"]
+
+[[workflows]]
+name = "market-workflow"
+binding = "MARKET_WORKFLOW"
+class_name = "MarketWorkflow"
+
+[[workflows]]
+name = "forecast-workflow"
+binding = "FORECAST_WORKFLOW"
+class_name = "ForecastWorkflow"

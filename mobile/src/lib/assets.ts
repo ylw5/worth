@@ -1,7 +1,12 @@
 import { supabase } from '@/lib/supabase';
 import type {
+  AnalysisRun,
   Asset,
+  AssetForecast,
   AssetWriteInput,
+  MarketInsight,
+  MarketSnapshot,
+  ReplacementScenarioInput,
   Valuation,
   ValuationResult,
 } from '@/types/domain';
@@ -63,6 +68,68 @@ export async function getValuations(assetId: string): Promise<Valuation[]> {
     .order('created_at', { ascending: false });
   fail(error);
   return (data ?? []) as Valuation[];
+}
+
+export async function getMarketInsight(asset: Asset): Promise<MarketInsight> {
+  const [snapshots, runs, forecasts] = await Promise.all([
+    supabase
+      .from('market_snapshots')
+      .select('*')
+      .eq('asset_id', asset.id)
+      .order('snapshot_date', { ascending: false })
+      .limit(30),
+    supabase
+      .from('analysis_runs')
+      .select('*')
+      .eq('market_key', asset.market_key)
+      .eq('kind', 'market')
+      .order('created_at', { ascending: false })
+      .limit(1),
+    supabase
+      .from('asset_forecasts')
+      .select('*')
+      .eq('asset_id', asset.id)
+      .order('forecast_date', { ascending: false })
+      .limit(1),
+  ]);
+  fail(snapshots.error);
+  fail(runs.error);
+  fail(forecasts.error);
+  return {
+    snapshots: (snapshots.data ?? []) as MarketSnapshot[],
+    run: ((runs.data ?? [])[0] as AnalysisRun | undefined) ?? null,
+    forecast:
+      ((forecasts.data ?? [])[0] as AssetForecast | undefined) ?? null,
+  };
+}
+
+export async function recordReplacementScenario(
+  input: ReplacementScenarioInput,
+) {
+  const { data, error } = await supabase
+    .from('replacement_scenarios')
+    .insert(input)
+    .select('*')
+    .single();
+  fail(error);
+  return data;
+}
+
+export async function recordAssetSale(input: {
+  asset_id: string;
+  sold_at: string;
+  sale_price: number;
+  platform: string;
+  notes: string;
+}) {
+  const { error } = await supabase.rpc('record_asset_sale', {
+    p_asset_id: input.asset_id,
+    p_sold_at: input.sold_at,
+    p_sale_price: input.sale_price,
+    p_platform: input.platform,
+    p_notes: input.notes,
+  });
+  fail(error);
 }
 
 async function uploadImage(
