@@ -37,6 +37,13 @@ def _sign(timestamp: str, token: str, data: str) -> str:
     ).hexdigest()
 
 
+def _cookie_value(cookies: httpx.Cookies, name: str) -> str:
+    values = [
+        cookie.value for cookie in cookies.jar if cookie.name == name
+    ]
+    return values[-1] if values else ""
+
+
 def _candidate(result: dict) -> Sample | None:
     main = result.get("data", {}).get("item", {}).get("main", {})
     content = main.get("exContent", {})
@@ -84,7 +91,10 @@ async def search(cookie: str, query: str, limit: int = 30) -> list[Sample]:
             data = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
             for attempt in range(2):
                 timestamp = str(int(time.time() * 1000))
-                token = client.cookies.get("_m_h5_tk", "").split("_")[0]
+                token = _cookie_value(
+                    client.cookies,
+                    "_m_h5_tk",
+                ).split("_")[0]
                 response = await client.post(
                     SEARCH_URL,
                     params={
