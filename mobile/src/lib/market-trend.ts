@@ -1,6 +1,6 @@
 import { formatCurrency } from './format.ts';
 
-export type TrendRange = '30d' | '90d' | 'all';
+export type TrendRange = '1w' | '1m' | '6m' | '1y';
 
 type TrendRow = {
   snapshot_date: string;
@@ -8,10 +8,13 @@ type TrendRow = {
 };
 
 export const trendRangeLabels: Record<TrendRange, string> = {
-  '30d': '30 天',
-  '90d': '90 天',
-  all: '全部',
+  '1w': '1周',
+  '1m': '1月',
+  '6m': '半年',
+  '1y': '1年',
 };
+
+export const trendRanges: TrendRange[] = ['1w', '1m', '6m', '1y'];
 
 export function jobCopy(run: { status: string } | null) {
   if (!run) return '等待后台更新';
@@ -21,11 +24,18 @@ export function jobCopy(run: { status: string } | null) {
   return '已更新';
 }
 
+function cutoffDate(latest: string, range: TrendRange): string {
+  const cutoff = new Date(`${latest}T00:00:00Z`);
+  if (range === '1w') cutoff.setUTCDate(cutoff.getUTCDate() - 7);
+  else if (range === '1m') cutoff.setUTCMonth(cutoff.getUTCMonth() - 1);
+  else if (range === '6m') cutoff.setUTCMonth(cutoff.getUTCMonth() - 6);
+  else cutoff.setUTCFullYear(cutoff.getUTCFullYear() - 1);
+  return cutoff.toISOString().slice(0, 10);
+}
+
 export function filterTrend(rows: TrendRow[], range: TrendRange) {
-  if (range === 'all' || rows.length === 0) return rows;
-  const cutoff = new Date(`${rows.at(-1)!.snapshot_date}T00:00:00Z`);
-  cutoff.setUTCDate(cutoff.getUTCDate() - (range === '30d' ? 30 : 90));
-  const date = cutoff.toISOString().slice(0, 10);
+  if (rows.length === 0) return rows;
+  const date = cutoffDate(rows.at(-1)!.snapshot_date, range);
   return rows.filter((row) => row.snapshot_date >= date);
 }
 

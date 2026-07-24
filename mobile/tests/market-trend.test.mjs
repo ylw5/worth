@@ -17,8 +17,16 @@ const snapshots = [
 ];
 
 assert.deepEqual(
-  filterTrend(snapshots, '30d').map((row) => row.estimated_price),
+  filterTrend(snapshots, '1w').map((row) => row.estimated_price),
+  [90, 120],
+);
+assert.deepEqual(
+  filterTrend(snapshots, '1m').map((row) => row.estimated_price),
   [100, 90, 120],
+);
+assert.deepEqual(
+  filterTrend(snapshots, '1y').map((row) => row.estimated_price),
+  [80, 100, 90, 120],
 );
 assert.deepEqual(trendStats(snapshots.slice(1)), {
   change: 20,
@@ -35,17 +43,17 @@ assert.equal(
   jobCopy({ status: 'failed' }),
   '本次更新失败，仍展示上次结果',
 );
-assert.equal(trendRangeLabels['30d'], '30 天');
+assert.equal(trendRangeLabels['1w'], '1周');
 assert.equal(
-  trendChangeCopy({ change: 20, percent: 20, high: 120, low: 90 }, '30d'),
-  '30 天 +¥20（+20%）',
+  trendChangeCopy({ change: 20, percent: 20, high: 120, low: 90 }, '1w'),
+  '1周 +¥20（+20%）',
 );
 assert.equal(
-  trendChangeCopy({ change: -5, percent: -4.2, high: 100, low: 90 }, '90d'),
-  '90 天 -¥5（-4.2%）',
+  trendChangeCopy({ change: -5, percent: -4.2, high: 100, low: 90 }, '1m'),
+  '1月 -¥5（-4.2%）',
 );
-assert.equal(trendChangeCopy(null, '30d'), '行情积累中');
+assert.equal(trendChangeCopy(null, '1w'), '行情积累中');
 assert.equal(
-  trendChangeCopy({ change: 0, percent: null, high: 0, low: 0 }, 'all'),
-  '全部 —',
+  trendChangeCopy({ change: 0, percent: null, high: 0, low: 0 }, '1y'),
+  '1年 —',
 );

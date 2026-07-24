@@ -130,27 +130,33 @@ export default function AssetDetailScreen() {
             <Pressable
               accessibilityRole="button"
               style={({ pressed }) => ({
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                gap: spacing.xl,
                 opacity: pressed ? 0.65 : 1,
               })}>
-              <Text
-                selectable
-                style={{ color: colors.textSecondary, ...typography.label }}>
-                物品状态
-              </Text>
-              <Text
+              <View
                 style={{
-                  color:
-                    asset.status === 'sold'
-                      ? colors.textSecondary
-                      : colors.textPrimary,
-                  ...typography.body,
-                  fontWeight: '600',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: spacing.xl,
                 }}>
-                {assetStatusLabels[asset.status]} ›
-              </Text>
+                <Text
+                  selectable
+                  style={{ color: colors.textSecondary, ...typography.label }}>
+                  物品状态
+                </Text>
+                <Text
+                  style={{
+                    flex: 1,
+                    color:
+                      asset.status === 'sold'
+                        ? colors.textSecondary
+                        : colors.textPrimary,
+                    textAlign: 'right',
+                    ...typography.body,
+                  }}>
+                  {assetStatusLabels[asset.status]} ›
+                </Text>
+              </View>
             </Pressable>
           </Link>
           <View style={{ height: 1, backgroundColor: colors.border }} />

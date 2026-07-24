@@ -17,12 +17,12 @@ import {
   jobCopy,
   trendChangeCopy,
   trendRangeLabels,
+  trendRanges,
   trendStats,
   type TrendRange,
 } from '@/lib/market-trend';
 import type { MarketInsight, MarketSnapshot } from '@/types/domain';
 
-const ranges: TrendRange[] = ['30d', '90d', 'all'];
 const sparkHeight = 56;
 const sparkWidth = 104;
 const chartHeight = 168;
@@ -140,7 +140,7 @@ export function MarketValuationCard({
   insight: MarketInsight;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [range, setRange] = useState<TrendRange>('30d');
+  const [range, setRange] = useState<TrendRange>('1w');
   const [chartWidth, setChartWidth] = useState(0);
   const latest = insight.snapshots.at(-1);
   const rows = filterTrend(insight.snapshots, range);
@@ -279,7 +279,7 @@ export function MarketValuationCard({
                 justifyContent: 'space-between',
                 alignItems: 'center',
               }}>
-              {ranges.map((value) => {
+              {trendRanges.map((value) => {
                 const selected = range === value;
                 return (
                   <Pressable
