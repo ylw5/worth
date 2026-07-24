@@ -3,8 +3,8 @@ from statistics import median, quantiles
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
-from .market import search
-from .models import MarketResult, Sample
+from market import search
+from models import MarketResult, Sample
 
 
 class MatchResult(BaseModel):

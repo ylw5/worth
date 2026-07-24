@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
-from src.forecast import forecast
-from src.models import Evidence, ValuationProfile
+from forecast import forecast
+from models import Evidence, ValuationProfile
 
 PROFILE = ValuationProfile(category="数码", brand="A", model="B")
 

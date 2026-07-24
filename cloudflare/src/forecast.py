@@ -1,7 +1,7 @@
 from datetime import date
 from math import exp, log, sqrt
 
-from .models import Evidence, ForecastResult, ValuationProfile
+from models import Evidence, ForecastResult, ValuationProfile
 
 
 def _fit(points: list[tuple[float, float]]) -> tuple[float, float]:

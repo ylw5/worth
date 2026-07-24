@@ -6,7 +6,7 @@ from http.cookies import SimpleCookie
 
 import httpx
 
-from .models import Sample
+from models import Sample
 
 SEARCH_URL = (
     "https://h5api.m.goofish.com/h5/"

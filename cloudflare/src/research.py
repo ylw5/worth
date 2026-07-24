@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
-from .bocha import web_search
-from .models import Evidence, ValuationProfile
+from bocha import web_search
+from models import Evidence, ValuationProfile
 
 
 class NormalizedResearch(BaseModel):

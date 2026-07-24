@@ -1,6 +1,6 @@
 from workers import Response, WorkerEntrypoint, WorkflowEntrypoint
 
-from .supabase import Supabase
+from supabase import Supabase
 
 
 def database(env):
@@ -56,7 +56,7 @@ class MarketWorkflow(WorkflowEntrypoint):
         async def collect_and_filter(load_asset):
             if not load_asset:
                 return None
-            from .filter import collect_market_result
+            from filter import collect_market_result
 
             result = await collect_market_result(self.env, load_asset)
             return result.model_dump(mode="json")
@@ -133,7 +133,7 @@ class ForecastWorkflow(WorkflowEntrypoint):
         async def research_step(load_asset):
             if not load_asset:
                 return None
-            from .research import research
+            from research import research
 
             profile, evidence = await research(self.env, load_asset)
             return {
@@ -151,8 +151,8 @@ class ForecastWorkflow(WorkflowEntrypoint):
         ):
             if not load_asset or not research_step:
                 return None
-            from .forecast import forecast
-            from .models import Evidence, ValuationProfile
+            from forecast import forecast
+            from models import Evidence, ValuationProfile
 
             profile = ValuationProfile.model_validate(
                 research_step["profile"]

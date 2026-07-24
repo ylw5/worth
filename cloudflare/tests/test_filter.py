@@ -1,5 +1,5 @@
-from src.filter import summarize
-from src.models import Sample
+from filter import summarize
+from models import Sample
 
 
 def test_summarize_deduplicates_and_uses_quartile_range():
