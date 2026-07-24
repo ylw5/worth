@@ -1,7 +1,7 @@
 import { Stack } from 'expo-router';
 import { ScrollView, Text, View } from 'react-native';
 
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing, typography } from '@/constants/colors';
 import { useSession } from '@/providers/session-provider';
 
 export default function AccountScreen() {
@@ -9,26 +9,64 @@ export default function AccountScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: '账号' }} />
+      <Stack.Screen options={{ title: '账号', headerLargeTitle: true }} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={{ padding: 20, gap: 18 }}>
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.xxl }}>
         <View
           style={{
-            padding: 18,
-            borderRadius: 18,
+            borderRadius: radius.large,
             borderCurve: 'continuous',
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.border,
-            gap: 8,
+            backgroundColor: colors.surface,
+            overflow: 'hidden',
           }}>
-          <Text selectable style={{ color: colors.muted }}>
-            固定管理员
-          </Text>
-          <Text selectable style={{ color: colors.text, fontWeight: '700' }}>
-            {session?.user.email}
-          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: spacing.lg,
+              paddingVertical: spacing.lg,
+              gap: spacing.lg,
+            }}>
+            <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
+              账号
+            </Text>
+            <Text
+              selectable
+              style={{
+                flex: 1,
+                color: colors.textPrimary,
+                textAlign: 'right',
+                ...typography.body,
+              }}>
+              {session?.user.email}
+            </Text>
+          </View>
+          <View style={{ height: 1, backgroundColor: colors.border, marginLeft: spacing.lg }} />
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: spacing.lg,
+              paddingVertical: spacing.lg,
+              gap: spacing.lg,
+            }}>
+            <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
+              角色
+            </Text>
+            <Text
+              selectable
+              style={{
+                flex: 1,
+                color: colors.textPrimary,
+                textAlign: 'right',
+                ...typography.body,
+              }}>
+              固定管理员
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </>

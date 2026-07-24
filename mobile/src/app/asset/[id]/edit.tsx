@@ -17,7 +17,7 @@ import {
 import { AssetFormFields } from '@/components/asset-form-fields';
 import { AssetPhotoPicker } from '@/components/asset-photo-picker';
 import { ErrorState, LoadingState } from '@/components/screen-state';
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing, typography } from '@/constants/colors';
 import { analyzePhotos, estimateAsset } from '@/lib/api';
 import {
   getAsset,
@@ -218,7 +218,7 @@ function AssetEditForm({ asset }: { asset: Asset }) {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: 20, gap: 18 }}>
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.xxl }}>
         <AssetPhotoPicker
           photos={photos}
           onChange={changePhotos}
@@ -231,17 +231,25 @@ function AssetEditForm({ asset }: { asset: Asset }) {
             onPress={previewRecognition}
             style={({ pressed }) => ({
               alignItems: 'center',
-              padding: 14,
-              borderRadius: 14,
+              minHeight: 48,
+              justifyContent: 'center',
+              padding: spacing.lg,
+              borderRadius: radius.medium,
               borderCurve: 'continuous',
               borderWidth: 1,
-              borderColor: colors.green,
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
               opacity: pressed || loading ? 0.65 : 1,
             })}>
             {pendingAction === 'reanalyze' ? (
-              <ActivityIndicator color={colors.green} />
+              <ActivityIndicator color={colors.textPrimary} />
             ) : (
-              <Text style={{ color: colors.green, fontWeight: '700' }}>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: colors.textPrimary,
+                  fontWeight: '700',
+                }}>
                 重新解析照片
               </Text>
             )}
@@ -259,7 +267,7 @@ function AssetEditForm({ asset }: { asset: Asset }) {
           </Text>
         ) : null}
         {reviewed ? (
-          <Text selectable style={{ color: colors.green }}>
+          <Text selectable style={{ color: colors.accent, ...typography.body }}>
             解析完成，请确认信息后保存
           </Text>
         ) : null}
@@ -269,16 +277,23 @@ function AssetEditForm({ asset }: { asset: Asset }) {
           onPress={save}
           style={({ pressed }) => ({
             alignItems: 'center',
-            padding: 16,
-            borderRadius: 14,
+            minHeight: 52,
+            justifyContent: 'center',
+            padding: spacing.lg,
+            borderRadius: radius.medium,
             borderCurve: 'continuous',
-            backgroundColor: colors.green,
+            backgroundColor: colors.textPrimary,
             opacity: pressed || loading ? 0.65 : 1,
           })}>
           {pendingAction === 'save' ? (
-            <ActivityIndicator color="white" />
+            <ActivityIndicator color={colors.onDark} />
           ) : (
-            <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>
+            <Text
+              style={{
+                color: colors.onDark,
+                ...typography.body,
+                fontWeight: '700',
+              }}>
               保存并重新估价
             </Text>
           )}

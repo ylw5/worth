@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { ErrorState, LoadingState } from '@/components/screen-state';
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing, typography } from '@/constants/colors';
 import { formatCurrency } from '@/lib/format';
 import {
   deleteWishlistItem,
@@ -56,11 +56,17 @@ export default function WishlistScreen() {
               <Pressable
                 accessibilityLabel="添加心愿"
                 accessibilityRole="button"
-                hitSlop={8}>
+                hitSlop={8}
+                style={{
+                  width: 44,
+                  height: 44,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
                 <SymbolView
                   name={{ ios: 'plus', android: 'add', web: 'add' }}
                   size={24}
-                  tintColor={colors.green}
+                  tintColor={colors.textPrimary}
                 />
               </Pressable>
             </Link>
@@ -69,7 +75,7 @@ export default function WishlistScreen() {
       />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={{ padding: 20, gap: 12 }}>
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.md }}>
         {query.isLoading ? <LoadingState /> : null}
         {query.error ? <ErrorState message={query.error.message} /> : null}
         {deleteError ? <ErrorState message={deleteError} /> : null}
@@ -77,31 +83,30 @@ export default function WishlistScreen() {
           <View
             key={item.id}
             style={{
-              padding: 16,
-              gap: 8,
-              backgroundColor: colors.card,
-              borderWidth: 1,
-              borderColor: colors.border,
-              borderRadius: 18,
+              padding: spacing.lg,
+              gap: spacing.sm,
+              backgroundColor: colors.surface,
+              borderRadius: radius.large,
               borderCurve: 'continuous',
             }}>
             <View
               style={{
                 flexDirection: 'row',
                 justifyContent: 'space-between',
-                gap: 12,
+                gap: spacing.md,
               }}>
-              <View style={{ flex: 1, gap: 6 }}>
+              <View style={{ flex: 1, gap: spacing.sm }}>
                 <Text
                   selectable
-                  style={{ color: colors.text, fontWeight: '700' }}>
+                  style={{ color: colors.textPrimary, ...typography.cardTitle }}>
                   {item.name}
                 </Text>
                 <Text
                   selectable
                   style={{
-                    color: colors.green,
+                    color: colors.textPrimary,
                     fontSize: 20,
+                    fontWeight: '700',
                     fontVariant: ['tabular-nums'],
                   }}>
                   {formatCurrency(item.target_price)}
@@ -113,11 +118,15 @@ export default function WishlistScreen() {
                 disabled={deletingId === item.id}
                 hitSlop={8}
                 onPress={() => confirmDelete(item.id, item.name)}>
-                <Text style={{ color: colors.danger }}>删除</Text>
+                <Text style={{ color: colors.danger, ...typography.label }}>
+                  删除
+                </Text>
               </Pressable>
             </View>
             {item.notes ? (
-              <Text selectable style={{ color: colors.muted }}>
+              <Text
+                selectable
+                style={{ color: colors.textSecondary, ...typography.body }}>
                 {item.notes}
               </Text>
             ) : null}
@@ -126,19 +135,19 @@ export default function WishlistScreen() {
         {!query.isLoading && !query.error && !query.data?.length ? (
           <View
             style={{
-              padding: 32,
+              padding: spacing.xxxl,
               alignItems: 'center',
-              gap: 12,
-              backgroundColor: colors.card,
-              borderRadius: 18,
+              gap: spacing.md,
+              backgroundColor: colors.surface,
+              borderRadius: radius.large,
               borderCurve: 'continuous',
             }}>
-            <Text selectable style={{ color: colors.text, fontWeight: '700' }}>
+            <Text
+              selectable
+              style={{ color: colors.textPrimary, ...typography.sectionTitle }}>
               还没有心愿
             </Text>
-            <Link
-              href="/(tabs)/(wishlist)/add"
-              style={{ color: colors.green }}>
+            <Link href="/(tabs)/(wishlist)/add" style={{ color: colors.accent }}>
               添加第一个心愿
             </Link>
           </View>

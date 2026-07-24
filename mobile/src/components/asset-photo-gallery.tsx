@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Pressable, ScrollView, View } from 'react-native';
 
-import { colors } from '@/constants/colors';
+import { colors, radius } from '@/constants/colors';
 
 export function AssetPhotoGallery({ urls }: { urls: string[] }) {
   const [selected, setSelected] = useState(0);
@@ -11,8 +11,13 @@ export function AssetPhotoGallery({ urls }: { urls: string[] }) {
     <View style={{ gap: 10 }}>
       <Image
         source={urls[selected] ?? urls[0]}
-        contentFit="cover"
-        style={{ width: '100%', aspectRatio: 1.3, borderRadius: 20 }}
+        contentFit="contain"
+        style={{
+          width: '100%',
+          aspectRatio: 1.3,
+          borderRadius: radius.large,
+          backgroundColor: colors.surfaceMuted,
+        }}
       />
       {urls.length > 1 ? (
         <ScrollView
@@ -26,11 +31,11 @@ export function AssetPhotoGallery({ urls }: { urls: string[] }) {
               onPress={() => setSelected(index)}
               style={{
                 padding: 2,
-                borderRadius: 12,
+                borderRadius: radius.small,
                 borderWidth: 2,
                 borderColor:
                   (urls[selected] ?? urls[0]) === url
-                    ? colors.green
+                    ? colors.accent
                     : 'transparent',
               }}>
               <Image

@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing, typography } from '@/constants/colors';
 import { createWishlistItem } from '@/lib/wishlist';
 import { parseWishlistInput } from '@/lib/wishlist-input';
 import { useSession } from '@/providers/session-provider';
@@ -23,24 +23,25 @@ function Field({
   ...props
 }: ComponentProps<typeof TextInput> & { label: string }) {
   return (
-    <View style={{ gap: 7 }}>
-      <Text selectable style={{ color: colors.muted, fontSize: 13 }}>
+    <View style={{ gap: spacing.sm }}>
+      <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
         {label}
       </Text>
       <TextInput
         {...props}
         value={value}
         onChangeText={onChangeText}
+        placeholderTextColor={colors.textTertiary}
         style={{
-          minHeight: props.multiline ? 96 : undefined,
-          color: colors.text,
-          fontSize: 16,
-          padding: 14,
+          minHeight: props.multiline ? 96 : 48,
+          color: colors.textPrimary,
+          ...typography.body,
+          padding: spacing.lg,
           borderWidth: 1,
           borderColor: colors.border,
-          borderRadius: 12,
+          borderRadius: radius.small,
           borderCurve: 'continuous',
-          backgroundColor: colors.card,
+          backgroundColor: colors.surface,
           textAlignVertical: props.multiline ? 'top' : 'center',
         }}
       />
@@ -86,7 +87,7 @@ export default function AddWishlistScreen() {
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: 20, gap: 18 }}>
+          contentContainerStyle={{ padding: spacing.xl, gap: spacing.xxl }}>
           <Field
             label="名称"
             value={name}
@@ -108,7 +109,7 @@ export default function AddWishlistScreen() {
             placeholder="为什么想要它"
           />
           {error ? (
-            <Text selectable style={{ color: colors.danger }}>
+            <Text selectable style={{ color: colors.danger, ...typography.body }}>
               {error}
             </Text>
           ) : null}
@@ -118,16 +119,23 @@ export default function AddWishlistScreen() {
             onPress={save}
             style={({ pressed }) => ({
               alignItems: 'center',
-              padding: 16,
-              borderRadius: 14,
+              minHeight: 52,
+              justifyContent: 'center',
+              padding: spacing.lg,
+              borderRadius: radius.medium,
               borderCurve: 'continuous',
-              backgroundColor: colors.green,
+              backgroundColor: colors.textPrimary,
               opacity: pressed || loading ? 0.65 : 1,
             })}>
             {loading ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color={colors.onDark} />
             ) : (
-              <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>
+              <Text
+                style={{
+                  color: colors.onDark,
+                  ...typography.body,
+                  fontWeight: '700',
+                }}>
                 保存
               </Text>
             )}

@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
 import { LoadingState } from '@/components/screen-state';
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing, typography } from '@/constants/colors';
 import { useSession } from '@/providers/session-provider';
 
 export default function IndexScreen() {
@@ -14,11 +14,17 @@ export default function IndexScreen() {
         style={{
           flex: 1,
           justifyContent: 'center',
-          padding: 24,
-          gap: 16,
+          padding: spacing.xxl,
+          gap: spacing.lg,
           backgroundColor: colors.background,
         }}>
-        <Text selectable style={{ color: colors.danger, textAlign: 'center' }}>
+        <Text
+          selectable
+          style={{
+            color: colors.danger,
+            textAlign: 'center',
+            ...typography.body,
+          }}>
           {error || '管理员会话不可用'}
         </Text>
         <Pressable
@@ -26,12 +32,21 @@ export default function IndexScreen() {
           onPress={retry}
           style={({ pressed }) => ({
             alignItems: 'center',
-            padding: 14,
-            borderRadius: 14,
-            backgroundColor: colors.green,
-            opacity: pressed ? 0.7 : 1,
+            minHeight: 48,
+            justifyContent: 'center',
+            padding: spacing.lg,
+            borderRadius: radius.medium,
+            backgroundColor: colors.textPrimary,
+            opacity: pressed ? 0.65 : 1,
           })}>
-          <Text style={{ color: 'white', fontWeight: '700' }}>重试</Text>
+          <Text
+            style={{
+              ...typography.body,
+              color: colors.onDark,
+              fontWeight: '700',
+            }}>
+            重试
+          </Text>
         </Pressable>
       </View>
     );

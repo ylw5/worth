@@ -7,7 +7,7 @@ import {
 } from 'react-native';
 
 import { PurchaseDateField } from '@/components/purchase-date-field';
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing, typography } from '@/constants/colors';
 import { categories, type AssetInput } from '@/types/domain';
 
 function Field({
@@ -24,8 +24,8 @@ function Field({
   keyboardType?: TextInputProps['keyboardType'];
 }) {
   return (
-    <View style={{ gap: 7 }}>
-      <Text selectable style={{ color: colors.muted, fontSize: 13 }}>
+    <View style={{ gap: spacing.sm }}>
+      <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
         {label}
       </Text>
       <TextInput
@@ -34,15 +34,15 @@ function Field({
         onChangeText={onChangeText}
         value={value}
         style={{
-          minHeight: multiline ? 72 : undefined,
-          color: colors.text,
-          fontSize: 16,
-          padding: 14,
+          minHeight: multiline ? 72 : 48,
+          color: colors.textPrimary,
+          ...typography.body,
+          padding: spacing.lg,
           borderWidth: 1,
           borderColor: colors.border,
-          borderRadius: 12,
+          borderRadius: radius.small,
           borderCurve: 'continuous',
-          backgroundColor: colors.card,
+          backgroundColor: colors.surface,
           textAlignVertical: multiline ? 'top' : 'center',
         }}
       />
@@ -84,25 +84,33 @@ export function AssetFormFields({
         value={specsText}
         onChangeText={onChangeSpecsText}
       />
-      <View style={{ gap: 8 }}>
-        <Text selectable style={{ color: colors.muted, fontSize: 13 }}>
+      <View style={{ gap: spacing.sm }}>
+        <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
           分类
         </Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
           {categories.map((category) => (
             <Pressable
               key={category}
               onPress={() => onChange({ ...form, category })}
               style={{
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-                borderRadius: 99,
+                height: 38,
+                paddingHorizontal: spacing.lg,
+                borderRadius: radius.pill,
+                alignItems: 'center',
+                justifyContent: 'center',
                 backgroundColor:
-                  form.category === category ? colors.green : colors.greenSoft,
+                  form.category === category
+                    ? colors.textPrimary
+                    : colors.surfaceMuted,
               }}>
               <Text
                 style={{
-                  color: form.category === category ? 'white' : colors.green,
+                  color:
+                    form.category === category
+                      ? colors.onDark
+                      : colors.textSecondary,
+                  ...typography.label,
                 }}>
                 {category}
               </Text>

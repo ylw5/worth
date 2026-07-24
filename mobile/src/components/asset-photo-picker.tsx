@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import Sortable from 'react-native-sortables';
 
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing, typography } from '@/constants/colors';
 import {
   maxAssetPhotos,
   setCover,
@@ -89,10 +89,10 @@ export function AssetPhotoPicker({
   };
 
   return (
-    <View style={{ gap: 12 }}>
+    <View style={{ gap: spacing.md }}>
       <Text
         selectable
-        style={{ color: colors.text, fontWeight: '700', fontSize: 16 }}>
+        style={{ color: colors.textPrimary, ...typography.body, fontWeight: '700' }}>
         照片 {photos.length}/{maxAssetPhotos}
       </Text>
       <ScrollView
@@ -118,18 +118,18 @@ export function AssetPhotoPicker({
                 <Image
                   source={photo.uri}
                   contentFit="cover"
-                  style={{ width: 104, height: 104, borderRadius: 14 }}
+                  style={{ width: 104, height: 104, borderRadius: radius.small }}
                 />
                 <Text
                   style={{
                     position: 'absolute',
                     left: 6,
                     bottom: 6,
-                    color: 'white',
-                    backgroundColor: 'rgba(0,0,0,0.58)',
+                    color: colors.onDark,
+                    backgroundColor: 'rgba(11,11,13,0.58)',
                     paddingHorizontal: 7,
                     paddingVertical: 3,
-                    borderRadius: 99,
+                    borderRadius: radius.pill,
                     overflow: 'hidden',
                     fontSize: 12,
                   }}>
@@ -165,16 +165,21 @@ export function AssetPhotoPicker({
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
-              borderRadius: 14,
+              borderRadius: radius.small,
               borderCurve: 'continuous',
               borderWidth: 1,
               borderStyle: 'dashed',
-              borderColor: colors.green,
-              backgroundColor: colors.card,
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
               opacity: pressed ? 0.65 : 1,
             })}>
-            <Text style={{ color: colors.green, fontSize: 28 }}>＋</Text>
-            <Text style={{ color: colors.green, fontWeight: '700' }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 28 }}>＋</Text>
+            <Text
+              style={{
+                color: colors.textSecondary,
+                fontWeight: '600',
+                fontSize: 12,
+              }}>
               添加照片
             </Text>
           </Pressable>

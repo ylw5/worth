@@ -10,7 +10,7 @@ import {
 
 import { AssetPhotoGallery } from '@/components/asset-photo-gallery';
 import { ErrorState, LoadingState } from '@/components/screen-state';
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing, typography } from '@/constants/colors';
 import { estimateAsset } from '@/lib/api';
 import { getAsset, getValuations, recordValuation } from '@/lib/assets';
 import { formatCurrency, formatDate, specsToText } from '@/lib/format';
@@ -62,8 +62,13 @@ export default function AssetDetailScreen() {
                 params: { id: asset.id },
               }}
               asChild>
-              <Pressable accessibilityRole="button">
-                <Text style={{ color: colors.green, fontWeight: '700' }}>
+              <Pressable accessibilityRole="button" hitSlop={8}>
+                <Text
+                  style={{
+                    ...typography.body,
+                    color: colors.textPrimary,
+                    fontWeight: '700',
+                  }}>
                   编辑
                 </Text>
               </Pressable>
@@ -73,44 +78,50 @@ export default function AssetDetailScreen() {
       />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={{ padding: 20, gap: 18 }}>
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.xxl }}>
         <AssetPhotoGallery urls={asset.photo_urls ?? []} />
         <View
           style={{
-            padding: 18,
-            gap: 10,
-            borderRadius: 18,
+            padding: spacing.lg,
+            gap: spacing.sm,
+            borderRadius: radius.large,
             borderCurve: 'continuous',
-            backgroundColor: colors.card,
-            borderWidth: 1,
-            borderColor: colors.border,
+            backgroundColor: colors.surface,
           }}>
-          <Text selectable style={{ color: colors.muted }}>
+          <Text
+            selectable
+            style={{ color: colors.textSecondary, ...typography.label }}>
             当前参考市价
           </Text>
           <Text
             selectable
             style={{
-              color: colors.green,
-              fontSize: 34,
-              fontWeight: '800',
+              color:
+                asset.latest_market_price === null
+                  ? colors.textTertiary
+                  : colors.textPrimary,
+              ...typography.display,
               fontVariant: ['tabular-nums'],
             }}>
             {formatCurrency(asset.latest_market_price)}
           </Text>
           {latest ? (
-            <Text selectable style={{ color: colors.muted }}>
+            <Text
+              selectable
+              style={{ color: colors.textSecondary, ...typography.label }}>
               {formatCurrency(latest.price_low)}–
               {formatCurrency(latest.price_high)} · {latest.sample_count}{' '}
               个相似样本
             </Text>
           ) : (
-            <Text selectable style={{ color: colors.muted }}>
+            <Text
+              selectable
+              style={{ color: colors.textSecondary, ...typography.label }}>
               暂无可靠估价
             </Text>
           )}
           {refresh.error ? (
-            <Text selectable style={{ color: colors.danger }}>
+            <Text selectable style={{ color: colors.danger, ...typography.label }}>
               {refresh.error.message}
             </Text>
           ) : null}
@@ -120,16 +131,24 @@ export default function AssetDetailScreen() {
             onPress={() => refresh.mutate()}
             style={({ pressed }) => ({
               alignItems: 'center',
-              padding: 12,
-              borderRadius: 12,
+              minHeight: 48,
+              justifyContent: 'center',
+              padding: spacing.md,
+              borderRadius: radius.small,
               borderWidth: 1,
-              borderColor: colors.green,
+              borderColor: colors.border,
+              backgroundColor: colors.surface,
               opacity: pressed || refresh.isPending ? 0.65 : 1,
             })}>
             {refresh.isPending ? (
-              <ActivityIndicator color={colors.green} />
+              <ActivityIndicator color={colors.textPrimary} />
             ) : (
-              <Text style={{ color: colors.green, fontWeight: '700' }}>
+              <Text
+                style={{
+                  ...typography.body,
+                  color: colors.textPrimary,
+                  fontWeight: '700',
+                }}>
                 刷新价格
               </Text>
             )}
@@ -138,11 +157,11 @@ export default function AssetDetailScreen() {
 
         <View
           style={{
-            padding: 18,
-            gap: 14,
-            borderRadius: 18,
+            padding: spacing.lg,
+            gap: spacing.lg,
+            borderRadius: radius.large,
             borderCurve: 'continuous',
-            backgroundColor: colors.card,
+            backgroundColor: colors.surface,
           }}>
           {[
             ['分类', asset.category],
@@ -157,52 +176,70 @@ export default function AssetDetailScreen() {
                 : formatCurrency(asset.purchase_price),
             ],
             ['添加时间', formatDate(asset.created_at)],
-          ].map(([label, value]) => (
-            <View
-              key={label}
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                gap: 20,
-              }}>
-              <Text selectable style={{ color: colors.muted }}>
-                {label}
-              </Text>
-              <Text
-                selectable
+          ].map(([label, value], index, rows) => (
+            <View key={label}>
+              <View
                 style={{
-                  flex: 1,
-                  color: colors.text,
-                  textAlign: 'right',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  gap: spacing.xl,
                 }}>
-                {value}
-              </Text>
+                <Text
+                  selectable
+                  style={{ color: colors.textSecondary, ...typography.label }}>
+                  {label}
+                </Text>
+                <Text
+                  selectable
+                  style={{
+                    flex: 1,
+                    color: colors.textPrimary,
+                    textAlign: 'right',
+                    ...typography.body,
+                  }}>
+                  {value}
+                </Text>
+              </View>
+              {index < rows.length - 1 ? (
+                <View
+                  style={{
+                    height: 1,
+                    backgroundColor: colors.border,
+                    marginTop: spacing.lg,
+                  }}
+                />
+              ) : null}
             </View>
           ))}
         </View>
 
-        <View style={{ gap: 10 }}>
-          <Text selectable style={{ color: colors.text, fontWeight: '700' }}>
+        <View style={{ gap: spacing.md }}>
+          <Text
+            selectable
+            style={{ color: colors.textPrimary, ...typography.sectionTitle }}>
             价格历史
           </Text>
-          {historyQuery.data?.map((valuation) => (
+          {historyQuery.data?.map((valuation, index) => (
             <View
               key={valuation.id}
               style={{
                 flexDirection: 'row',
                 justifyContent: 'space-between',
-                padding: 14,
-                borderRadius: 14,
+                padding: spacing.lg,
+                borderRadius: radius.medium,
                 borderCurve: 'continuous',
-                backgroundColor: colors.card,
+                backgroundColor: colors.surface,
               }}>
-              <Text selectable style={{ color: colors.muted }}>
+              <Text
+                selectable
+                style={{ color: colors.textSecondary, ...typography.label }}>
                 {formatDate(valuation.created_at)}
               </Text>
               <Text
                 selectable
                 style={{
-                  color: colors.green,
+                  ...typography.body,
+                  color: index === 0 ? colors.accent : colors.textPrimary,
                   fontWeight: '700',
                   fontVariant: ['tabular-nums'],
                 }}>

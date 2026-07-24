@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 
 import { AssetFormFields } from '@/components/asset-form-fields';
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing, typography } from '@/constants/colors';
 import { estimateAsset } from '@/lib/api';
 import { createAsset, recordValuation, removePhotos } from '@/lib/assets';
 import { specsToText, textToSpecs } from '@/lib/format';
@@ -51,9 +51,11 @@ export default function ConfirmScreen() {
           flex: 1,
           justifyContent: 'center',
           alignItems: 'center',
-          padding: 24,
+          padding: spacing.xxl,
         }}>
-        <Text selectable style={{ color: colors.muted }}>
+        <Text
+          selectable
+          style={{ color: colors.textSecondary, ...typography.body }}>
           当前没有待确认的照片
         </Text>
       </View>
@@ -106,7 +108,7 @@ export default function ConfirmScreen() {
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ padding: 20, gap: 18 }}>
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.xxl }}>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           {draft.localUris.map((uri) => (
             <Image
@@ -116,12 +118,14 @@ export default function ConfirmScreen() {
               style={{
                 width: '48%',
                 aspectRatio: 1,
-                borderRadius: 16,
+                borderRadius: radius.medium,
               }}
             />
           ))}
         </View>
-        <Text selectable style={{ color: colors.muted }}>
+        <Text
+          selectable
+          style={{ color: colors.textSecondary, ...typography.body }}>
           AI 已填写信息，请确认后保存
         </Text>
         <AssetFormFields
@@ -131,7 +135,7 @@ export default function ConfirmScreen() {
           onChangeSpecsText={setSpecsText}
         />
         {error ? (
-          <Text selectable style={{ color: colors.danger }}>
+          <Text selectable style={{ color: colors.danger, ...typography.body }}>
             {error}
           </Text>
         ) : null}
@@ -141,16 +145,23 @@ export default function ConfirmScreen() {
           onPress={save}
           style={({ pressed }) => ({
             alignItems: 'center',
-            padding: 16,
-            borderRadius: 14,
+            minHeight: 52,
+            justifyContent: 'center',
+            padding: spacing.lg,
+            borderRadius: radius.medium,
             borderCurve: 'continuous',
-            backgroundColor: colors.green,
+            backgroundColor: colors.textPrimary,
             opacity: pressed || loading ? 0.65 : 1,
           })}>
           {loading ? (
-            <ActivityIndicator color="white" />
+            <ActivityIndicator color={colors.onDark} />
           ) : (
-            <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>
+            <Text
+              style={{
+                color: colors.onDark,
+                ...typography.body,
+                fontWeight: '700',
+              }}>
               保存并估价
             </Text>
           )}

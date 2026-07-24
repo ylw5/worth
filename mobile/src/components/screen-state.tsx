@@ -1,12 +1,17 @@
 import { ActivityIndicator, Text, View } from 'react-native';
 
-import { colors } from '@/constants/colors';
+import { colors, spacing, typography } from '@/constants/colors';
 
 export function LoadingState({ label = '加载中…' }: { label?: string }) {
   return (
-    <View style={{ padding: 32, alignItems: 'center', gap: 12 }}>
-      <ActivityIndicator color={colors.green} />
-      <Text selectable style={{ color: colors.muted }}>
+    <View
+      style={{
+        padding: spacing.xxxl,
+        alignItems: 'center',
+        gap: spacing.md,
+      }}>
+      <ActivityIndicator color={colors.textSecondary} />
+      <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
         {label}
       </Text>
     </View>
@@ -17,7 +22,12 @@ export function ErrorState({ message }: { message: string }) {
   return (
     <Text
       selectable
-      style={{ padding: 24, color: colors.danger, textAlign: 'center' }}>
+      style={{
+        padding: spacing.xxl,
+        color: colors.danger,
+        textAlign: 'center',
+        ...typography.body,
+      }}>
       {message}
     </Text>
   );

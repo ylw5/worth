@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 
 import { AssetPhotoPicker } from '@/components/asset-photo-picker';
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing, typography } from '@/constants/colors';
 import { analyzePhotos } from '@/lib/api';
 import { removePhotos, uploadPhotos } from '@/lib/assets';
 import type { AssetPhoto } from '@/lib/photos';
@@ -61,8 +61,10 @@ export default function CaptureScreen() {
       <Stack.Screen options={{ title: '录入物品', headerShown: true }} />
       <ScrollView
         contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={{ padding: 20, gap: 18 }}>
-        <Text selectable style={{ color: colors.muted }}>
+        contentContainerStyle={{ padding: spacing.xl, gap: spacing.xxl }}>
+        <Text
+          selectable
+          style={{ color: colors.textSecondary, ...typography.body }}>
           添加同一件物品的正面、背面、铭牌或细节照片
         </Text>
         <AssetPhotoPicker
@@ -71,7 +73,7 @@ export default function CaptureScreen() {
           onError={setError}
         />
         {error ? (
-          <Text selectable style={{ color: colors.danger }}>
+          <Text selectable style={{ color: colors.danger, ...typography.body }}>
             {error}
           </Text>
         ) : null}
@@ -81,16 +83,23 @@ export default function CaptureScreen() {
           onPress={analyze}
           style={({ pressed }) => ({
             alignItems: 'center',
-            padding: 16,
-            borderRadius: 14,
+            minHeight: 52,
+            justifyContent: 'center',
+            padding: spacing.lg,
+            borderRadius: radius.medium,
             borderCurve: 'continuous',
-            backgroundColor: colors.green,
+            backgroundColor: colors.textPrimary,
             opacity: pressed || loading || !photos.length ? 0.65 : 1,
           })}>
           {loading ? (
-            <ActivityIndicator color="white" />
+            <ActivityIndicator color={colors.onDark} />
           ) : (
-            <Text style={{ color: 'white', fontSize: 17, fontWeight: '700' }}>
+            <Text
+              style={{
+                color: colors.onDark,
+                ...typography.body,
+                fontWeight: '700',
+              }}>
               解析照片
             </Text>
           )}

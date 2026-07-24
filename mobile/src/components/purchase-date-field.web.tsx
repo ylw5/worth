@@ -1,6 +1,6 @@
 import { Pressable, Text, View } from 'react-native';
 
-import { colors } from '@/constants/colors';
+import { colors, radius, spacing, typography } from '@/constants/colors';
 import { formatPurchaseDate } from '@/lib/purchase-input';
 
 export function PurchaseDateField({
@@ -11,8 +11,8 @@ export function PurchaseDateField({
   onChange: (value: string) => void;
 }) {
   return (
-    <View style={{ gap: 7 }}>
-      <Text selectable style={{ color: colors.muted, fontSize: 13 }}>
+    <View style={{ gap: spacing.sm }}>
+      <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
         实际买入日期（可选）
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -25,11 +25,11 @@ export function PurchaseDateField({
           style={{
             flex: 1,
             minWidth: 0,
-            padding: 14,
+            padding: spacing.lg,
             border: `1px solid ${colors.border}`,
-            borderRadius: 12,
-            background: colors.card,
-            color: colors.text,
+            borderRadius: radius.small,
+            background: colors.surface,
+            color: colors.textPrimary,
             font: 'inherit',
           }}
         />
@@ -38,7 +38,7 @@ export function PurchaseDateField({
             accessibilityLabel="清空实际买入日期"
             accessibilityRole="button"
             onPress={() => onChange('')}>
-            <Text style={{ color: colors.green }}>清空</Text>
+            <Text style={{ color: colors.accent, ...typography.label }}>清空</Text>
           </Pressable>
         ) : null}
       </View>

@@ -1,68 +1,71 @@
 import { Image } from 'expo-image';
 import { Link } from 'expo-router';
-import { Pressable, Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
-import { colors } from '@/constants/colors';
-import { formatCurrency } from '@/lib/format';
+import { colors, radius, spacing, typography } from '@/constants/colors';
+import { formatCurrency, formatOwnershipMeta } from '@/lib/format';
 import type { Asset } from '@/types/domain';
 
 export function AssetCard({ asset }: { asset: Asset }) {
+  const meta = formatOwnershipMeta(asset.purchase_price, asset.purchase_date);
+  const pending = asset.latest_market_price === null;
+
   return (
     <Link href={{ pathname: '/asset/[id]', params: { id: asset.id } }} asChild>
       <Pressable
         accessibilityRole="button"
         style={({ pressed }) => ({
-          gap: 8,
-          padding: 10,
-          borderRadius: 18,
+          padding: spacing.sm,
+          borderRadius: radius.large,
           borderCurve: 'continuous',
-          backgroundColor: colors.card,
-          borderWidth: 1,
-          borderColor: colors.border,
-          opacity: pressed ? 0.7 : 1,
+          backgroundColor: colors.surface,
+          opacity: pressed ? 0.65 : 1,
         })}>
-        <Image
-          source={asset.photo_urls?.[0]}
-          contentFit="cover"
-          style={{ width: '100%', aspectRatio: 1, borderRadius: 14 }}
-        />
-        <Text
-          selectable
-          numberOfLines={1}
-          style={{ color: colors.text, fontWeight: '700' }}>
-          {asset.name}
-        </Text>
-        <Text
-          selectable
-          numberOfLines={1}
+        <View
           style={{
-            alignSelf: 'flex-start',
-            color: colors.green,
-            backgroundColor: colors.greenSoft,
-            paddingHorizontal: 8,
-            paddingVertical: 3,
-            borderRadius: 99,
+            aspectRatio: 1,
+            borderRadius: radius.small,
+            backgroundColor: colors.surfaceMuted,
             overflow: 'hidden',
-            fontSize: 12,
           }}>
-          {asset.category}
-        </Text>
-        <Text selectable style={{ color: colors.muted, fontSize: 13 }}>
-          当前参考市价
-        </Text>
-        <Text
-          selectable
-          style={{
-            color:
-              asset.latest_market_price === null
-                ? colors.muted
-                : colors.green,
-            fontSize: 18,
-            fontWeight: '700',
-            fontVariant: ['tabular-nums'],
-          }}>
-          {formatCurrency(asset.latest_market_price)}
-        </Text>
+          <Image
+            source={asset.photo_urls?.[0]}
+            contentFit="cover"
+            style={{ width: '100%', height: '100%' }}
+          />
+        </View>
+        <View style={{ paddingTop: spacing.sm, gap: spacing.xs }}>
+          <Text
+            selectable
+            numberOfLines={2}
+            style={{
+              color: colors.textPrimary,
+              fontSize: 14,
+              fontWeight: '600',
+              lineHeight: 18,
+            }}>
+            {asset.name}
+          </Text>
+          <Text
+            selectable
+            style={{
+              color: pending ? colors.textSecondary : colors.textPrimary,
+              fontSize: 15,
+              fontWeight: '600',
+              fontVariant: ['tabular-nums'],
+              lineHeight: 20,
+            }}>
+            {formatCurrency(asset.latest_market_price)}
+          </Text>
+          {meta ? (
+            <Text
+              selectable
+              numberOfLines={1}
+              style={{ color: colors.textSecondary, ...typography.caption }}>
+              {meta}
+            </Text>
+          ) : null}
+        </View>
       </Pressable>
     </Link>
   );
