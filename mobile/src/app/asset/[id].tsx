@@ -1,4 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  useIsMutating,
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import {
   ActivityIndicator,
@@ -21,6 +27,9 @@ import {
 } from '@/lib/assets';
 import { formatCurrency, formatDate, specsToText } from '@/lib/format';
 
+const refreshPriceMutationKey = (assetId: string) =>
+  ['refresh-price', assetId] as const;
+
 export default function AssetDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -39,7 +48,14 @@ export default function AssetDetailScreen() {
     queryFn: () => getAssetSale(id),
     enabled: Boolean(id) && assetQuery.data?.status === 'sold',
   });
+  const refreshKey = id ? refreshPriceMutationKey(id) : (['refresh-price'] as const);
+  const refreshPending = useIsMutating({ mutationKey: refreshKey }) > 0;
+  const refreshError = useMutationState({
+    filters: { mutationKey: refreshKey },
+    select: (mutation) => mutation.state.error,
+  }).at(-1);
   const refresh = useMutation({
+    mutationKey: refreshKey,
     mutationFn: async () => {
       if (!assetQuery.data) return;
       const valuation = await estimateAsset(assetQuery.data);
@@ -156,16 +172,19 @@ export default function AssetDetailScreen() {
               暂无可靠估价
             </Text>
           )}
-          {refresh.error ? (
+          {refreshError instanceof Error ? (
             <Text selectable style={{ color: colors.danger, ...typography.label }}>
-              {refresh.error.message}
+              {refreshError.message}
             </Text>
           ) : null}
           {asset.status !== 'sold' ? (
             <Pressable
               accessibilityRole="button"
-              disabled={refresh.isPending}
-              onPress={() => refresh.mutate()}
+              disabled={refreshPending}
+              onPress={() => {
+                if (refreshPending) return;
+                refresh.mutate();
+              }}
               style={({ pressed }) => ({
                 alignItems: 'center',
                 minHeight: 48,
@@ -175,9 +194,9 @@ export default function AssetDetailScreen() {
                 borderWidth: 1,
                 borderColor: colors.border,
                 backgroundColor: colors.surface,
-                opacity: pressed || refresh.isPending ? 0.65 : 1,
+                opacity: pressed || refreshPending ? 0.65 : 1,
               })}>
-              {refresh.isPending ? (
+              {refreshPending ? (
                 <ActivityIndicator color={colors.textPrimary} />
               ) : (
                 <Text
