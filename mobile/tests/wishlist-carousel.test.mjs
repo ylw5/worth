@@ -12,20 +12,20 @@ const assertApprox = (actual, expected) => {
 
 test('derives card width, side padding, and snap interval for peeking carousel', () => {
   const metrics = getWishlistCarouselMetrics(390, {
-    cardWidthRatio: 0.86,
+    cardWidthRatio: 0.78,
     gap: 12,
   });
-  assertApprox(metrics.cardWidth, 335.4);
+  assertApprox(metrics.cardWidth, 304.2);
   assert.equal(metrics.gap, 12);
-  assertApprox(metrics.sidePadding, 27.3);
-  assertApprox(metrics.snapInterval, 347.4);
+  assertApprox(metrics.sidePadding, 42.9);
+  assertApprox(metrics.snapInterval, 316.2);
 });
 
 test('maps scroll offset to a clamped carousel index', () => {
-  assert.equal(getWishlistCarouselIndex(0, 347.4, 3), 0);
-  assert.equal(getWishlistCarouselIndex(347.4, 347.4, 3), 1);
-  assert.equal(getWishlistCarouselIndex(694.8, 347.4, 3), 2);
-  assert.equal(getWishlistCarouselIndex(1000, 347.4, 3), 2);
-  assert.equal(getWishlistCarouselIndex(-10, 347.4, 3), 0);
-  assert.equal(getWishlistCarouselIndex(0, 347.4, 0), 0);
+  assert.equal(getWishlistCarouselIndex(0, 316.2, 3), 0);
+  assert.equal(getWishlistCarouselIndex(316.2, 316.2, 3), 1);
+  assert.equal(getWishlistCarouselIndex(632.4, 316.2, 3), 2);
+  assert.equal(getWishlistCarouselIndex(1000, 316.2, 3), 2);
+  assert.equal(getWishlistCarouselIndex(-10, 316.2, 3), 0);
+  assert.equal(getWishlistCarouselIndex(0, 316.2, 0), 0);
 });

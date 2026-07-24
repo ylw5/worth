@@ -5,9 +5,12 @@ export const getWishlistProgress = (
   savedAmount: number,
   targetAmount: number,
 ) => {
-  const percentage = Math.round((savedAmount / targetAmount) * 100);
+  const percentage = Math.min(
+    Math.round((savedAmount / targetAmount) * 100),
+    100,
+  );
   return {
     percentage,
-    barPercentage: Math.min(percentage, 100),
+    barPercentage: percentage,
   };
 };

@@ -20,7 +20,7 @@ test('sums separate funding sources and derives combined wishlist progress', () 
     barPercentage: 78,
   });
   assert.deepEqual(getWishlistProgress(fundedAmount, 1280), {
-    percentage: 122,
+    percentage: 100,
     barPercentage: 100,
   });
 });

@@ -1,4 +1,4 @@
-const DEFAULT_CARD_WIDTH_RATIO = 0.86;
+const DEFAULT_CARD_WIDTH_RATIO = 0.78;
 const DEFAULT_GAP = 12;
 
 export const getWishlistCarouselMetrics = (

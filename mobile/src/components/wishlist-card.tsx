@@ -1,5 +1,13 @@
+import { SymbolView } from 'expo-symbols';
 import { router } from 'expo-router';
-import { Pressable, StyleProp, Text, View, ViewStyle } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  StyleProp,
+  Text,
+  View,
+  ViewStyle,
+} from 'react-native';
 
 import { colors, radius, spacing, typography } from '@/constants/colors';
 import { formatCurrency } from '@/lib/format';
@@ -21,13 +29,24 @@ export function WishlistCard({
 }) {
   const progress = getWishlistProgress(fundedAmount, item.target_price);
 
+  const openCardMenu = () => {
+    Alert.alert(item.name, undefined, [
+      {
+        text: '删除',
+        style: 'destructive',
+        onPress: () => onDelete(item.id, item.name),
+      },
+      { text: '取消', style: 'cancel' },
+    ]);
+  };
+
   return (
     <View
       style={[
         {
           padding: spacing.lg,
           gap: spacing.md,
-          backgroundColor: colors.surface,
+          backgroundColor: colors.surfaceMuted,
           borderRadius: radius.large,
           borderCurve: 'continuous',
         },
@@ -37,6 +56,7 @@ export function WishlistCard({
         style={{
           flexDirection: 'row',
           justifyContent: 'space-between',
+          alignItems: 'center',
           gap: spacing.md,
         }}>
         <Text
@@ -49,14 +69,26 @@ export function WishlistCard({
           {item.name}
         </Text>
         <Pressable
-          accessibilityLabel={`删除${item.name}`}
+          accessibilityLabel={`${item.name}更多操作`}
           accessibilityRole="button"
           disabled={deleting}
           hitSlop={8}
-          onPress={() => onDelete(item.id, item.name)}>
-          <Text style={{ color: colors.danger, ...typography.label }}>
-            删除
-          </Text>
+          onPress={openCardMenu}
+          style={{
+            width: 32,
+            height: 32,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+          <SymbolView
+            name={{
+              ios: 'ellipsis',
+              android: 'more_horiz',
+              web: 'more_horiz',
+            }}
+            size={18}
+            tintColor={colors.textSecondary}
+          />
         </Pressable>
       </View>
       <Text
@@ -91,7 +123,7 @@ export function WishlistCard({
             flex: 1,
             height: 12,
             overflow: 'hidden',
-            backgroundColor: colors.surfaceMuted,
+            backgroundColor: colors.surface,
             borderRadius: radius.pill,
           }}>
           <View
