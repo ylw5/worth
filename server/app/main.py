@@ -1,6 +1,6 @@
 import json
-import re
 from typing import Iterator
+from uuid import uuid4
 
 import requests
 from fastapi import Depends, FastAPI, HTTPException
@@ -10,11 +10,13 @@ from openai import OpenAIError
 from supabase import Client as SupabaseClient, create_client
 
 from .auth import AuthenticatedUser, require_user
+from .ai.errors import AIFoundationError
+from .ai.factory import build_purchase_evaluation_workflow
+from .ai.tools import load_confirmed_evaluation_assets
 from .background_removal import try_remove_background
 from .config import get_settings
 from .evaluation import build_purchase_evaluation
 from .evaluation_tools import (
-    create_production_executor,
     summarize_evaluation_history,
 )
 from .market import MarketClient
@@ -132,6 +134,26 @@ def load_history_context(
         current_evaluation_id=current_evaluation_id,
         include_current=include_current,
     )
+
+
+def build_confirmed_purchase_evaluation(
+    supabase_client: SupabaseClient,
+    user_id: str,
+    product: ParsedProduct,
+) -> PurchaseEvaluationResult:
+    """Rebuild evaluation facts from authenticated server-side records."""
+    try:
+        assets = load_confirmed_evaluation_assets(
+            supabase_client,
+            user_id=user_id,
+            category=product.category,
+        )
+    except Exception as error:
+        raise HTTPException(
+            status_code=503,
+            detail="暂时无法读取已确认资产，请稍后重试",
+        ) from error
+    return build_purchase_evaluation(product, assets)
 
 
 @app.post("/analyze", response_model=AssetRecognition)
@@ -275,47 +297,35 @@ def evaluate_purchase(
     request: PurchaseEvaluationRequest,
     user: AuthenticatedUser = Depends(require_user),
 ) -> PurchaseEvaluationResult:
-    result = build_purchase_evaluation(request.product, request.assets)
+    settings = get_settings()
+    supabase_client = get_user_supabase(user.access_token)
+    result = build_confirmed_purchase_evaluation(
+        supabase_client,
+        user.id,
+        request.product,
+    )
     user_message = request.product.source_text.strip() or (
         f"我想买{request.product.title}"
     )
     try:
-        settings = get_settings()
-        supabase_client = get_user_supabase(user.access_token)
-        tool_executor = create_production_executor(
-            user_id=user.id,
+        bundle = build_purchase_evaluation_workflow(
+            settings,
             supabase_client=supabase_client,
             market_client=MarketClient(settings.xianyu_cookie)
             if settings.xianyu_cookie
             else None,
         )
-        history = build_history_snapshot(
-            supabase_client,
-            user.id,
-            request.product.category,
-            request.product.subcategory,
-        )
-        chat_messages = [
-            EvaluationChatMessage(role="user", content=user_message)
-        ]
-        if history:
-            chat_messages.insert(0, history)
-        opening = build_text_ai(settings).continue_evaluation_with_tools(
+        opening = bundle.workflow.run(
             result.product,
             result.matched_assets,
             result.facts,
-            chat_messages,
-            user.id,
-            tool_executor,
-        )
-        if opening.strip():
-            result.narrative = re.sub(
-                r"\s*\[decision:(?:buy|skip)\]\s*",
-                "\n",
-                opening,
-                flags=re.IGNORECASE,
-            ).strip()
-    except (RuntimeError, OpenAIError):
+            [EvaluationChatMessage(role="user", content=user_message)],
+            user_id=user.id,
+            request_id=uuid4().hex,
+        ).text
+        if opening:
+            result.narrative = opening
+    except (AIFoundationError, RuntimeError, OpenAIError):
         pass  # AI 不可用时回退到模板化事实叙述
     return result
 
@@ -331,31 +341,28 @@ def chat_about_purchase(
     try:
         settings = get_settings()
         supabase_client = get_user_supabase(user.access_token)
-        tool_executor = create_production_executor(
-            user_id=user.id,
-            supabase_client=supabase_client,
-            market_client=MarketClient(settings.xianyu_cookie) if settings.xianyu_cookie else None,
-        )
-        history = build_history_snapshot(
+        confirmed = build_confirmed_purchase_evaluation(
             supabase_client,
             user.id,
-            request.product.category,
-            request.product.subcategory,
-            request.evaluation_id,
-        )
-        chat_messages = list(request.messages)
-        if history:
-            chat_messages.insert(0, history)
-        message = build_text_ai(settings).continue_evaluation_with_tools(
             request.product,
-            request.matched_assets,
-            request.facts,
-            chat_messages,
-            user.id,
-            tool_executor,
         )
+        bundle = build_purchase_evaluation_workflow(
+            settings,
+            supabase_client=supabase_client,
+            market_client=MarketClient(settings.xianyu_cookie)
+            if settings.xianyu_cookie
+            else None,
+        )
+        message = bundle.workflow.run(
+            request.product,
+            confirmed.matched_assets,
+            confirmed.facts,
+            list(request.messages),
+            user_id=user.id,
+            request_id=uuid4().hex,
+        ).text
         return EvaluationChatResponse(message=message)
-    except (RuntimeError, OpenAIError) as error:
+    except (AIFoundationError, RuntimeError, OpenAIError) as error:
         raise HTTPException(
             status_code=503,
             detail="评估对话暂时不可用，请稍后重试",
@@ -368,38 +375,38 @@ def stream_chat_about_purchase(
     user: AuthenticatedUser = Depends(require_user),
 ) -> StreamingResponse:
     settings = get_settings()
-    service = build_text_ai(settings)
     supabase_client = get_user_supabase(user.access_token)
-    tool_executor = create_production_executor(
-        user_id=user.id,
-        supabase_client=supabase_client,
-        market_client=MarketClient(settings.xianyu_cookie) if settings.xianyu_cookie else None,
-    )
-    history = build_history_snapshot(
+    confirmed = build_confirmed_purchase_evaluation(
         supabase_client,
         user.id,
-        request.product.category,
-        request.product.subcategory,
-        request.evaluation_id,
+        request.product,
     )
-    chat_messages = list(request.messages)
-    if history:
-        chat_messages.insert(0, history)
 
     def event_stream() -> Iterator[str]:
         try:
-            for delta in service.continue_evaluation_with_tools_stream(
+            bundle = build_purchase_evaluation_workflow(
+                settings,
+                supabase_client=supabase_client,
+                market_client=MarketClient(settings.xianyu_cookie)
+                if settings.xianyu_cookie
+                else None,
+            )
+            for event in bundle.workflow.stream(
                 request.product,
-                request.matched_assets,
-                request.facts,
-                chat_messages,
-                user.id,
-                tool_executor,
+                confirmed.matched_assets,
+                confirmed.facts,
+                list(request.messages),
+                user_id=user.id,
+                request_id=uuid4().hex,
             ):
-                payload = json.dumps({"delta": delta}, ensure_ascii=False)
-                yield f"data: {payload}\n\n"
+                if event.type == "text_delta" and event.delta:
+                    payload = json.dumps(
+                        {"delta": event.delta},
+                        ensure_ascii=False,
+                    )
+                    yield f"data: {payload}\n\n"
             yield "data: [DONE]\n\n"
-        except (RuntimeError, OpenAIError):
+        except (AIFoundationError, RuntimeError, OpenAIError):
             payload = json.dumps(
                 {"error": "评估对话暂时不可用，请稍后重试"},
                 ensure_ascii=False,

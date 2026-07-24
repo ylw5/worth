@@ -21,6 +21,7 @@ from .contracts import (
     ToolResult,
 )
 from .errors import (
+    InvalidToolArgumentsError,
     ProviderProtocolError,
     RepeatedToolCallError,
     ToolExecutionError,
@@ -144,7 +145,10 @@ class AgentRunner:
                 )
             try:
                 result = self.tool_executor.execute(call, context)
-            except ToolExecutionError as error:
+            except (
+                InvalidToolArgumentsError,
+                ToolExecutionError,
+            ) as error:
                 result = ToolResult(
                     call_id=call.call_id,
                     name=call.name,

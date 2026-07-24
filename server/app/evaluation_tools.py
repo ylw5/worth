@@ -1,3 +1,10 @@
+"""Legacy shopping-tool compatibility layer.
+
+Production purchase evaluation now uses ``app.ai.tools`` and
+``app.ai.workflows.purchase_evaluation``. This module remains temporarily for
+the not-yet-migrated text-service methods and their compatibility tests.
+"""
+
 from __future__ import annotations
 
 import json

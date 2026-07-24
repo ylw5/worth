@@ -13,6 +13,7 @@ class AIErrorCode(str, Enum):
     PROVIDER_UNAVAILABLE = "ai_provider_unavailable"
     PROVIDER_PROTOCOL = "ai_provider_protocol_error"
     PROVIDER_INCOMPLETE = "ai_provider_incomplete"
+    OUTPUT_POLICY = "ai_output_policy_violation"
     INVALID_TOOL_ARGUMENTS = "ai_invalid_tool_arguments"
     TOOL_NOT_ALLOWED = "ai_tool_not_allowed"
     TOOL_EXECUTION = "ai_tool_execution_error"
@@ -79,6 +80,10 @@ class ProviderProtocolError(AIFoundationError):
 
 class ProviderIncompleteError(AIFoundationError):
     code = AIErrorCode.PROVIDER_INCOMPLETE
+
+
+class OutputPolicyError(AIFoundationError):
+    code = AIErrorCode.OUTPUT_POLICY
 
 
 class InvalidToolArgumentsError(AIFoundationError):
