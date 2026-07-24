@@ -246,7 +246,7 @@ git commit -m "feat: select asset condition from fixed options"
 ### Task 3: Clean and constrain persisted conditions
 
 **Files:**
-- Create: `supabase/migrations/202607240003_constrain_asset_condition.sql`
+- Create: `supabase/migrations/202607240004_constrain_asset_condition.sql`
 
 **Interfaces:**
 - Consumes: the same six literal strings defined in Tasks 1 and 2.
@@ -254,7 +254,7 @@ git commit -m "feat: select asset condition from fixed options"
 
 - [ ] **Step 1: Add the migration**
 
-Create `supabase/migrations/202607240003_constrain_asset_condition.sql`:
+Create `supabase/migrations/202607240004_constrain_asset_condition.sql`:
 
 ```sql
 update public.assets
@@ -289,11 +289,11 @@ Run:
 
 ```bash
 ls supabase/migrations
-rg -n "update public.assets|set default '无法判断'|assets_condition_check" supabase/migrations/202607240003_constrain_asset_condition.sql
+rg -n "update public.assets|set default '无法判断'|assets_condition_check" supabase/migrations/202607240004_constrain_asset_condition.sql
 git diff --check
 ```
 
-Expected: `202607240003_constrain_asset_condition.sql` sorts after the existing `202607240002` migration, the update, valid default, and constraint are present, and `git diff --check` prints nothing.
+Expected: `202607240004_constrain_asset_condition.sql` sorts after the remote `202607240003` migration, the update, valid default, and constraint are present, and `git diff --check` prints nothing.
 
 - [ ] **Step 3: Run the final focused verification**
 
@@ -313,6 +313,6 @@ Expected: every command exits 0.
 - [ ] **Step 4: Commit the migration**
 
 ```bash
-git add supabase/migrations/202607240003_constrain_asset_condition.sql
+git add supabase/migrations/202607240004_constrain_asset_condition.sql
 git commit -m "feat: constrain stored asset condition"
 ```
