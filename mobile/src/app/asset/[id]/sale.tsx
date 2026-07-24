@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useState, type ComponentProps } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -18,6 +18,35 @@ import { getAssetSale, recordAssetSale } from '@/lib/assets';
 import { parseSaleInput } from '@/lib/purchase-input';
 import type { AssetSale } from '@/types/domain';
 
+function Field({
+  label,
+  ...props
+}: ComponentProps<typeof TextInput> & { label: string }) {
+  return (
+    <View style={{ gap: spacing.sm }}>
+      <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
+        {label}
+      </Text>
+      <TextInput
+        {...props}
+        placeholderTextColor={colors.textTertiary}
+        style={{
+          minHeight: props.multiline ? 96 : 48,
+          color: colors.textPrimary,
+          ...typography.body,
+          padding: spacing.lg,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.small,
+          borderCurve: 'continuous',
+          backgroundColor: colors.surface,
+          textAlignVertical: props.multiline ? 'top' : 'center',
+        }}
+      />
+    </View>
+  );
+}
+
 function AssetSaleForm({
   id,
   initialSale,
@@ -30,10 +59,17 @@ function AssetSaleForm({
   const [salePrice, setSalePrice] = useState(
     initialSale?.sale_price.toString() ?? '',
   );
+  const [platform, setPlatform] = useState(initialSale?.platform ?? '');
+  const [notes, setNotes] = useState(initialSale?.notes ?? '');
   const [error, setError] = useState('');
   const mutation = useMutation({
     mutationFn: (input: { sold_at: string; sale_price: number }) =>
-      recordAssetSale(id, input.sold_at, input.sale_price),
+      recordAssetSale({
+        asset_id: id,
+        ...input,
+        platform: platform.trim(),
+        notes: notes.trim(),
+      }),
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['asset', id] }),
@@ -70,30 +106,24 @@ function AssetSaleForm({
             value={soldAt}
             onChange={setSoldAt}
           />
-          <View style={{ gap: spacing.sm }}>
-            <Text
-              selectable
-              style={{ color: colors.textSecondary, ...typography.label }}>
-              成交价
-            </Text>
-            <TextInput
-              accessibilityLabel="成交价"
-              keyboardType="decimal-pad"
-              onChangeText={setSalePrice}
-              value={salePrice}
-              style={{
-                minHeight: 48,
-                color: colors.textPrimary,
-                ...typography.body,
-                padding: spacing.lg,
-                borderWidth: 1,
-                borderColor: colors.border,
-                borderRadius: radius.small,
-                borderCurve: 'continuous',
-                backgroundColor: colors.surface,
-              }}
-            />
-          </View>
+          <Field
+            accessibilityLabel="成交价"
+            keyboardType="decimal-pad"
+            label="成交价"
+            onChangeText={setSalePrice}
+            value={salePrice}
+          />
+          <Field
+            label="平台（选填）"
+            onChangeText={setPlatform}
+            value={platform}
+          />
+          <Field
+            label="备注（选填）"
+            multiline
+            onChangeText={setNotes}
+            value={notes}
+          />
           {error || mutation.error ? (
             <Text selectable style={{ color: colors.danger, ...typography.label }}>
               {error || mutation.error?.message}
