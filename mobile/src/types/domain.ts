@@ -49,6 +49,7 @@ export type AssetWriteInput = Omit<
 export type Asset = AssetWriteInput & {
   id: string;
   user_id: string;
+  market_key: string;
   photo_paths: string[];
   photo_urls?: string[];
   photo_cutout_paths: Record<string, string>;
@@ -92,4 +93,32 @@ export type Valuation = ValuationResult & {
   id: string;
   asset_id: string;
   created_at: string;
+};
+
+export type MarketSnapshot = {
+  id: string;
+  asset_id: string;
+  snapshot_date: string;
+  estimated_price: number;
+  price_low: number;
+  price_high: number;
+  sample_count: number;
+  query: string;
+  source: 'xianyu_active_listings';
+  created_at: string;
+};
+
+export type AnalysisRun = {
+  id: string;
+  market_key: string;
+  kind: 'market' | 'forecast';
+  status: 'queued' | 'running' | 'succeeded' | 'failed';
+  error_message: string | null;
+  created_at: string;
+  finished_at: string | null;
+};
+
+export type MarketInsight = {
+  snapshots: MarketSnapshot[];
+  run: AnalysisRun | null;
 };

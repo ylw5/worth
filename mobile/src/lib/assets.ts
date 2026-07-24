@@ -4,6 +4,7 @@ import type {
   Asset,
   AssetSale,
   AssetWriteInput,
+  MarketInsight,
   Valuation,
   ValuationResult,
 } from '@/types/domain';
@@ -115,6 +116,31 @@ export async function getValuations(assetId: string): Promise<Valuation[]> {
     .order('created_at', { ascending: false });
   fail(error);
   return (data ?? []) as Valuation[];
+}
+
+export async function getMarketInsight(
+  asset: Asset,
+): Promise<MarketInsight> {
+  const [snapshots, runs] = await Promise.all([
+    supabase
+      .from('market_snapshots')
+      .select('*')
+      .eq('asset_id', asset.id)
+      .order('snapshot_date', { ascending: true }),
+    supabase
+      .from('analysis_runs')
+      .select('*')
+      .eq('market_key', asset.market_key)
+      .eq('kind', 'market')
+      .order('created_at', { ascending: false })
+      .limit(1),
+  ]);
+  fail(snapshots.error);
+  fail(runs.error);
+  return {
+    snapshots: (snapshots.data ?? []) as MarketInsight['snapshots'],
+    run: ((runs.data ?? [])[0] as MarketInsight['run']) ?? null,
+  };
 }
 
 async function uploadImage(
