@@ -245,21 +245,76 @@ export default function AssetsScreen() {
           {!query.isLoading && !query.error && !filteredAssets.length ? (
             <View
               style={{
-                padding: spacing.xxxl,
+                paddingVertical: spacing.xxxxl,
+                paddingHorizontal: spacing.xl,
                 alignItems: 'center',
-                gap: spacing.md,
-                backgroundColor: colors.surface,
-                borderRadius: radius.large,
-                borderCurve: 'continuous',
+                gap: spacing.lg,
               }}>
-              <Text
-                selectable
-                style={{ color: colors.textPrimary, ...typography.sectionTitle }}>
-                {assets.length ? '该筛选下暂无资产' : '还没有资产'}
-              </Text>
+              <View
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: radius.pill,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: colors.surfaceMuted,
+                }}>
+                <SymbolView
+                  name={{
+                    ios: assets.length ? 'line.3.horizontal.decrease' : 'cube',
+                    android: assets.length ? 'filter_list' : 'inventory_2',
+                    web: assets.length ? 'filter_list' : 'inventory_2',
+                  }}
+                  size={24}
+                  tintColor={colors.textTertiary}
+                />
+              </View>
+              <View style={{ alignItems: 'center', gap: spacing.sm }}>
+                <Text
+                  selectable
+                  style={{
+                    color: colors.textPrimary,
+                    ...typography.cardTitle,
+                    textAlign: 'center',
+                  }}>
+                  {assets.length ? '没有符合筛选的资产' : '还没有资产'}
+                </Text>
+                <Text
+                  selectable
+                  style={{
+                    color: colors.textSecondary,
+                    ...typography.label,
+                    textAlign: 'center',
+                  }}>
+                  {assets.length
+                    ? '试试切换状态或分类'
+                    : '拍一张照片，开始盘点你的东西'}
+                </Text>
+              </View>
               {!assets.length ? (
-                <Link href="/capture" style={{ color: colors.accent }}>
-                  拍下第一件物品
+                <Link href="/capture" asChild>
+                  <Pressable
+                    accessibilityRole="button"
+                    style={({ pressed }) => ({
+                      marginTop: spacing.sm,
+                      minHeight: 44,
+                      paddingHorizontal: spacing.xl,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderRadius: radius.medium,
+                      borderCurve: 'continuous',
+                      backgroundColor: colors.textPrimary,
+                      opacity: pressed ? 0.65 : 1,
+                    })}>
+                    <Text
+                      style={{
+                        color: colors.onDark,
+                        ...typography.label,
+                        fontWeight: '600',
+                      }}>
+                      拍下第一件物品
+                    </Text>
+                  </Pressable>
                 </Link>
               ) : null}
             </View>

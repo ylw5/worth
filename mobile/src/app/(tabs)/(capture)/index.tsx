@@ -396,12 +396,8 @@ export default function CaptureScreen() {
         <ScrollView
           contentInsetAdjustmentBehavior="automatic"
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: spacing.xl, gap: spacing.xxl }}>
-          <Text
-            selectable
-            style={{ color: colors.textSecondary, ...typography.body }}>
-            每张照片会依次解析并更新下方信息
-          </Text>
+          contentContainerStyle={{ padding: spacing.xl, gap: spacing.xxl }}
+        >
           <AssetPhotoPicker
             photos={photos}
             disabled={processing || saving}
