@@ -64,3 +64,14 @@ export async function confirmSpendingResolution(
   fail(error);
   return data as SpendingResolution;
 }
+
+export async function listConfirmedSpendingResolutionAmounts(): Promise<
+  number[]
+> {
+  const { data, error } = await supabase
+    .from('spending_resolutions')
+    .select('amount')
+    .not('confirmed_at', 'is', null);
+  fail(error);
+  return (data ?? []).map(({ amount }) => Number(amount));
+}
