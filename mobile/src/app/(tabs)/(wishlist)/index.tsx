@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SymbolView } from 'expo-symbols';
-import { Link, router, Stack, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { Link, Stack, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -14,21 +14,19 @@ import {
 } from 'react-native';
 
 import { ErrorState, LoadingState } from '@/components/screen-state';
+import { WishlistCard } from '@/components/wishlist-card';
 import { colors, radius, spacing, typography } from '@/constants/colors';
-import { formatCurrency } from '@/lib/format';
 import { listConfirmedSpendingResolutionAmounts } from '@/lib/spending-resolutions';
 import {
   deleteWishlistItem,
   listWishlistItems,
+  type WishlistItem,
 } from '@/lib/wishlist';
 import {
   getWishlistCarouselIndex,
   getWishlistCarouselMetrics,
 } from '@/lib/wishlist-carousel';
-import {
-  getWishlistProgress,
-  sumSavings,
-} from '@/lib/wishlist-progress';
+import { sumSavings } from '@/lib/wishlist-progress';
 
 export default function WishlistScreen() {
   const queryClient = useQueryClient();
