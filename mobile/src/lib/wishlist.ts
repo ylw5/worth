@@ -1,6 +1,11 @@
 import { supabase } from '@/lib/supabase';
 import type { WishlistInput } from '@/lib/wishlist-input';
-import type { WishlistItem } from '@/types/domain';
+
+export type WishlistItem = WishlistInput & {
+  id: string;
+  user_id: string;
+  created_at: string;
+};
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);

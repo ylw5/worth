@@ -47,16 +47,12 @@ export type AssetWriteInput = Omit<
 export type Asset = AssetWriteInput & {
   id: string;
   user_id: string;
-  market_key: string;
-  subcategory: string;
   photo_paths: string[];
   photo_urls?: string[];
   photo_cutout_paths: Record<string, string>;
   photo_cutout_urls?: Record<string, string>;
   status: AssetStatus;
   latest_market_price: number | null;
-  latest_market_price_low: number | null;
-  latest_market_price_high: number | null;
   latest_valuation_at: string | null;
   created_at: string;
   updated_at: string;
@@ -68,8 +64,6 @@ export type AssetSale = {
   user_id: string;
   sold_at: string;
   sale_price: number;
-  platform: string;
-  notes: string;
   created_at: string;
   updated_at: string;
 };
@@ -94,85 +88,4 @@ export type Valuation = ValuationResult & {
   id: string;
   asset_id: string;
   created_at: string;
-};
-
-export type MarketSnapshot = {
-  id: string;
-  asset_id: string;
-  snapshot_date: string;
-  estimated_price: number;
-  price_low: number;
-  price_high: number;
-  sample_count: number;
-  query: string;
-  source: 'xianyu_active_listings';
-  created_at: string;
-};
-
-export type AnalysisRun = {
-  id: string;
-  asset_id: string;
-  market_key: string;
-  kind: 'market' | 'forecast';
-  status: 'queued' | 'running' | 'succeeded' | 'failed';
-  error_message: string | null;
-  created_at: string;
-  finished_at: string | null;
-};
-
-export type MarketInsight = {
-  snapshots: MarketSnapshot[];
-  run: AnalysisRun | null;
-  forecast: AssetForecast | null;
-};
-
-export type AssetForecast = {
-  id: string;
-  asset_id: string;
-  forecast_date: string;
-  method: 'own_history' | 'comparable_retention' | 'unavailable';
-  value_6m: number | null;
-  low_6m: number | null;
-  high_6m: number | null;
-  value_12m: number | null;
-  low_12m: number | null;
-  high_12m: number | null;
-  confidence: number;
-  reason: string;
-  evidence: {
-    url: string;
-    title: string;
-    site_name: string;
-    relevant: boolean;
-  }[];
-  created_at: string;
-};
-
-export type WishlistItem = {
-  id: string;
-  user_id: string;
-  name: string;
-  target_price: number;
-  notes: string;
-  price_source_url: string | null;
-  price_checked_at: string | null;
-  created_at: string;
-};
-
-export type ReplacementScenarioInput = {
-  asset_id: string;
-  wishlist_item_id: string;
-  forecast_id: string;
-  horizon_months: 6 | 12;
-  target_price: number;
-  current_asset_value: number;
-  future_asset_value: number;
-  change_now_cash: number;
-  change_later_cash: number;
-  waiting_cash_difference: number;
-  assumptions: {
-    target_price_constant: true;
-    fees_included: false;
-    source: 'user_wishlist';
-  };
 };

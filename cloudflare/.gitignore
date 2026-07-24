@@ -1,5 +1,0 @@
-.pytest_cache/
-.venv/
-.venv-workers/
-.wrangler/
-python_modules/
