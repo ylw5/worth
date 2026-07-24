@@ -41,3 +41,30 @@ export function parsePurchaseInput(
     },
   };
 }
+
+export function parseSaleInput(
+  soldAt: string,
+  salePrice: string,
+):
+  | { input: { sold_at: string; sale_price: number } }
+  | { error: string } {
+  if (!soldAt.trim() || !salePrice.trim()) {
+    return { error: '请填写成交日期和成交价' } as const;
+  }
+
+  const parsed = parsePurchaseInput(soldAt, salePrice);
+  if ('error' in parsed) {
+    return {
+      error: parsed.error
+        .replace('买入日期', '成交日期')
+        .replace('买入价格', '成交价'),
+    } as const;
+  }
+
+  return {
+    input: {
+      sold_at: parsed.input.purchase_date as string,
+      sale_price: parsed.input.purchase_price as number,
+    },
+  } as const;
+}

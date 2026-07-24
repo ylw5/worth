@@ -14,6 +14,7 @@ import { AssetCard } from '@/components/asset-card';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, radius, spacing, typography } from '@/constants/colors';
 import { getAssetGridColumns } from '@/lib/asset-grid';
+import { isCurrentAsset } from '@/lib/asset-status';
 import { listAssets } from '@/lib/assets';
 import { formatCurrency } from '@/lib/format';
 
@@ -27,25 +28,30 @@ export default function AssetsScreen() {
     (width - pagePadding * 2 - gridGap * (columns - 1)) / columns;
   const query = useQuery({ queryKey: ['assets'], queryFn: listAssets });
   const assets = useMemo(() => query.data ?? [], [query.data]);
+  const currentAssets = useMemo(
+    () => assets.filter(isCurrentAsset),
+    [assets],
+  );
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  const total = assets.reduce(
+  const total = currentAssets.reduce(
     (sum, asset) => sum + (asset.latest_market_price ?? 0),
     0,
   );
-  const pending = assets.filter(
+  const pending = currentAssets.filter(
     (asset) => asset.latest_market_price === null,
   ).length;
+  const sold = assets.length - currentAssets.length;
 
   const categories = useMemo(
     () =>
       Object.entries(
-        assets.reduce<Record<string, number>>((counts, asset) => {
+        currentAssets.reduce<Record<string, number>>((counts, asset) => {
           counts[asset.category] = (counts[asset.category] ?? 0) + 1;
           return counts;
         }, {}),
       ).sort(([a], [b]) => a.localeCompare(b, 'zh-CN')),
-    [assets],
+    [currentAssets],
   );
 
   const filteredAssets = selectedCategory
@@ -104,7 +110,8 @@ export default function AssetsScreen() {
           <Text
             selectable
             style={{ color: colors.textSecondary, ...typography.label }}>
-            {assets.length} 件资产 · {pending} 件待估价
+            {currentAssets.length} 件当前资产 · {sold} 件已卖出 · {pending}{' '}
+            件待估价
           </Text>
         </View>
 

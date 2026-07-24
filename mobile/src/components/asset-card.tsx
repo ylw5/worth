@@ -30,6 +30,7 @@ export function AssetCard({ asset }: { asset: Asset }) {
         <View
           style={{
             aspectRatio: 1,
+            position: 'relative',
             borderRadius: radius.small,
             backgroundColor: colors.surfaceMuted,
             overflow: 'hidden',
@@ -39,6 +40,27 @@ export function AssetCard({ asset }: { asset: Asset }) {
             contentFit={hasCutout ? 'contain' : 'cover'}
             style={{ width: '100%', height: '100%' }}
           />
+          {asset.status === 'sold' ? (
+            <View
+              style={{
+                position: 'absolute',
+                top: spacing.sm,
+                right: spacing.sm,
+                paddingHorizontal: spacing.sm,
+                paddingVertical: spacing.xs,
+                borderRadius: radius.pill,
+                backgroundColor: colors.surfaceMuted,
+              }}>
+              <Text
+                style={{
+                  color: colors.textSecondary,
+                  ...typography.caption,
+                  fontWeight: '600',
+                }}>
+                已卖出
+              </Text>
+            </View>
+          ) : null}
         </View>
         <View style={{ width: '100%', paddingTop: spacing.sm, gap: spacing.xs }}>
           <Text

@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
+import type { AssetStatus } from '@/lib/asset-status';
 import type {
   Asset,
+  AssetSale,
   AssetWriteInput,
   Valuation,
   ValuationResult,
@@ -53,6 +55,40 @@ export async function getAsset(id: string): Promise<Asset> {
     .single();
   fail(error);
   return withPhotoUrls(data as Asset);
+}
+
+export async function getAssetSale(assetId: string): Promise<AssetSale | null> {
+  const { data, error } = await supabase
+    .from('asset_sales')
+    .select('*')
+    .eq('asset_id', assetId)
+    .maybeSingle();
+  fail(error);
+  return data as AssetSale | null;
+}
+
+export async function setAssetStatus(
+  id: string,
+  status: Exclude<AssetStatus, 'sold'>,
+) {
+  const { error } = await supabase.rpc('set_asset_status', {
+    p_asset_id: id,
+    p_status: status,
+  });
+  fail(error);
+}
+
+export async function recordAssetSale(
+  id: string,
+  soldAt: string,
+  salePrice: number,
+) {
+  const { error } = await supabase.rpc('record_asset_sale', {
+    p_asset_id: id,
+    p_sold_at: soldAt,
+    p_sale_price: salePrice,
+  });
+  fail(error);
 }
 
 export async function getValuations(assetId: string): Promise<Valuation[]> {

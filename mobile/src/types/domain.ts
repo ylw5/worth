@@ -1,3 +1,5 @@
+import type { AssetStatus } from '@/lib/asset-status';
+
 export const categories = [
   '数码',
   '家电',
@@ -49,8 +51,19 @@ export type Asset = AssetWriteInput & {
   photo_urls?: string[];
   photo_cutout_paths: Record<string, string>;
   photo_cutout_urls?: Record<string, string>;
+  status: AssetStatus;
   latest_market_price: number | null;
   latest_valuation_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AssetSale = {
+  id: string;
+  asset_id: string;
+  user_id: string;
+  sold_at: string;
+  sale_price: number;
   created_at: string;
   updated_at: string;
 };

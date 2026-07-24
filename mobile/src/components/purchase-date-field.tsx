@@ -8,9 +8,13 @@ import { formatPurchaseDate } from '@/lib/purchase-input';
 export function PurchaseDateField({
   value,
   onChange,
+  label = '实际买入日期（可选）',
+  accessibilityLabel = '选择实际买入日期',
 }: {
   value: string;
   onChange: (value: string) => void;
+  label?: string;
+  accessibilityLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(new Date());
@@ -23,11 +27,11 @@ export function PurchaseDateField({
   return (
     <View style={{ gap: spacing.sm }}>
       <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
-        实际买入日期（可选）
+        {label}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Pressable
-          accessibilityLabel="选择实际买入日期"
+          accessibilityLabel={accessibilityLabel}
           accessibilityRole="button"
           onPress={show}
           style={({ pressed }) => ({
@@ -52,7 +56,7 @@ export function PurchaseDateField({
         </Pressable>
         {value ? (
           <Pressable
-            accessibilityLabel="清空实际买入日期"
+            accessibilityLabel={`清空${label}`}
             accessibilityRole="button"
             onPress={() => onChange('')}>
             <Text style={{ color: colors.accent, ...typography.label }}>清空</Text>

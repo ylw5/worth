@@ -12,7 +12,13 @@ import { AssetPhotoGallery } from '@/components/asset-photo-gallery';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, radius, spacing, typography } from '@/constants/colors';
 import { estimateAsset } from '@/lib/api';
-import { getAsset, getValuations, recordValuation } from '@/lib/assets';
+import { assetStatusLabels } from '@/lib/asset-status';
+import {
+  getAsset,
+  getAssetSale,
+  getValuations,
+  recordValuation,
+} from '@/lib/assets';
 import { formatCurrency, formatDate, specsToText } from '@/lib/format';
 
 export default function AssetDetailScreen() {
@@ -27,6 +33,11 @@ export default function AssetDetailScreen() {
     queryKey: ['valuations', id],
     queryFn: () => getValuations(id),
     enabled: Boolean(id),
+  });
+  const saleQuery = useQuery({
+    queryKey: ['asset-sale', id],
+    queryFn: () => getAssetSale(id),
+    enabled: Boolean(id) && assetQuery.data?.status === 'sold',
   });
   const refresh = useMutation({
     mutationFn: async () => {
@@ -50,6 +61,31 @@ export default function AssetDetailScreen() {
   if (!asset) return <ErrorState message="资产不存在" />;
 
   const latest = historyQuery.data?.[0];
+  const details: [string, string][] = [
+    ['分类', asset.category],
+    ['品牌型号', [asset.brand, asset.model].filter(Boolean).join(' ')],
+    ['规格', specsToText(asset.specs) || '—'],
+    ['成色', asset.condition || '—'],
+    ['买入日期', asset.purchase_date || '—'],
+    [
+      '买入价格',
+      asset.purchase_price === null
+        ? '—'
+        : formatCurrency(asset.purchase_price),
+    ],
+    ...(asset.status === 'sold'
+      ? [
+          ['成交日期', saleQuery.data?.sold_at ?? '—'] as [string, string],
+          [
+            '成交价',
+            saleQuery.data
+              ? formatCurrency(saleQuery.data.sale_price)
+              : '—',
+          ] as [string, string],
+        ]
+      : []),
+    ['添加时间', formatDate(asset.created_at)],
+  ];
   return (
     <>
       <Stack.Screen
@@ -125,34 +161,36 @@ export default function AssetDetailScreen() {
               {refresh.error.message}
             </Text>
           ) : null}
-          <Pressable
-            accessibilityRole="button"
-            disabled={refresh.isPending}
-            onPress={() => refresh.mutate()}
-            style={({ pressed }) => ({
-              alignItems: 'center',
-              minHeight: 48,
-              justifyContent: 'center',
-              padding: spacing.md,
-              borderRadius: radius.small,
-              borderWidth: 1,
-              borderColor: colors.border,
-              backgroundColor: colors.surface,
-              opacity: pressed || refresh.isPending ? 0.65 : 1,
-            })}>
-            {refresh.isPending ? (
-              <ActivityIndicator color={colors.textPrimary} />
-            ) : (
-              <Text
-                style={{
-                  ...typography.body,
-                  color: colors.textPrimary,
-                  fontWeight: '700',
-                }}>
-                刷新价格
-              </Text>
-            )}
-          </Pressable>
+          {asset.status !== 'sold' ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={refresh.isPending}
+              onPress={() => refresh.mutate()}
+              style={({ pressed }) => ({
+                alignItems: 'center',
+                minHeight: 48,
+                justifyContent: 'center',
+                padding: spacing.md,
+                borderRadius: radius.small,
+                borderWidth: 1,
+                borderColor: colors.border,
+                backgroundColor: colors.surface,
+                opacity: pressed || refresh.isPending ? 0.65 : 1,
+              })}>
+              {refresh.isPending ? (
+                <ActivityIndicator color={colors.textPrimary} />
+              ) : (
+                <Text
+                  style={{
+                    ...typography.body,
+                    color: colors.textPrimary,
+                    fontWeight: '700',
+                  }}>
+                  刷新价格
+                </Text>
+              )}
+            </Pressable>
+          ) : null}
         </View>
 
         <View
@@ -163,20 +201,45 @@ export default function AssetDetailScreen() {
             borderCurve: 'continuous',
             backgroundColor: colors.surface,
           }}>
-          {[
-            ['分类', asset.category],
-            ['品牌型号', [asset.brand, asset.model].filter(Boolean).join(' ')],
-            ['规格', specsToText(asset.specs) || '—'],
-            ['成色', asset.condition || '—'],
-            ['买入日期', asset.purchase_date || '—'],
-            [
-              '买入价格',
-              asset.purchase_price === null
-                ? '—'
-                : formatCurrency(asset.purchase_price),
-            ],
-            ['添加时间', formatDate(asset.created_at)],
-          ].map(([label, value], index, rows) => (
+          <Link
+            href={{
+              pathname: '/asset/[id]/status',
+              params: { id: asset.id },
+            }}
+            asChild>
+            <Pressable
+              accessibilityRole="button"
+              style={({ pressed }) => ({
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                gap: spacing.xl,
+                opacity: pressed ? 0.65 : 1,
+              })}>
+              <Text
+                selectable
+                style={{ color: colors.textSecondary, ...typography.label }}>
+                物品状态
+              </Text>
+              <Text
+                style={{
+                  color:
+                    asset.status === 'sold'
+                      ? colors.textSecondary
+                      : colors.textPrimary,
+                  ...typography.body,
+                  fontWeight: '600',
+                }}>
+                {assetStatusLabels[asset.status]} ›
+              </Text>
+            </Pressable>
+          </Link>
+          <View style={{ height: 1, backgroundColor: colors.border }} />
+          {saleQuery.error ? (
+            <Text selectable style={{ color: colors.danger, ...typography.label }}>
+              {saleQuery.error.message}
+            </Text>
+          ) : null}
+          {details.map(([label, value], index, rows) => (
             <View key={label}>
               <View
                 style={{

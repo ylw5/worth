@@ -6,18 +6,22 @@ import { formatPurchaseDate } from '@/lib/purchase-input';
 export function PurchaseDateField({
   value,
   onChange,
+  label = '实际买入日期（可选）',
+  accessibilityLabel = '实际买入日期',
 }: {
   value: string;
   onChange: (value: string) => void;
+  label?: string;
+  accessibilityLabel?: string;
 }) {
   return (
     <View style={{ gap: spacing.sm }}>
       <Text selectable style={{ color: colors.textSecondary, ...typography.label }}>
-        实际买入日期（可选）
+        {label}
       </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <input
-          aria-label="实际买入日期"
+          aria-label={accessibilityLabel}
           max={formatPurchaseDate(new Date())}
           onInput={(event) => onChange(event.currentTarget.value)}
           type="date"
@@ -35,7 +39,7 @@ export function PurchaseDateField({
         />
         {value ? (
           <Pressable
-            accessibilityLabel="清空实际买入日期"
+            accessibilityLabel={`清空${label}`}
             accessibilityRole="button"
             onPress={() => onChange('')}>
             <Text style={{ color: colors.accent, ...typography.label }}>清空</Text>

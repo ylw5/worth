@@ -35,6 +35,14 @@ export default function RootLayout() {
               name="asset/[id]/edit"
               options={{ title: '编辑物品' }}
             />
+            <Stack.Screen
+              name="asset/[id]/status"
+              options={{ title: '物品状态' }}
+            />
+            <Stack.Screen
+              name="asset/[id]/sale"
+              options={{ title: '成交记录' }}
+            />
           </Stack>
         </QueryClientProvider>
       </SessionProvider>
