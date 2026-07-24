@@ -1,3 +1,10 @@
+"""Legacy provider-specific text AI compatibility interfaces.
+
+Production text routes use ``app.ai.workflows``. This module remains for
+provider-specific compatibility tests until the remaining legacy methods are
+removed.
+"""
+
 from __future__ import annotations
 
 from typing import Iterator, Protocol

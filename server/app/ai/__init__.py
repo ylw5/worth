@@ -7,6 +7,7 @@ from .contracts import (
     ModelCapability,
     ModelRequirements,
     RunContext,
+    StructuredOutputDefinition,
     ToolDefinition,
 )
 from .errors import AIErrorCode, AIErrorDetail, AIFoundationError
@@ -26,5 +27,6 @@ __all__ = [
     "ModelRequirements",
     "ModelRouter",
     "RunContext",
+    "StructuredOutputDefinition",
     "ToolDefinition",
 ]

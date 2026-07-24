@@ -14,6 +14,7 @@ class AIErrorCode(str, Enum):
     PROVIDER_PROTOCOL = "ai_provider_protocol_error"
     PROVIDER_INCOMPLETE = "ai_provider_incomplete"
     OUTPUT_POLICY = "ai_output_policy_violation"
+    STRUCTURED_OUTPUT = "ai_structured_output_error"
     INVALID_TOOL_ARGUMENTS = "ai_invalid_tool_arguments"
     TOOL_NOT_ALLOWED = "ai_tool_not_allowed"
     TOOL_EXECUTION = "ai_tool_execution_error"
@@ -84,6 +85,10 @@ class ProviderIncompleteError(AIFoundationError):
 
 class OutputPolicyError(AIFoundationError):
     code = AIErrorCode.OUTPUT_POLICY
+
+
+class StructuredOutputError(AIFoundationError):
+    code = AIErrorCode.STRUCTURED_OUTPUT
 
 
 class InvalidToolArgumentsError(AIFoundationError):

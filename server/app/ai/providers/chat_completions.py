@@ -44,18 +44,28 @@ class ChatCompletionsProvider:
             "max_tokens", "max_completion_tokens"
         ] = "max_tokens",
         reasoning_effort_parameter: str | None = None,
+        structured_output_mode: Literal[
+            "none", "json_object", "json_schema"
+        ] = "none",
     ) -> None:
         if max_tokens_parameter not in {
             "max_tokens",
             "max_completion_tokens",
         }:
             raise ValueError("unsupported max token parameter")
+        if structured_output_mode not in {
+            "none",
+            "json_object",
+            "json_schema",
+        }:
+            raise ValueError("unsupported structured output mode")
         self.client = client
         self.name = name
         self.extra_body = extra_body
         self.strict_tools = strict_tools
         self.max_tokens_parameter = max_tokens_parameter
         self.reasoning_effort_parameter = reasoning_effort_parameter
+        self.structured_output_mode = structured_output_mode
 
     @staticmethod
     def _message(message: AIMessage) -> dict[str, Any]:
@@ -137,6 +147,27 @@ class ChatCompletionsProvider:
                 tool_choice=request.tool_choice,
                 parallel_tool_calls=request.parallel_tool_calls,
             )
+        if request.structured_output is not None:
+            output = request.structured_output
+            if self.structured_output_mode == "none":
+                raise AIConfigurationError(
+                    "Chat Completions structured output is not configured",
+                    provider=self.name,
+                )
+            if self.structured_output_mode == "json_object":
+                kwargs["response_format"] = {"type": "json_object"}
+            else:
+                json_schema: dict[str, Any] = {
+                    "name": output.name,
+                    "schema": output.json_schema,
+                    "strict": output.strict,
+                }
+                if output.description:
+                    json_schema["description"] = output.description
+                kwargs["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": json_schema,
+                }
         if request.max_output_tokens is not None:
             kwargs[self.max_tokens_parameter] = request.max_output_tokens
         if request.temperature is not None:

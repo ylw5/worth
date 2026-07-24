@@ -54,6 +54,13 @@ _FORBIDDEN_OUTPUT = re.compile(
 _STREAM_GUARD_CHARS = 64
 
 
+def validate_neutral_purchase_output(text: str) -> None:
+    if _FORBIDDEN_OUTPUT.search(text):
+        raise OutputPolicyError(
+            "AI output violated the neutral purchase-decision policy"
+        )
+
+
 class PurchaseEvaluationWorkflow:
     tool_names = (
         "assets_list",
@@ -75,13 +82,6 @@ class PurchaseEvaluationWorkflow:
             )
         self._runner = runner
         self._tools = list(tools)
-
-    @staticmethod
-    def _validate_output(text: str) -> None:
-        if _FORBIDDEN_OUTPUT.search(text):
-            raise OutputPolicyError(
-                "Purchase evaluation output violated the neutral-decision policy"
-            )
 
     @staticmethod
     def _messages(
@@ -164,7 +164,7 @@ class PurchaseEvaluationWorkflow:
             ),
             RunContext(user_id=user_id, request_id=request_id),
         )
-        self._validate_output(result.text)
+        validate_neutral_purchase_output(result.text)
         return result
 
     def stream(
@@ -189,7 +189,7 @@ class PurchaseEvaluationWorkflow:
         ):
             if event.type == "text_delta":
                 pending_text += event.delta
-                self._validate_output(pending_text)
+                validate_neutral_purchase_output(pending_text)
                 if len(pending_text) > _STREAM_GUARD_CHARS:
                     emit_length = (
                         len(pending_text) - _STREAM_GUARD_CHARS
@@ -202,9 +202,9 @@ class PurchaseEvaluationWorkflow:
                 continue
             if event.type == "run_completed":
                 if event.result is not None:
-                    self._validate_output(event.result.text)
+                    validate_neutral_purchase_output(event.result.text)
                 if pending_text:
-                    self._validate_output(pending_text)
+                    validate_neutral_purchase_output(pending_text)
                     yield AgentStreamEvent(
                         type="text_delta",
                         delta=pending_text,
@@ -213,7 +213,7 @@ class PurchaseEvaluationWorkflow:
             yield event
 
         if pending_text:
-            self._validate_output(pending_text)
+            validate_neutral_purchase_output(pending_text)
             yield AgentStreamEvent(
                 type="text_delta",
                 delta=pending_text,

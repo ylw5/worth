@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional, Self
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 Category = Literal[
@@ -26,6 +26,14 @@ Condition = Literal[
 ]
 AssetStatus = Literal["in_use", "idle", "listed", "sold"]
 ProductSource = Literal["url", "text", "image"]
+AnalysisImageUrl = Annotated[
+    str,
+    Field(
+        min_length=9,
+        max_length=8192,
+        pattern=r"^https://[^\s]+$",
+    ),
+]
 
 
 class AssetRecognition(BaseModel):
@@ -40,19 +48,26 @@ class AssetRecognition(BaseModel):
 
 
 class AssetSpec(BaseModel):
-    name: str
-    value: str
+    name: str = Field(min_length=1, max_length=50)
+    value: str = Field(min_length=1, max_length=300)
 
 
 class AIAssetRecognition(BaseModel):
-    name: str
-    brand: str
-    model: str
-    specs: list[AssetSpec]
+    name: str = Field(min_length=1, max_length=300)
+    brand: str = Field(max_length=100)
+    model: str = Field(max_length=100)
+    specs: list[AssetSpec] = Field(max_length=50)
     category: Category
-    subcategory: str
+    subcategory: str = Field(max_length=50)
     condition: Condition
-    search_query: str
+    search_query: str = Field(min_length=1, max_length=300)
+
+    @model_validator(mode="after")
+    def validate_unique_specs(self) -> Self:
+        names = [spec.name for spec in self.specs]
+        if len(names) != len(set(names)):
+            raise ValueError("asset spec names must be unique")
+        return self
 
 
 class AssetInput(AssetRecognition):
@@ -60,7 +75,7 @@ class AssetInput(AssetRecognition):
 
 
 class AnalyzeRequest(BaseModel):
-    image_urls: list[str] = Field(min_length=1, max_length=5)
+    image_urls: list[AnalysisImageUrl] = Field(min_length=1, max_length=5)
     current_asset: Optional[AssetInput] = None
 
 
@@ -80,12 +95,19 @@ class MarketCandidate(BaseModel):
 
 
 class CandidateDecision(BaseModel):
-    item_id: str
+    item_id: str = Field(min_length=1)
     same_product: bool
 
 
 class CandidateMatches(BaseModel):
     decisions: list[CandidateDecision]
+
+    @model_validator(mode="after")
+    def validate_unique_ids(self) -> Self:
+        ids = [decision.item_id for decision in self.decisions]
+        if len(ids) != len(set(ids)):
+            raise ValueError("candidate decision item_ids must be unique")
+        return self
 
 
 class ValuationResult(BaseModel):
@@ -107,28 +129,48 @@ class ProductTextRequest(BaseModel):
 
 
 class ProductImagesRequest(BaseModel):
-    image_urls: list[str] = Field(min_length=1, max_length=5)
+    image_urls: list[AnalysisImageUrl] = Field(min_length=1, max_length=5)
 
 
 class AIProductClassification(BaseModel):
-    normalized_title: str
+    normalized_title: str = Field(min_length=1, max_length=300)
     category: Category
-    subcategory: str
+    subcategory: str = Field(min_length=1, max_length=50)
 
 
 class AIProductInterpretation(BaseModel):
     intent: Literal["product", "chat"]
-    normalized_title: str
+    normalized_title: str = Field(max_length=300)
     category: Category
-    subcategory: str
-    reply: str
+    subcategory: str = Field(max_length=50)
+    reply: str = Field(max_length=1000)
+
+    @model_validator(mode="after")
+    def validate_intent_payload(self) -> Self:
+        if self.intent == "product":
+            if not self.normalized_title or not self.subcategory:
+                raise ValueError(
+                    "product intent requires title and subcategory"
+                )
+            if self.reply:
+                raise ValueError("product intent reply must be empty")
+        else:
+            if self.normalized_title or self.subcategory:
+                raise ValueError(
+                    "chat intent cannot contain product classification"
+                )
+            if self.category != "其他" or not self.reply:
+                raise ValueError(
+                    "chat intent requires category=其他 and a reply"
+                )
+        return self
 
 
 class AIProductRecognition(BaseModel):
-    title: str
+    title: str = Field(min_length=1, max_length=300)
     price: Optional[float] = Field(gt=0)
     category: Category
-    subcategory: str
+    subcategory: str = Field(min_length=1, max_length=50)
 
 
 class ParsedProduct(BaseModel):

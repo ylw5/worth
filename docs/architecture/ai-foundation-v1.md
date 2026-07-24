@@ -96,6 +96,8 @@ Workflow
    旧文件暂作兼容层。
 2. ~~迁移购物评估并移除 AI `buy/skip` 输出。~~ 已完成，详见
    [`purchase-evaluation-workflow-v1.md`](purchase-evaluation-workflow-v1.md)。
-3. 迁移商品文本分类、普通聊天和候选筛选。
-4. 迁移资产/商品图片识别。
+3. ~~迁移商品文本分类、普通聊天和候选筛选。~~ 已完成，详见
+   [`text-workflows-v1.md`](text-workflows-v1.md)。
+4. ~~迁移资产/商品图片识别。~~ 已完成，详见
+   [`vision-workflows-v1.md`](vision-workflows-v1.md)。
 5. 接入运行 Trace、业务评测集和写 Tool 审批。

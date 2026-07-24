@@ -5,6 +5,7 @@ from app.ai.contracts import (
     AIMessage,
     AgentRunRequest,
     ProviderRequest,
+    StructuredOutputDefinition,
     ToolDefinition,
     make_strict_json_schema,
 )
@@ -20,6 +21,11 @@ class SearchInput(BaseModel):
     query: str
     limit: int = 10
     filters: NestedFilter
+
+
+class ClassificationOutput(BaseModel):
+    label: str
+    confidence: float | None = None
 
 
 def test_tool_definition_builds_recursive_strict_schema() -> None:
@@ -60,6 +66,16 @@ def test_strict_schema_normalizes_empty_object() -> None:
     assert strict["properties"] == {}
     assert strict["required"] == []
     assert strict["additionalProperties"] is False
+
+
+def test_structured_output_builds_strict_schema_from_model() -> None:
+    output = StructuredOutputDefinition.from_model(
+        name="classification",
+        output_model=ClassificationOutput,
+    )
+
+    assert output.json_schema["additionalProperties"] is False
+    assert output.json_schema["required"] == ["label", "confidence"]
 
 
 @pytest.mark.parametrize("request_type", [ProviderRequest, AgentRunRequest])

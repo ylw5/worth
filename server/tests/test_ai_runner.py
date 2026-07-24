@@ -13,6 +13,7 @@ from app.ai.contracts import (
     ProviderResponse,
     ProviderStreamEvent,
     RunContext,
+    StructuredOutputDefinition,
     ToolCall,
     ToolDefinition,
     ToolResult,
@@ -310,3 +311,20 @@ def test_runner_infers_reasoning_capability_from_effort() -> None:
 
     with pytest.raises(ModelRouteNotFoundError):
         build_runner(provider).run(reasoning_request, context())
+
+
+def test_runner_infers_structured_output_capability() -> None:
+    provider = SequenceProvider([])
+    structured_request = AgentRunRequest(
+        messages=[AIMessage(role="user", content="classify")],
+        structured_output=StructuredOutputDefinition(
+            name="result",
+            json_schema={
+                "type": "object",
+                "properties": {"label": {"type": "string"}},
+            },
+        ),
+    )
+
+    with pytest.raises(ModelRouteNotFoundError):
+        build_runner(provider).run(structured_request, context())

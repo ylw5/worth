@@ -2,10 +2,14 @@ from unittest.mock import Mock
 
 import pytest
 from openai import OpenAIError
+from pydantic import BaseModel
 
 from app.ai.contracts import (
     AIMessage,
+    ImageContentPart,
     ProviderRequest,
+    StructuredOutputDefinition,
+    TextContentPart,
     ToolDefinition,
     ToolResult,
 )
@@ -28,6 +32,10 @@ WEATHER_TOOL = ToolDefinition(
         "properties": {"city": {"type": "string"}},
     },
 )
+
+
+class StructuredAnswer(BaseModel):
+    answer: str
 
 
 def request() -> ProviderRequest:
@@ -101,6 +109,50 @@ def test_responses_adapter_preserves_output_for_tool_continuation() -> None:
         "output": '{"temperature":25}',
     }
     assert second.text == "北京晴。"
+
+
+def test_responses_adapter_maps_multimodal_structured_request() -> None:
+    client = Mock()
+    client.responses.create.return_value = {
+        "id": "resp-vision",
+        "output_text": '{"answer":"相机"}',
+        "output": [{"type": "message", "id": "msg-vision"}],
+    }
+    provider = OpenAIResponsesProvider(client, name="gateway")
+    vision_request = ProviderRequest(
+        model="vision-model",
+        messages=[
+            AIMessage(
+                role="user",
+                content=[
+                    TextContentPart(text="识别图片"),
+                    ImageContentPart(
+                        image_url="https://example.com/camera.jpg",
+                        detail="auto",
+                    ),
+                ],
+            )
+        ],
+        structured_output=StructuredOutputDefinition.from_model(
+            name="vision_answer",
+            output_model=StructuredAnswer,
+        ),
+        tool_choice="none",
+    )
+
+    provider.complete(vision_request)
+
+    kwargs = client.responses.create.call_args.kwargs
+    assert kwargs["input"][0]["content"] == [
+        {"type": "input_text", "text": "识别图片"},
+        {
+            "type": "input_image",
+            "image_url": "https://example.com/camera.jpg",
+            "detail": "auto",
+        },
+    ]
+    assert kwargs["text"]["format"]["type"] == "json_schema"
+    assert kwargs["text"]["format"]["name"] == "vision_answer"
 
 
 def test_chat_adapter_uses_nested_tool_schema_and_tool_messages() -> None:
@@ -231,6 +283,88 @@ def test_chat_adapter_omits_strict_for_generic_provider_by_default() -> None:
         "function"
     ]
     assert "strict" not in function
+
+
+def test_responses_adapter_maps_structured_output_schema() -> None:
+    client = Mock()
+    client.responses.create.return_value = {
+        "id": "resp-1",
+        "status": "completed",
+        "output_text": '{"answer":"done"}',
+        "output": [],
+    }
+    structured_request = request().model_copy(
+        update={
+            "structured_output": StructuredOutputDefinition.from_model(
+                name="answer",
+                output_model=StructuredAnswer,
+            )
+        }
+    )
+
+    OpenAIResponsesProvider(client).complete(structured_request)
+
+    output_format = client.responses.create.call_args.kwargs["text"][
+        "format"
+    ]
+    assert output_format["type"] == "json_schema"
+    assert output_format["name"] == "answer"
+    assert output_format["schema"]["additionalProperties"] is False
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected_type"),
+    [("json_object", "json_object"), ("json_schema", "json_schema")],
+)
+def test_chat_adapter_maps_structured_output_mode(
+    mode: str,
+    expected_type: str,
+) -> None:
+    client = Mock()
+    client.chat.completions.create.return_value = {
+        "choices": [
+            {
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": '{"answer":"done"}',
+                },
+            }
+        ]
+    }
+    structured_request = request().model_copy(
+        update={
+            "structured_output": StructuredOutputDefinition.from_model(
+                name="answer",
+                output_model=StructuredAnswer,
+            )
+        }
+    )
+
+    ChatCompletionsProvider(
+        client,
+        structured_output_mode=mode,
+    ).complete(structured_request)
+
+    response_format = client.chat.completions.create.call_args.kwargs[
+        "response_format"
+    ]
+    assert response_format["type"] == expected_type
+
+
+def test_chat_adapter_rejects_unconfigured_structured_output() -> None:
+    client = Mock()
+    structured_request = request().model_copy(
+        update={
+            "structured_output": StructuredOutputDefinition.from_model(
+                name="answer",
+                output_model=StructuredAnswer,
+            )
+        }
+    )
+
+    with pytest.raises(AIConfigurationError, match="structured"):
+        ChatCompletionsProvider(client).complete(structured_request)
 
 
 def test_chat_continuation_is_sanitized_and_preserves_reasoning() -> None:

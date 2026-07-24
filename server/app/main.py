@@ -11,7 +11,11 @@ from supabase import Client as SupabaseClient, create_client
 
 from .auth import AuthenticatedUser, require_user
 from .ai.errors import AIFoundationError
-from .ai.factory import build_purchase_evaluation_workflow
+from .ai.factory import (
+    build_purchase_evaluation_workflow,
+    build_text_workflows,
+    build_vision_workflows,
+)
 from .ai.tools import load_confirmed_evaluation_assets
 from .background_removal import try_remove_background
 from .config import get_settings
@@ -42,10 +46,8 @@ from .models import (
     SellPlanResult,
     ValuationResult,
 )
-from .openai_service import OpenAIService
 from .product import fetch_product_page
 from .sell_plan import recommend_sell_plan
-from .text_ai import build_text_ai
 from .valuation import build_valuation
 
 
@@ -162,14 +164,15 @@ def analyze(
     user: AuthenticatedUser = Depends(require_user),
 ) -> AssetRecognition:
     try:
-        return OpenAIService(get_settings()).analyze(
+        return build_vision_workflows(
+            get_settings()
+        ).asset_recognition.recognize(
             request.image_urls,
-            user.id,
-            request.current_asset,
+            user_id=user.id,
+            request_id=uuid4().hex,
+            current_asset=request.current_asset,
         )
-    except RuntimeError as error:
-        raise HTTPException(status_code=503, detail=str(error)) from error
-    except OpenAIError as error:
+    except (AIFoundationError, RuntimeError, OpenAIError) as error:
         raise HTTPException(
             status_code=503,
             detail="图片识别服务暂时不可用，请稍后重试",
@@ -198,8 +201,13 @@ def estimate(
         candidates = MarketClient(settings.xianyu_cookie).search(
             asset.search_query
         )
-        matching_ids = build_text_ai(settings).matching_ids(
-            asset, candidates, user.id
+        matching_ids = build_text_workflows(
+            settings
+        ).candidate_matching.matching_ids(
+            asset,
+            candidates,
+            user_id=user.id,
+            request_id=uuid4().hex,
         )
         return build_valuation(asset.search_query, candidates, matching_ids)
     except (RuntimeError, requests.RequestException, OpenAIError) as error:
@@ -216,9 +224,12 @@ def parse_product(
 ) -> ParsedProduct:
     try:
         page = fetch_product_page(request.url)
-        classification = build_text_ai(get_settings()).classify_product(
+        classification = build_text_workflows(
+            get_settings()
+        ).product_classification.classify(
             page.title,
-            user.id,
+            user_id=user.id,
+            request_id=uuid4().hex,
         )
         return ParsedProduct(
             url=page.url,
@@ -244,9 +255,12 @@ def normalize_product_text(
     user: AuthenticatedUser = Depends(require_user),
 ) -> ProductTextResponse:
     try:
-        interpretation = build_text_ai(get_settings()).interpret_product_text(
+        interpretation = build_text_workflows(
+            get_settings()
+        ).product_interpretation.interpret(
             request.text,
-            user.id,
+            user_id=user.id,
+            request_id=uuid4().hex,
         )
         if interpretation.intent == "chat":
             return ProductTextResponse(
@@ -265,7 +279,7 @@ def normalize_product_text(
                 source_text=request.text.strip(),
             ),
         )
-    except (RuntimeError, OpenAIError) as error:
+    except (AIFoundationError, RuntimeError, OpenAIError) as error:
         raise HTTPException(
             status_code=503,
             detail="商品描述暂时无法解析，请稍后重试",
@@ -278,11 +292,14 @@ def analyze_product_images(
     user: AuthenticatedUser = Depends(require_user),
 ) -> ParsedProduct:
     try:
-        return OpenAIService(get_settings()).analyze_product(
+        return build_vision_workflows(
+            get_settings()
+        ).product_image_recognition.recognize(
             request.image_urls,
-            user.id,
+            user_id=user.id,
+            request_id=uuid4().hex,
         )
-    except (RuntimeError, OpenAIError) as error:
+    except (AIFoundationError, RuntimeError, OpenAIError) as error:
         raise HTTPException(
             status_code=503,
             detail="商品图片暂时无法识别，请稍后重试",
@@ -434,13 +451,16 @@ def chat_freely(
             supabase_client,
             user.id,
         )
-        message = build_text_ai(get_settings()).continue_general_chat(
+        message = build_text_workflows(
+            get_settings()
+        ).general_chat.chat(
             request.messages,
             memory_context,
-            user.id,
+            user_id=user.id,
+            request_id=uuid4().hex,
         )
         return AgentChatResponse(message=message)
-    except (RuntimeError, OpenAIError) as error:
+    except (AIFoundationError, RuntimeError, OpenAIError) as error:
         raise HTTPException(
             status_code=503,
             detail="聊天暂时不可用，请稍后重试",

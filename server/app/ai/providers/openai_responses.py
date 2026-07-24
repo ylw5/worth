@@ -112,6 +112,17 @@ class OpenAIResponsesProvider:
                 tool_choice=request.tool_choice,
                 parallel_tool_calls=request.parallel_tool_calls,
             )
+        if request.structured_output is not None:
+            output = request.structured_output
+            output_format: dict[str, Any] = {
+                "type": "json_schema",
+                "name": output.name,
+                "schema": output.json_schema,
+                "strict": output.strict,
+            }
+            if output.description:
+                output_format["description"] = output.description
+            kwargs["text"] = {"format": output_format}
         if request.max_output_tokens is not None:
             kwargs["max_output_tokens"] = request.max_output_tokens
         if request.temperature is not None:

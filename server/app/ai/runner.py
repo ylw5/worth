@@ -72,6 +72,8 @@ class AgentRunner:
             capabilities.add(ModelCapability.VISION)
         if request.reasoning_effort is not None:
             capabilities.add(ModelCapability.REASONING)
+        if request.structured_output is not None:
+            capabilities.add(ModelCapability.STRUCTURED_OUTPUT)
         if streaming:
             capabilities.add(ModelCapability.STREAMING)
         requirements = request.requirements.model_copy(
@@ -91,6 +93,7 @@ class AgentRunner:
             model=routed.profile.model,
             messages=request.messages,
             tools=request.tools,
+            structured_output=request.structured_output,
             tool_choice=request.tool_choice if first_turn else "auto",
             max_output_tokens=request.max_output_tokens,
             temperature=request.temperature,

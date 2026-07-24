@@ -125,6 +125,45 @@ class ToolDefinition(BaseModel):
         )
 
 
+class StructuredOutputDefinition(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    description: str = ""
+    json_schema: dict[str, Any]
+    strict: bool = True
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", value):
+            raise ValueError(
+                "structured output name must match [A-Za-z0-9_-]{1,64}"
+            )
+        return value
+
+    @field_validator("json_schema")
+    @classmethod
+    def normalize_schema(cls, value: dict[str, Any]) -> dict[str, Any]:
+        if value.get("type") != "object":
+            raise ValueError("structured output root must have type=object")
+        return make_strict_json_schema(value)
+
+    @classmethod
+    def from_model(
+        cls,
+        *,
+        name: str,
+        output_model: type[BaseModel],
+        description: str = "",
+    ) -> "StructuredOutputDefinition":
+        return cls(
+            name=name,
+            description=description,
+            json_schema=output_model.model_json_schema(),
+        )
+
+
 class ToolCall(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -164,6 +203,7 @@ class ProviderRequest(BaseModel):
     model: str = Field(min_length=1)
     messages: list[AIMessage] = Field(min_length=1)
     tools: list[ToolDefinition] = Field(default_factory=list)
+    structured_output: StructuredOutputDefinition | None = None
     tool_choice: Literal["auto", "none", "required"] = "auto"
     max_output_tokens: int | None = Field(default=None, gt=0)
     temperature: float | None = Field(default=None, ge=0, le=2)
@@ -237,6 +277,7 @@ class AgentRunRequest(BaseModel):
 
     messages: list[AIMessage] = Field(min_length=1)
     tools: list[ToolDefinition] = Field(default_factory=list)
+    structured_output: StructuredOutputDefinition | None = None
     requirements: ModelRequirements = Field(default_factory=ModelRequirements)
     tool_choice: Literal["auto", "none", "required"] = "auto"
     max_output_tokens: int | None = Field(default=None, gt=0)
