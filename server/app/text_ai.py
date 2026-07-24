@@ -76,6 +76,13 @@ class TextAIService(Protocol):
         tool_executor: ToolExecutor,
     ) -> Iterator[str]: ...
 
+    def continue_general_chat(
+        self,
+        messages: list[EvaluationChatMessage],
+        memory_context: dict,
+        user_id: str,
+    ) -> str: ...
+
 
 def build_text_ai(settings: Settings) -> TextAIService:
     if settings.deepseek_api_key:

@@ -135,6 +135,7 @@ export function ChatConversation({
         queryKey: ['evaluation-messages', evaluationId],
       });
       const message = await streamPurchaseEvaluation(
+        item.id,
         productFromEvaluation(item),
         item.matched_assets,
         item.facts,

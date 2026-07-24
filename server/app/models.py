@@ -183,6 +183,7 @@ class EvaluationChatMessage(BaseModel):
 
 
 class EvaluationChatRequest(BaseModel):
+    evaluation_id: Optional[str] = None
     product: ParsedProduct
     matched_assets: list[EvaluationAsset] = Field(max_length=500)
     facts: EvaluationFacts
@@ -190,6 +191,14 @@ class EvaluationChatRequest(BaseModel):
 
 
 class EvaluationChatResponse(BaseModel):
+    message: str
+
+
+class AgentChatRequest(BaseModel):
+    messages: list[EvaluationChatMessage] = Field(min_length=1, max_length=100)
+
+
+class AgentChatResponse(BaseModel):
     message: str
 
 

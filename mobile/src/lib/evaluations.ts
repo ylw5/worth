@@ -49,11 +49,43 @@ export type PurchaseEvaluationResult = {
 };
 
 export type EvaluationDecision = 'pending' | 'buy' | 'skip';
+export type EvaluationUserChoice = 'pending' | 'buy' | 'skip' | 'postponed';
+export type EvaluationOutcomeStatus =
+  | 'unknown'
+  | 'not_bought'
+  | 'in_use'
+  | 'idle'
+  | 'listed'
+  | 'returned'
+  | 'sold';
 
 export const evaluationDecisionLabels: Record<EvaluationDecision, string> = {
   pending: '进行中',
   buy: '建议买',
   skip: '建议不买',
+};
+
+export const evaluationUserChoiceLabels: Record<
+  EvaluationUserChoice,
+  string
+> = {
+  pending: '还没记录',
+  buy: '我买了',
+  skip: '没买',
+  postponed: '再等等',
+};
+
+export const evaluationOutcomeLabels: Record<
+  EvaluationOutcomeStatus,
+  string
+> = {
+  unknown: '还不知道',
+  not_bought: '没有购买',
+  in_use: '还在使用',
+  idle: '已经闲置',
+  listed: '正在转卖',
+  returned: '已经退货',
+  sold: '已经卖出',
 };
 
 const decisionMarkPattern = /\s*\[decision:(buy|skip)\]\s*/gi;
@@ -93,6 +125,11 @@ export type PurchaseEvaluation = {
   image_paths: string[];
   image_urls?: string[];
   decision: EvaluationDecision;
+  user_choice: EvaluationUserChoice;
+  outcome_status: EvaluationOutcomeStatus;
+  linked_asset_id: string | null;
+  user_choice_at: string | null;
+  outcome_updated_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -195,6 +232,23 @@ export async function updateEvaluationDecision(
     .from('purchase_evaluations')
     .update({ decision })
     .eq('id', evaluationId);
+  fail(error);
+}
+
+export async function recordPurchaseOutcome(
+  evaluationId: string,
+  userChoice: EvaluationUserChoice,
+  outcomeStatus: EvaluationOutcomeStatus,
+  linkedAssetId: string | null = null,
+  note = '',
+): Promise<void> {
+  const { error } = await supabase.rpc('record_purchase_outcome', {
+    p_evaluation_id: evaluationId,
+    p_user_choice: userChoice,
+    p_outcome_status: outcomeStatus,
+    p_linked_asset_id: linkedAssetId,
+    p_note: note.trim(),
+  });
   fail(error);
 }
 

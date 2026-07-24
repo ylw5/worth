@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -12,6 +13,7 @@ from app.evaluation_tools import (
     MarketToolWrapper,
     ToolExecutor,
     create_production_executor,
+    summarize_evaluation_history,
 )
 from app.models import MarketCandidate
 
@@ -32,6 +34,7 @@ def make_executor(
     query_assets: MagicMock | None = None,
     query_summary: MagicMock | None = None,
     search_market: MagicMock | None = None,
+    query_history: MagicMock | None = None,
 ) -> ToolExecutor:
     """创建一个注入了 mock handler 的 ToolExecutor。"""
     executor = ToolExecutor()
@@ -41,6 +44,9 @@ def make_executor(
     )
     executor.set_market_handler(
         search_market=search_market or MagicMock(return_value={"sample_count": 0}),
+    )
+    executor.set_history_handler(
+        query_history or MagicMock(return_value=[]),
     )
     return executor
 
@@ -63,7 +69,7 @@ def make_db_chain(data: list[dict]) -> MagicMock:
 
 class TestEvaluationToolsSchema:
     def test_tools_count(self):
-        assert len(EVALUATION_TOOLS) == 4
+        assert len(EVALUATION_TOOLS) == 5
 
     def test_each_tool_has_function_type(self):
         for tool in EVALUATION_TOOLS:
@@ -79,6 +85,7 @@ class TestEvaluationToolsSchema:
             "get_user_assets",
             "get_asset_summary",
             "search_market_price",
+            "get_evaluation_history",
             "clarify_with_user",
         }
 
@@ -660,3 +667,292 @@ class TestCreateProductionExecutor:
 
         assert result["total"] == 1
         assert result["by_status"]["in_use"] == 1
+
+    def test_factory_history_works(self):
+        mock_db = make_db_chain([
+            {
+                "product_title": "MacBook Air",
+                "category": "数码",
+                "subcategory": "电脑",
+                "product_price": 7999,
+                "decision": "skip",
+                "created_at": "2026-07-01T10:00:00+00:00",
+            },
+        ])
+        executor = create_production_executor("u1", mock_db, None)
+
+        result = json.loads(
+            executor.execute("get_evaluation_history", {"category": "数码"})
+        )
+
+        assert len(result) == 1
+        assert result[0]["product_title"] == "MacBook Air"
+        assert result[0]["decision"] == "最终建议不买"
+
+
+# ===========================================================================
+# 10. get_evaluation_history dispatch & formatting
+# ===========================================================================
+
+class TestEvaluationHistoryDispatch:
+    def test_routes_to_handler_with_defaults(self):
+        mock_history = MagicMock(return_value=[])
+        executor = make_executor(query_history=mock_history)
+
+        executor.execute("get_evaluation_history", {})
+
+        mock_history.assert_called_once_with("", 5)
+
+    def test_routes_with_category_and_limit(self):
+        mock_history = MagicMock(return_value=[])
+        executor = make_executor(query_history=mock_history)
+
+        executor.execute(
+            "get_evaluation_history", {"category": "数码", "limit": 3}
+        )
+
+        mock_history.assert_called_once_with("数码", 3)
+
+    def test_formats_records(self):
+        mock_history = MagicMock(
+            return_value=[
+                {
+                    "product_title": "iPhone 17",
+                    "category": "数码",
+                    "subcategory": "手机",
+                    "product_price": 5999,
+                    "decision": "buy",
+                    "created_at": "2026-07-20T08:00:00+00:00",
+                }
+            ]
+        )
+        executor = make_executor(query_history=mock_history)
+
+        result = json.loads(
+            executor.execute("get_evaluation_history", {})
+        )
+
+        assert result[0] == {
+            "product_title": "iPhone 17",
+            "category": "数码",
+            "subcategory": "手机",
+            "price": 5999,
+            "decision": "最终建议买",
+            "date": "2026-07-20",
+        }
+
+    def test_handler_exception_returns_error_json(self):
+        mock_history = MagicMock(side_effect=RuntimeError("db down"))
+        executor = make_executor(query_history=mock_history)
+
+        result = json.loads(executor.execute("get_evaluation_history", {}))
+
+        assert "error" in result
+
+
+class TestFormatEvaluationRecord:
+    def test_unknown_decision_falls_back(self):
+        result = ToolExecutor.format_evaluation_record(
+            {"decision": "weird", "created_at": ""}
+        )
+
+        assert result["decision"] == "未定"
+        assert result["date"] == ""
+
+    def test_missing_fields_get_defaults(self):
+        result = ToolExecutor.format_evaluation_record({})
+
+        assert result["product_title"] == ""
+        assert result["price"] is None
+        assert result["decision"] == "未定"
+
+    def test_formats_user_choice_and_verified_outcome(self):
+        result = ToolExecutor.format_evaluation_record(
+            {
+                "id": "evaluation-1",
+                "user_choice": "buy",
+                "outcome_status": "idle",
+                "linked_asset_id": "asset-1",
+            }
+        )
+
+        assert result["evaluation_id"] == "evaluation-1"
+        assert result["user_choice"] == "用户决定买"
+        assert result["outcome"] == "购买后已经闲置"
+        assert result["linked_asset_id"] == "asset-1"
+
+
+# ===========================================================================
+# 11. summarize_evaluation_history
+# ===========================================================================
+
+class TestSummarizeEvaluationHistory:
+    NOW = datetime(2026, 7, 24, tzinfo=timezone.utc)
+
+    def make_record(self, created_at: str, category: str = "数码") -> dict:
+        return {
+            "product_title": "x",
+            "category": category,
+            "subcategory": "",
+            "product_price": None,
+            "decision": "pending",
+            "created_at": created_at,
+        }
+
+    def test_month_count_only_current_month(self):
+        records = [
+            self.make_record("2026-07-20T00:00:00+00:00"),
+            self.make_record("2026-07-01T00:00:00+00:00"),
+            self.make_record("2026-06-30T00:00:00+00:00"),
+        ]
+
+        result = summarize_evaluation_history(records, "", now=self.NOW)
+
+        assert result["本月评估次数"] == 2
+
+    def test_same_category_limited_to_three(self):
+        records = [
+            self.make_record("2026-07-20T00:00:00+00:00")
+            for _ in range(5)
+        ]
+
+        result = summarize_evaluation_history(records, "数码", now=self.NOW)
+
+        assert len(result["同品类最近评估"]) == 3
+
+    def test_category_filter(self):
+        records = [
+            self.make_record("2026-07-20T00:00:00+00:00", "数码"),
+            self.make_record("2026-07-19T00:00:00+00:00", "家电"),
+        ]
+
+        result = summarize_evaluation_history(records, "家电", now=self.NOW)
+
+        assert len(result["同品类最近评估"]) == 1
+        assert result["同品类最近评估"][0]["category"] == "家电"
+
+    def test_empty_category_returns_no_matches(self):
+        records = [self.make_record("2026-07-20T00:00:00+00:00")]
+
+        result = summarize_evaluation_history(records, "", now=self.NOW)
+
+        assert result["同品类最近评估"] == []
+
+    def test_empty_records(self):
+        result = summarize_evaluation_history([], "数码", now=self.NOW)
+
+        assert result == {"本月评估次数": 0, "同品类最近评估": []}
+
+    def test_current_evaluation_is_counted_once(self):
+        records = [
+            {
+                **self.make_record("2026-07-20T00:00:00+00:00"),
+                "id": "current",
+            },
+            {
+                **self.make_record("2026-07-10T00:00:00+00:00"),
+                "id": "older",
+            },
+        ]
+
+        result = summarize_evaluation_history(
+            records,
+            "数码",
+            current_evaluation_id="current",
+            include_current=True,
+            now=self.NOW,
+        )
+
+        assert result["本月评估次数"] == 2
+        assert all(
+            item["evaluation_id"] != "current"
+            for item in result["同品类最近评估"]
+        )
+
+    def test_uses_user_timezone_at_month_boundary(self):
+        now = datetime(2026, 7, 31, 16, 30, tzinfo=timezone.utc)
+        records = [
+            self.make_record("2026-07-31T16:10:00+00:00"),
+            self.make_record("2026-07-31T15:50:00+00:00"),
+        ]
+
+        result = summarize_evaluation_history(
+            records,
+            "数码",
+            now=now,
+            timezone_name="Asia/Shanghai",
+        )
+
+        assert result["本月评估次数"] == 1
+
+    def test_prefers_exact_subcategory_and_surfaces_outcomes(self):
+        records = [
+            {
+                **self.make_record("2026-07-20T00:00:00+00:00"),
+                "subcategory": "耳机",
+                "user_choice": "buy",
+                "outcome_status": "idle",
+            },
+            {
+                **self.make_record("2026-07-19T00:00:00+00:00"),
+                "subcategory": "手机",
+                "user_choice": "skip",
+                "outcome_status": "not_bought",
+            },
+        ]
+
+        result = summarize_evaluation_history(
+            records,
+            "数码",
+            "耳机",
+            now=self.NOW,
+        )
+
+        assert result["同品类最近评估"][0]["subcategory"] == "耳机"
+        assert result["已有后续结果"][0]["outcome"] == "购买后已经闲置"
+
+
+# ===========================================================================
+# 12. DbToolWrapper.handle_get_evaluation_history
+# ===========================================================================
+
+class TestDbHistoryHandler:
+    def test_basic_query(self):
+        mock_client = make_db_chain([
+            {"product_title": "a", "created_at": "2026-07-01"},
+        ])
+        wrapper = DbToolWrapper(ToolExecutor(), "user-1", mock_client)
+
+        result = wrapper.handle_get_evaluation_history()
+
+        mock_client.table.assert_called_once_with("purchase_evaluations")
+        chain = mock_client.table.return_value
+        # eq called only for user_id
+        assert chain.eq.call_count == 1
+        chain.limit.assert_called_once_with(5)
+        assert len(result) == 1
+
+    def test_category_filter_adds_eq(self):
+        mock_client = make_db_chain([])
+        wrapper = DbToolWrapper(ToolExecutor(), "user-1", mock_client)
+
+        wrapper.handle_get_evaluation_history("数码", 3)
+
+        chain = mock_client.table.return_value
+        # eq called for user_id and category
+        assert chain.eq.call_count == 2
+        chain.limit.assert_called_once_with(3)
+
+    def test_none_response_returns_empty(self):
+        mock_client = MagicMock()
+        chain = mock_client.table.return_value
+        chain.select.return_value = chain
+        chain.eq.return_value = chain
+        chain.order.return_value = chain
+        chain.limit.return_value = chain
+        chain.execute.return_value = MagicMock(data=None)
+        wrapper = DbToolWrapper(ToolExecutor(), "user-1", mock_client)
+
+        result = wrapper.handle_get_evaluation_history()
+
+        assert result == []

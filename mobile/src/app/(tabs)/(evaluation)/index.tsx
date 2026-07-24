@@ -16,9 +16,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatConversation } from '@/components/chat-conversation';
 import { ChatHistoryDrawer } from '@/components/chat-history-drawer';
 import { EvaluationComposer } from '@/components/evaluation-composer';
+import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, spacing } from '@/constants/colors';
 import {
+  createAgentMessage,
+  getOrCreateGeneralThread,
+  listAgentMessages,
+} from '@/lib/agent-chat';
+import {
   analyzeProductPhotos,
+  chatFreely,
   evaluatePurchase,
   normalizeProductText,
   parseProduct,
@@ -52,11 +59,20 @@ export default function EvaluationScreen() {
     typeof params.id === 'string' ? params.id : null,
   );
   const [conversationTitle, setConversationTitle] = useState('聊天');
+  const generalThread = useQuery({
+    queryKey: ['agent-thread', 'general', session?.user.id],
+    queryFn: () => getOrCreateGeneralThread(session!.user.id),
+    enabled: Boolean(session),
+  });
+  const generalMessages = useQuery({
+    queryKey: ['agent-messages', generalThread.data?.id],
+    queryFn: () => listAgentMessages(generalThread.data!.id),
+    enabled: Boolean(generalThread.data?.id),
+  });
   const [prompt, setPrompt] = useState('');
   const [photos, setPhotos] = useState<AssetPhoto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [chatReply, setChatReply] = useState('');
 
   useEffect(() => {
     if (typeof params.id === 'string' && params.id) {
@@ -74,7 +90,6 @@ export default function EvaluationScreen() {
     setPrompt('');
     setPhotos([]);
     setError('');
-    setChatReply('');
     setOpen(false);
   };
 
@@ -83,7 +98,6 @@ export default function EvaluationScreen() {
     setPrompt('');
     setPhotos([]);
     setError('');
-    setChatReply('');
     setOpen(false);
   };
 
@@ -97,11 +111,9 @@ export default function EvaluationScreen() {
 
     setLoading(true);
     setError('');
-    setChatReply('');
     let uploadedPaths: string[] = [];
     let saved = false;
     try {
-      const assetsPromise = listEvaluationAssets();
       let product: ParsedProduct;
 
       if (photos.length) {
@@ -133,10 +145,34 @@ export default function EvaluationScreen() {
             extractProductPrice(description.text),
           );
           if (interpreted.intent === 'chat' || !interpreted.product) {
-            setChatReply(
-              interpreted.reply ||
-                '你好！想聊聊某件商品时，可以描述它、粘贴链接或发一张图片。',
+            const thread =
+              generalThread.data ??
+              (await getOrCreateGeneralThread(session.user.id));
+            const messages = (generalMessages.data ?? []).map(
+              ({ role, content }) => ({ role, content }),
             );
+            messages.push({ role: 'user', content: text });
+            await createAgentMessage(
+              thread.id,
+              session.user.id,
+              'user',
+              text,
+            );
+            await queryClient.invalidateQueries({
+              queryKey: ['agent-messages', thread.id],
+            });
+            const response = await chatFreely(messages.slice(-100));
+            await createAgentMessage(
+              thread.id,
+              session.user.id,
+              'assistant',
+              response.message ||
+                interpreted.reply ||
+                '我在，慢慢说。',
+            );
+            await queryClient.invalidateQueries({
+              queryKey: ['agent-messages', thread.id],
+            });
             setPrompt('');
             return;
           }
@@ -144,7 +180,7 @@ export default function EvaluationScreen() {
         }
       }
 
-      const assets = await assetsPromise;
+      const assets = await listEvaluationAssets();
       const result = await evaluatePurchase(product, assets);
       const evaluation = await createPurchaseEvaluation(
         session.user.id,
@@ -302,27 +338,37 @@ export default function EvaluationScreen() {
                 </Text>
               ) : null}
 
-              {chatReply ? (
-                <View
-                  style={{
-                    maxWidth: '88%',
-                    alignSelf: 'flex-start',
-                    paddingHorizontal: 14,
-                    paddingVertical: 11,
-                    borderRadius: 16,
-                    backgroundColor: colors.greenSoft,
-                  }}>
-                  <Text
-                    selectable
-                    style={{
-                      color: colors.text,
-                      lineHeight: 22,
-                      fontSize: 15,
-                    }}>
-                    {chatReply}
-                  </Text>
-                </View>
+              {generalMessages.isLoading ? <LoadingState /> : null}
+              {generalMessages.error ? (
+                <ErrorState message={generalMessages.error.message} />
               ) : null}
+              {(generalMessages.data ?? []).slice(-10).map((message) => {
+                const fromUser = message.role === 'user';
+                return (
+                  <View
+                    key={message.id}
+                    style={{
+                      maxWidth: '88%',
+                      alignSelf: fromUser ? 'flex-end' : 'flex-start',
+                      paddingHorizontal: 14,
+                      paddingVertical: 11,
+                      borderRadius: 16,
+                      backgroundColor: fromUser
+                        ? colors.green
+                        : colors.greenSoft,
+                    }}>
+                    <Text
+                      selectable
+                      style={{
+                        color: fromUser ? 'white' : colors.text,
+                        lineHeight: 22,
+                        fontSize: 15,
+                      }}>
+                      {message.content}
+                    </Text>
+                  </View>
+                );
+              })}
             </ScrollView>
           )}
         </KeyboardAvoidingView>

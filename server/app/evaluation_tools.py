@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import statistics
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
+from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
     from supabase import Client as SupabaseClient
@@ -10,6 +12,29 @@ if TYPE_CHECKING:
     from .market import MarketClient
     from .models import MarketCandidate
 
+
+DECISION_LABELS = {
+    "pending": "未定",
+    "buy": "最终建议买",
+    "skip": "最终建议不买",
+}
+
+USER_CHOICE_LABELS = {
+    "pending": "还没决定",
+    "buy": "用户决定买",
+    "skip": "用户决定不买",
+    "postponed": "用户决定再等等",
+}
+
+OUTCOME_LABELS = {
+    "unknown": "后续未知",
+    "not_bought": "后来没有购买",
+    "in_use": "购买后仍在使用",
+    "idle": "购买后已经闲置",
+    "listed": "购买后已经上架转卖",
+    "returned": "购买后已经退货",
+    "sold": "购买后已经卖出",
+}
 
 EVALUATION_TOOLS: list[dict] = [
     {
@@ -79,6 +104,32 @@ EVALUATION_TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "get_evaluation_history",
+            "description": (
+                "查询用户过往的购物评估记录（他之前纠结过什么商品、"
+                "助手当时的建议、用户真实选择以及购买后的使用结果），"
+                "用于对比当前购买冲动与历史模式"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "description": "按商品大类筛选，如数码、家电；留空查全部",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "返回数量上限，默认5",
+                        "default": 5,
+                    },
+                },
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "clarify_with_user",
             "description": (
                 "当信息不足以做出分析时，向用户提出一个澄清问题。"
@@ -116,6 +167,7 @@ class ToolExecutor:
         self._asset_query: Any = None
         self._asset_summary: Any = None
         self._market_search: Any = None
+        self._history_query: Any = None
 
     def set_asset_handlers(
         self,
@@ -129,6 +181,10 @@ class ToolExecutor:
     def set_market_handler(self, search_market: Any) -> None:
         """注入市场搜索 handler。"""
         self._market_search = search_market
+
+    def set_history_handler(self, query_history: Any) -> None:
+        """注入评估历史查询 handler。"""
+        self._history_query = query_history
 
     def execute(self, tool_name: str, arguments: dict) -> str:
         """分发工具调用，返回 JSON 字符串。失败时返回 error JSON 而非抛异常。"""
@@ -153,6 +209,14 @@ class ToolExecutor:
                     arguments.get("keyword", ""),
                     arguments.get("category", ""),
                 )
+            elif tool_name == "get_evaluation_history":
+                raw = self._history_query(
+                    arguments.get("category", ""),
+                    arguments.get("limit", 5),
+                )
+                result = [
+                    self.format_evaluation_record(r) for r in raw
+                ]
             elif tool_name == "clarify_with_user":
                 result = self.handle_clarify(
                     arguments.get("question", ""),
@@ -221,6 +285,121 @@ class ToolExecutor:
             "status": asset.get("status", ""),
         }
 
+    @staticmethod
+    def format_evaluation_record(record: dict) -> dict:
+        """格式化单条历史评估记录，供 AI 引用。"""
+        created_at = str(record.get("created_at", ""))
+        result = {
+            "product_title": record.get("product_title", ""),
+            "category": record.get("category", ""),
+            "subcategory": record.get("subcategory", ""),
+            "price": record.get("product_price"),
+            "decision": DECISION_LABELS.get(
+                str(record.get("decision", "pending")), "未定"
+            ),
+            "date": created_at[:10],
+        }
+        if "id" in record:
+            result["evaluation_id"] = record.get("id", "")
+        if "user_choice" in record:
+            result["user_choice"] = USER_CHOICE_LABELS.get(
+                str(record.get("user_choice", "pending")),
+                "还没决定",
+            )
+        if "outcome_status" in record:
+            result["outcome"] = OUTCOME_LABELS.get(
+                str(record.get("outcome_status", "unknown")),
+                "后续未知",
+            )
+        if record.get("linked_asset_id"):
+            result["linked_asset_id"] = record["linked_asset_id"]
+        return result
+
+
+def _parse_datetime(value: object) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def summarize_evaluation_history(
+    records: list[dict],
+    category: str,
+    subcategory: str = "",
+    now: datetime | None = None,
+    *,
+    current_evaluation_id: str | None = None,
+    include_current: bool = False,
+    timezone_name: str = "Asia/Shanghai",
+) -> dict:
+    """从最近的评估记录构造历史快照：本月评估次数 + 同品类最近结论。
+
+    records 需按 created_at 倒序排列（不含当前这次评估）。
+    """
+    try:
+        user_timezone = ZoneInfo(timezone_name)
+    except (KeyError, ValueError):
+        user_timezone = (
+            timezone(timedelta(hours=8))
+            if timezone_name == "Asia/Shanghai"
+            else timezone.utc
+        )
+    now = now or datetime.now(timezone.utc)
+    local_now = now.astimezone(user_timezone)
+    history_records = [
+        record
+        for record in records
+        if not current_evaluation_id
+        or str(record.get("id", "")) != current_evaluation_id
+    ]
+    month_count = sum(
+        1
+        for record in history_records
+        if (
+            (created_at := _parse_datetime(record.get("created_at")))
+            and created_at.astimezone(user_timezone).year == local_now.year
+            and created_at.astimezone(user_timezone).month == local_now.month
+        )
+    )
+    if include_current:
+        month_count += 1
+
+    exact_subcategory = [
+        record
+        for record in history_records
+        if subcategory and record.get("subcategory") == subcategory
+    ]
+    same_category = [
+        record
+        for record in history_records
+        if category
+        and record.get("category") == category
+        and record not in exact_subcategory
+    ]
+    related = [
+        ToolExecutor.format_evaluation_record(record)
+        for record in [*exact_subcategory, *same_category][:3]
+    ]
+    result = {
+        "本月评估次数": month_count,
+        "同品类最近评估": related,
+    }
+    validated = [
+        ToolExecutor.format_evaluation_record(record)
+        for record in history_records
+        if record.get("outcome_status")
+        in {"not_bought", "in_use", "idle", "listed", "returned", "sold"}
+    ][:3]
+    if validated:
+        result["已有后续结果"] = validated
+    return result
+
 
 class DbToolWrapper:
     """数据库工具实现：查询 Supabase 获取用户资产数据。"""
@@ -280,6 +459,26 @@ class DbToolWrapper:
             "by_category": by_category,
         }
 
+    def handle_get_evaluation_history(
+        self, category: str = "", limit: int = 5
+    ) -> list[dict]:
+        """查询用户过往购物评估记录（倒序）。"""
+        query = (
+            self._client.table("purchase_evaluations")
+            .select(
+                "id, product_title, category, subcategory, product_price,"
+                " decision, user_choice, outcome_status, linked_asset_id,"
+                " created_at"
+            )
+            .eq("user_id", self._user_id)
+        )
+        if category:
+            query = query.eq("category", category)
+        response = (
+            query.order("created_at", desc=True).limit(limit).execute()
+        )
+        return response.data if response.data else []
+
 
 class MarketToolWrapper:
     """市场搜索工具实现：调用闲鱼 API 获取行情数据。"""
@@ -314,6 +513,7 @@ def create_production_executor(
         query_assets=db.handle_get_user_assets,
         query_summary=db.handle_get_asset_summary,
     )
+    executor.set_history_handler(db.handle_get_evaluation_history)
 
     if market_client:
         market = MarketToolWrapper(executor, market_client)

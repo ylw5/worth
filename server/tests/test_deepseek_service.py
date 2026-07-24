@@ -153,6 +153,37 @@ def test_continues_evaluation_with_prior_messages() -> None:
     assert result == "先看看现在这副耳机的使用频率。"
 
 
+def test_general_chat_includes_memory_and_free_text() -> None:
+    service = service_with("听起来今天确实挺累的，先别急着逼自己做决定。")
+
+    result = service.continue_general_chat(
+        [
+            EvaluationChatMessage(
+                role="user",
+                content="烦死了，今天就想买点什么开心一下",
+            )
+        ],
+        {
+            "本月评估次数": 3,
+            "已有后续结果": [
+                {
+                    "product_title": "耳机",
+                    "outcome": "购买后已经闲置",
+                }
+            ],
+        },
+        "user",
+    )
+
+    request = service.client.chat.completions.create.call_args.kwargs
+    assert request["messages"][-1]["content"] == (
+        "烦死了，今天就想买点什么开心一下"
+    )
+    assert "本月评估次数" in request["messages"][0]["content"]
+    assert "不必每句话都拉回购物" in request["messages"][0]["content"]
+    assert result.startswith("听起来")
+
+
 def stream_chunk(content: str | None) -> Mock:
     return Mock(choices=[Mock(delta=Mock(content=content))])
 
