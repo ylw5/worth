@@ -1,38 +1,23 @@
-import {
-  useIsMutating,
-  useMutation,
-  useMutationState,
-  useQuery,
-  useQueryClient,
-} from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AssetPhotoGallery } from '@/components/asset-photo-gallery';
+import { MarketSnapshotCard } from '@/components/market-snapshot-card';
+import { MarketTrendCard } from '@/components/market-trend-card';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, radius, spacing, typography } from '@/constants/colors';
-import { estimateAsset } from '@/lib/api';
 import { assetStatusLabels } from '@/lib/asset-status';
 import {
   getAsset,
   getAssetSale,
+  getMarketInsight,
   getValuations,
-  recordValuation,
 } from '@/lib/assets';
 import { formatCurrency, formatDate, specsToText } from '@/lib/format';
 
-const refreshPriceMutationKey = (assetId: string) =>
-  ['refresh-price', assetId] as const;
-
 export default function AssetDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const queryClient = useQueryClient();
   const assetQuery = useQuery({
     queryKey: ['asset', id],
     queryFn: () => getAsset(id),
@@ -48,27 +33,10 @@ export default function AssetDetailScreen() {
     queryFn: () => getAssetSale(id),
     enabled: Boolean(id) && assetQuery.data?.status === 'sold',
   });
-  const refreshKey = id ? refreshPriceMutationKey(id) : (['refresh-price'] as const);
-  const refreshPending = useIsMutating({ mutationKey: refreshKey }) > 0;
-  const refreshError = useMutationState({
-    filters: { mutationKey: refreshKey },
-    select: (mutation) => mutation.state.error,
-  }).at(-1);
-  const refresh = useMutation({
-    mutationKey: refreshKey,
-    mutationFn: async () => {
-      if (!assetQuery.data) return;
-      const valuation = await estimateAsset(assetQuery.data);
-      await recordValuation(assetQuery.data.id, valuation);
-      return valuation;
-    },
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['asset', id] }),
-        queryClient.invalidateQueries({ queryKey: ['valuations', id] }),
-        queryClient.invalidateQueries({ queryKey: ['assets'] }),
-      ]);
-    },
+  const insightQuery = useQuery({
+    queryKey: ['market-insight', id],
+    queryFn: () => getMarketInsight(assetQuery.data!),
+    enabled: Boolean(assetQuery.data),
   });
 
   if (assetQuery.isLoading) return <LoadingState />;
@@ -76,7 +44,6 @@ export default function AssetDetailScreen() {
   const asset = assetQuery.data;
   if (!asset) return <ErrorState message="资产不存在" />;
 
-  const latest = historyQuery.data?.[0];
   const details: [string, string][] = [
     ['分类', asset.category],
     ['二级品类', asset.subcategory || '—'],
@@ -133,85 +100,32 @@ export default function AssetDetailScreen() {
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{ padding: spacing.xl, gap: spacing.xxl }}>
         <AssetPhotoGallery urls={asset.photo_urls ?? []} />
-        <View
-          style={{
-            padding: spacing.lg,
-            gap: spacing.sm,
-            borderRadius: radius.large,
-            borderCurve: 'continuous',
-            backgroundColor: colors.surface,
-          }}>
+        {insightQuery.error ? (
           <Text
             selectable
-            style={{ color: colors.textSecondary, ...typography.label }}>
-            当前参考市价
+            style={{ color: colors.danger, ...typography.label }}>
+            {insightQuery.error.message}
           </Text>
-          <Text
-            selectable
+        ) : insightQuery.data ? (
+          <>
+            <MarketSnapshotCard insight={insightQuery.data} />
+            <MarketTrendCard snapshots={insightQuery.data.snapshots} />
+          </>
+        ) : (
+          <View
             style={{
-              color:
-                asset.latest_market_price === null
-                  ? colors.textTertiary
-                  : colors.textPrimary,
-              ...typography.display,
-              fontVariant: ['tabular-nums'],
+              padding: spacing.lg,
+              borderRadius: radius.large,
+              borderCurve: 'continuous',
+              backgroundColor: colors.surface,
             }}>
-            {formatCurrency(asset.latest_market_price)}
-          </Text>
-          {latest ? (
             <Text
               selectable
               style={{ color: colors.textSecondary, ...typography.label }}>
-              {formatCurrency(latest.price_low)}–
-              {formatCurrency(latest.price_high)} · {latest.sample_count}{' '}
-              个相似样本
+              行情加载中
             </Text>
-          ) : (
-            <Text
-              selectable
-              style={{ color: colors.textSecondary, ...typography.label }}>
-              暂无可靠估价
-            </Text>
-          )}
-          {refreshError instanceof Error ? (
-            <Text selectable style={{ color: colors.danger, ...typography.label }}>
-              {refreshError.message}
-            </Text>
-          ) : null}
-          {asset.status !== 'sold' ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={refreshPending}
-              onPress={() => {
-                if (refreshPending) return;
-                refresh.mutate();
-              }}
-              style={({ pressed }) => ({
-                alignItems: 'center',
-                minHeight: 48,
-                justifyContent: 'center',
-                padding: spacing.md,
-                borderRadius: radius.small,
-                borderWidth: 1,
-                borderColor: colors.border,
-                backgroundColor: colors.surface,
-                opacity: pressed || refreshPending ? 0.65 : 1,
-              })}>
-              {refreshPending ? (
-                <ActivityIndicator color={colors.textPrimary} />
-              ) : (
-                <Text
-                  style={{
-                    ...typography.body,
-                    color: colors.textPrimary,
-                    fontWeight: '700',
-                  }}>
-                  刷新价格
-                </Text>
-              )}
-            </Pressable>
-          ) : null}
-        </View>
+          </View>
+        )}
 
         <View
           style={{
