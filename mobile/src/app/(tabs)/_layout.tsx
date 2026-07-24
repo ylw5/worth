@@ -145,15 +145,6 @@ export default function TabsLayout() {
         options={{
           title: '评估',
           tabBarIcon: ({ color }) => (
-            <TabIcon ios="magnifyingglass" android="search" color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="(chat)"
-        options={{
-          title: '聊天',
-          tabBarIcon: ({ color }) => (
             <TabIcon ios="bubble.left.fill" android="chat_bubble" color={color} />
           ),
         }}
@@ -172,6 +163,7 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen name="(chat)" options={{ href: null }} />
       <Tabs.Screen name="(capture)" options={{ href: null }} />
     </Tabs>
   );

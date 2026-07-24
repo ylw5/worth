@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { SymbolView } from 'expo-symbols';
 import { router, Stack } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -8,9 +9,10 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Drawer } from 'react-native-drawer-layout';
 
+import { ChatHistoryDrawer } from '@/components/chat-history-drawer';
 import { EvaluationComposer } from '@/components/evaluation-composer';
-import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors } from '@/constants/colors';
 import {
   analyzeProductPhotos,
@@ -26,12 +28,10 @@ import {
 } from '@/lib/evaluation-input';
 import {
   createPurchaseEvaluation,
-  evaluationDecisionLabels,
   listEvaluationAssets,
   listPurchaseEvaluations,
   type ParsedProduct,
 } from '@/lib/evaluations';
-import { formatCurrency, formatDate } from '@/lib/format';
 import type { AssetPhoto } from '@/lib/photos';
 import { useSession } from '@/providers/session-provider';
 
@@ -42,6 +42,7 @@ export default function EvaluationScreen() {
     queryKey: ['purchase-evaluations'],
     queryFn: listPurchaseEvaluations,
   });
+  const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState('');
   const [photos, setPhotos] = useState<AssetPhoto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -134,140 +135,110 @@ export default function EvaluationScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: '购物前评估', headerLargeTitle: true }} />
-      <KeyboardAvoidingView
-        behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: 20, gap: 22 }}>
-          <View style={{ gap: 8 }}>
-            <Text
-              selectable
-              style={{ color: colors.text, fontSize: 24, fontWeight: '800' }}>
-              买之前，先和自己的使用历史聊一聊
-            </Text>
-            <Text selectable style={{ color: colors.muted, lineHeight: 21 }}>
-              描述想买的商品、粘贴链接，或者添加图片。系统会自动识别输入方式，并从你的资产记录中寻找相关事实。
-            </Text>
-          </View>
-
-          <EvaluationComposer
-            value={prompt}
-            photos={photos}
-            loading={loading}
-            onChangeText={setPrompt}
-            onChangePhotos={setPhotos}
-            onError={setError}
-            onSubmit={analyze}
-          />
-
-          {error ? (
-            <Text selectable style={{ color: colors.danger }}>
-              {error}
-            </Text>
-          ) : null}
-
-          {chatReply ? (
-            <View
+      <Stack.Screen
+        options={{
+          title: '聊天',
+          headerLargeTitle: false,
+          headerLeft: () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={open ? '关闭历史' : '打开历史'}
+              onPress={() => setOpen((value) => !value)}
+              hitSlop={8}
               style={{
-                maxWidth: '88%',
-                alignSelf: 'flex-start',
-                paddingHorizontal: 14,
-                paddingVertical: 11,
-                borderRadius: 16,
-                backgroundColor: colors.greenSoft,
+                width: 36,
+                height: 36,
+                marginLeft: 4,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: 99,
+                backgroundColor: colors.surfaceMuted,
               }}>
-              <Text
-                selectable
-                style={{ color: colors.text, lineHeight: 22, fontSize: 15 }}>
-                {chatReply}
-              </Text>
-            </View>
-          ) : null}
+              <SymbolView
+                name={{
+                  ios: 'line.3.horizontal',
+                  android: 'menu',
+                  web: 'menu',
+                }}
+                size={18}
+                tintColor={colors.textPrimary}
+              />
+            </Pressable>
+          ),
+        }}
+      />
+      <Drawer
+        open={open}
+        onOpen={() => setOpen(true)}
+        onClose={() => setOpen(false)}
+        drawerPosition="left"
+        drawerType="front"
+        drawerStyle={{ width: '80%', backgroundColor: colors.surface }}
+        overlayStyle={{ backgroundColor: 'rgba(11, 11, 13, 0.35)' }}
+        renderDrawerContent={() => (
+          <ChatHistoryDrawer
+            items={history.data ?? []}
+            loading={history.isLoading}
+            errorMessage={history.error?.message}
+            onSelect={(id) => {
+              setOpen(false);
+              router.push({
+                pathname: '/(tabs)/(evaluation)/[id]',
+                params: { id },
+              });
+            }}
+            onNewChat={() => {
+              setPrompt('');
+              setPhotos([]);
+              setError('');
+              setChatReply('');
+              setOpen(false);
+            }}
+          />
+        )}>
+        <KeyboardAvoidingView
+          behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined}
+          style={{ flex: 1 }}>
+          <ScrollView
+            contentInsetAdjustmentBehavior="automatic"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ padding: 20, gap: 22 }}>
+            <EvaluationComposer
+              value={prompt}
+              photos={photos}
+              loading={loading}
+              onChangeText={setPrompt}
+              onChangePhotos={setPhotos}
+              onError={setError}
+              onSubmit={analyze}
+            />
 
-          <View style={{ gap: 12 }}>
-            <Text selectable style={{ color: colors.text, fontWeight: '700' }}>
-              最近评估
-            </Text>
-            {history.isLoading ? <LoadingState /> : null}
-            {history.error ? <ErrorState message={history.error.message} /> : null}
-            {(history.data ?? []).map((item) => (
-              <Pressable
-                key={item.id}
-                accessibilityRole="button"
-                onPress={() =>
-                  router.push({
-                    pathname: '/(tabs)/(evaluation)/[id]',
-                    params: { id: item.id },
-                  })
-                }
-                style={({ pressed }) => ({
-                  padding: 16,
-                  gap: 7,
-                  backgroundColor: colors.card,
-                  borderRadius: 16,
-                  borderCurve: 'continuous',
-                  opacity: pressed ? 0.7 : 1,
-                })}>
-                <Text
-                  selectable
-                  numberOfLines={2}
-                  style={{ color: colors.text, fontWeight: '700' }}>
-                  {item.product_title}
-                </Text>
-                <View
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View
-                    style={{
-                      paddingHorizontal: 9,
-                      paddingVertical: 3,
-                      borderRadius: 999,
-                      backgroundColor:
-                        item.decision === 'buy'
-                          ? colors.green
-                          : item.decision === 'skip'
-                            ? colors.danger
-                            : colors.greenSoft,
-                    }}>
-                    <Text
-                      style={{
-                        color:
-                          !item.decision || item.decision === 'pending'
-                            ? colors.green
-                            : 'white',
-                        fontWeight: '700',
-                        fontSize: 12,
-                      }}>
-                      {evaluationDecisionLabels[item.decision ?? 'pending']}
-                    </Text>
-                  </View>
-                  {item.product_price !== null ? (
-                    <Text selectable style={{ color: colors.green }}>
-                      {formatCurrency(item.product_price)}
-                    </Text>
-                  ) : null}
-                </View>
-                <Text selectable style={{ color: colors.muted, fontSize: 13 }}>
-                  {item.source_type === 'image'
-                    ? '图片识别'
-                    : item.source_type === 'text'
-                      ? '文字输入'
-                      : '商品链接'}{' '}
-                  · {item.subcategory || item.category} ·{' '}
-                  {formatDate(item.updated_at ?? item.created_at)}
-                </Text>
-              </Pressable>
-            ))}
-            {!history.isLoading && !history.data?.length ? (
-              <Text selectable style={{ color: colors.muted }}>
-                还没有评估记录
+            {error ? (
+              <Text selectable style={{ color: colors.danger }}>
+                {error}
               </Text>
             ) : null}
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+
+            {chatReply ? (
+              <View
+                style={{
+                  maxWidth: '88%',
+                  alignSelf: 'flex-start',
+                  paddingHorizontal: 14,
+                  paddingVertical: 11,
+                  borderRadius: 16,
+                  backgroundColor: colors.greenSoft,
+                }}>
+                <Text
+                  selectable
+                  style={{ color: colors.text, lineHeight: 22, fontSize: 15 }}>
+                  {chatReply}
+                </Text>
+              </View>
+            ) : null}
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Drawer>
     </>
   );
 }
