@@ -50,9 +50,9 @@ function WishlistFundingDetails({
     resolutions.map((resolution) => resolution.amount),
   );
   const salesTotal = sumAmounts(sales.map((sale) => sale.sale_price));
-  const tabs: { key: FundingTab; label: string; total: number }[] = [
-    { key: 'spending', label: '忍住消费', total: spendingTotal },
-    { key: 'sales', label: '已卖闲置', total: salesTotal },
+  const tabs: { key: FundingTab; label: string }[] = [
+    { key: 'spending', label: '忍住消费' },
+    { key: 'sales', label: '已卖闲置' },
   ];
   const activeTotal =
     activeTab === 'spending' ? spendingTotal : salesTotal;
