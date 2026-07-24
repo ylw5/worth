@@ -194,7 +194,7 @@ export default function EvaluationScreen() {
           />
         )}>
         <KeyboardAvoidingView
-          behavior={process.env.EXPO_OS === 'ios' ? 'padding' : undefined}
+          behavior={process.env.EXPO_OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1, backgroundColor: colors.background }}>
           <View
             style={{

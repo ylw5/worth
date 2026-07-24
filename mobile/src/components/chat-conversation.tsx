@@ -4,6 +4,7 @@ import { Image } from 'expo-image';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +12,6 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, radius, spacing } from '@/constants/colors';
@@ -54,13 +54,13 @@ export function ChatConversation({
   onTitleChange?: (title: string) => void;
 }) {
   const { session } = useSession();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const scrollRef = useRef<ScrollView>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
   const [streamingReply, setStreamingReply] = useState('');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   const query = useQuery({
     queryKey: ['purchase-evaluation', evaluationId],
@@ -125,6 +125,23 @@ export function ChatConversation({
     }, 50);
     return () => clearTimeout(timer);
   }, [displayMessages.length, sending, streamingReply, evaluationId]);
+
+  useEffect(() => {
+    const showEvent =
+      process.env.EXPO_OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent =
+      process.env.EXPO_OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvent, () =>
+      setKeyboardVisible(true),
+    );
+    const hideSub = Keyboard.addListener(hideEvent, () =>
+      setKeyboardVisible(false),
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   if (query.isLoading) return <LoadingState />;
   if (query.error) return <ErrorState message={query.error.message} />;
@@ -211,6 +228,7 @@ export function ChatConversation({
         ref={scrollRef}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
+          flexGrow: 1,
           paddingHorizontal: spacing.xl,
           paddingTop: spacing.md,
           paddingBottom: spacing.lg,
@@ -280,8 +298,7 @@ export function ChatConversation({
         style={{
           paddingHorizontal: spacing.lg,
           paddingTop: spacing.sm,
-          paddingBottom: Math.max(insets.bottom, spacing.md),
-          backgroundColor: colors.background,
+          paddingBottom: keyboardVisible ? spacing.sm : spacing.md,
         }}>
         {sendError ? (
           <Text
@@ -300,13 +317,13 @@ export function ChatConversation({
             alignItems: 'flex-end',
             gap: spacing.sm,
             paddingHorizontal: spacing.md,
-            paddingTop: spacing.sm,
-            paddingBottom: spacing.sm,
+            paddingVertical: spacing.sm,
             backgroundColor: colors.surface,
-            borderRadius: 26,
+            borderRadius: radius.pill,
             borderCurve: 'continuous',
             borderWidth: StyleSheet.hairlineWidth,
             borderColor: colors.border,
+            boxShadow: '0 4px 16px rgba(11, 11, 13, 0.08)',
           }}>
           <TextInput
             accessibilityLabel="回复"
