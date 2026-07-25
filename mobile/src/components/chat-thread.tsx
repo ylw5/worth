@@ -35,6 +35,10 @@ import {
   stripDecisionMark,
   type EvaluationChatMessage,
 } from '@/lib/evaluations';
+import {
+  outboundUserContent,
+  shouldShowPendingUserMessage,
+} from '@/lib/pending-user-message';
 import type { AssetPhoto } from '@/lib/photos';
 import {
   confirmSpendingResolution,
@@ -75,6 +79,9 @@ export function ChatThread(props: {
   const [photos, setPhotos] = useState<AssetPhoto[]>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(
+    null,
+  );
   const [processSteps, setProcessSteps] = useState<ProcessStep[]>([]);
   const [streamingText, setStreamingText] = useState('');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -119,6 +126,7 @@ export function ChatThread(props: {
       setSendError('');
       setResolutionError('');
       setConfirmingResolutionId(null);
+      setPendingUserMessage(null);
     }, 0);
     return () => clearTimeout(timer);
   }, [threadId]);
@@ -129,12 +137,26 @@ export function ChatThread(props: {
   }, [evaluations, onTitleChange]);
 
   useEffect(() => {
-    if (!messages.length && !sending && !streamingText) return;
+    if (
+      !messages.length &&
+      !sending &&
+      !streamingText &&
+      !pendingUserMessage
+    ) {
+      return;
+    }
     const timer = setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, 50);
     return () => clearTimeout(timer);
-  }, [messages.length, sending, streamingText, processSteps.length, threadId]);
+  }, [
+    messages.length,
+    sending,
+    streamingText,
+    processSteps.length,
+    pendingUserMessage,
+    threadId,
+  ]);
 
   useEffect(() => {
     const showEvent =
@@ -194,6 +216,8 @@ export function ChatThread(props: {
     }
 
     const pendingPhotos = photos;
+    const userContent = outboundUserContent(text);
+    setPendingUserMessage(userContent);
     setSending(true);
     setSendError('');
     setDraft('');
@@ -221,7 +245,6 @@ export function ChatThread(props: {
         imageUrls = uploaded.map((photo) => photo.signedUrl);
       }
 
-      const userContent = text || '看看这件商品';
       await createAgentMessage(
         currentThreadId,
         session.user.id,
@@ -300,6 +323,7 @@ export function ChatThread(props: {
       }
 
       await invalidateThread(currentThreadId);
+      setPendingUserMessage(null);
     } catch (caught) {
       if (uploadedPaths.length) {
         await removePhotos(uploadedPaths).catch(() => undefined);
@@ -361,6 +385,10 @@ export function ChatThread(props: {
             </View>
           );
         })}
+
+        {shouldShowPendingUserMessage(pendingUserMessage, messages) ? (
+          <MessageBubble role="user" content={pendingUserMessage!} />
+        ) : null}
 
         {sending || processSteps.length ? (
           <AgentProcessPanel steps={processSteps} />
