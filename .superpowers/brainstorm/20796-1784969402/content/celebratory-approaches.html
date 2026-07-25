@@ -1,0 +1,80 @@
+<h2>哪种轻庆祝感更合适？</h2>
+<p class="subtitle">三种方案 · 各含待确认 / 已确认 · 点击选一个</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#FAFAFC;padding:16px;">
+      <div style="font-size:11px;color:#727278;margin-bottom:8px;letter-spacing:0.02em;">A · 待确认</div>
+      <div style="background:#EDF6FF;border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <div style="color:#727278;font-size:13px;margin-bottom:4px;">这次先不买</div>
+          <div style="color:#0B0B0D;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;">留下 <span style="color:#3D8FE8;">¥2,000</span></div>
+        </div>
+        <div style="background:#0B0B0D;color:#fff;text-align:center;padding:12px;border-radius:16px;font-size:15px;font-weight:600;">确认不买</div>
+      </div>
+      <div style="font-size:11px;color:#727278;margin:14px 0 8px;letter-spacing:0.02em;">A · 已确认</div>
+      <div style="background:#EDF6FF;border-radius:22px;padding:16px;">
+        <div style="color:#3D8FE8;font-size:13px;font-weight:600;margin-bottom:4px;">已忍住 ¥2,000</div>
+        <div style="color:#B5B5BB;font-size:12px;">2026/7/25 16:49:12</div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. 软底整卡</h3>
+      <p>整卡用 accentSoft 铺底，金额数字提色。确认后去掉按钮，标题改成「已忍住」并保留同色软底。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#FAFAFC;padding:16px;">
+      <div style="font-size:11px;color:#727278;margin-bottom:8px;letter-spacing:0.02em;">B · 待确认</div>
+      <div style="background:#fff;border:1px solid #E6E6EA;border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:14px;">
+        <div style="color:#727278;font-size:13px;">这次先不买</div>
+        <div style="background:#EDF6FF;border-radius:16px;padding:14px 16px;">
+          <div style="color:#0B0B0D;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-0.02em;">留下 ¥2,000</div>
+        </div>
+        <div style="background:#0B0B0D;color:#fff;text-align:center;padding:12px;border-radius:16px;font-size:15px;font-weight:600;">确认不买</div>
+      </div>
+      <div style="font-size:11px;color:#727278;margin:14px 0 8px;letter-spacing:0.02em;">B · 已确认</div>
+      <div style="background:#fff;border:1px solid #E6E6EA;border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="color:#727278;font-size:13px;">已忍住</div>
+        <div style="background:#EDF6FF;border-radius:16px;padding:14px 16px;">
+          <div style="color:#0B0B0D;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;">¥2,000</div>
+          <div style="color:#B5B5BB;font-size:12px;margin-top:4px;">2026/7/25 16:49:12</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. 金额聚光（推荐）</h3>
+      <p>白卡细边保持系统感；金额落在软蓝区块里做焦点。确认后仍保留金额块，只是去掉主按钮。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#FAFAFC;padding:16px;">
+      <div style="font-size:11px;color:#727278;margin-bottom:8px;letter-spacing:0.02em;">C · 待确认</div>
+      <div style="background:#fff;border:1px solid #E6E6EA;border-radius:22px;overflow:hidden;display:flex;flex-direction:column;">
+        <div style="height:4px;background:linear-gradient(90deg,#78B4FF,#A8D0FF);"></div>
+        <div style="padding:16px;display:flex;flex-direction:column;gap:14px;">
+          <div>
+            <div style="color:#727278;font-size:13px;margin-bottom:4px;">这次先不买</div>
+            <div style="color:#0B0B0D;font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;">留下 ¥2,000</div>
+          </div>
+          <div style="background:#78B4FF;color:#fff;text-align:center;padding:12px;border-radius:16px;font-size:15px;font-weight:600;">确认不买</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:#727278;margin:14px 0 8px;letter-spacing:0.02em;">C · 已确认</div>
+      <div style="background:#fff;border:1px solid #E6E6EA;border-radius:22px;overflow:hidden;">
+        <div style="height:4px;background:#B5B5BB;"></div>
+        <div style="padding:16px;">
+          <div style="display:inline-block;background:#EDF6FF;color:#3D8FE8;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;margin-bottom:8px;">已忍住</div>
+          <div style="color:#0B0B0D;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;">¥2,000</div>
+          <div style="color:#B5B5BB;font-size:12px;margin-top:4px;">2026/7/25 16:49:12</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C. 顶条 + accent 按钮</h3>
+      <p>顶部 accent 细条标示「可行动」；按钮改成品牌蓝。确认后顶条变灰，「已忍住」做成小徽章。</p>
+    </div>
+  </div>
+</div>

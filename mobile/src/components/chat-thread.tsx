@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { SymbolView } from 'expo-symbols';
 import { useEffect, useRef, useState, type ReactElement } from 'react';
 import {
   ActivityIndicator,
@@ -505,15 +506,31 @@ function CompletedProcessPanel({ steps }: { steps: CompletedProcessStep[] }) {
         accessibilityState={{ expanded }}
         accessibilityLabel={expanded ? `收起，${summary}` : `展开，${summary}`}
         onPress={() => setExpanded((value) => !value)}
-        style={{ alignSelf: 'flex-start', paddingVertical: spacing.xs }}>
+        hitSlop={8}
+        style={{
+          alignSelf: 'flex-start',
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.xs,
+          paddingVertical: spacing.xs,
+        }}>
         <Text
           style={{
             color: colors.textTertiary,
             fontSize: 16,
             lineHeight: 24,
           }}>
-          {expanded ? `收起 · ${summary}` : summary}
+          {summary}
         </Text>
+        <SymbolView
+          name={{
+            ios: expanded ? 'chevron.up' : 'chevron.down',
+            android: expanded ? 'keyboard_arrow_up' : 'keyboard_arrow_down',
+            web: expanded ? 'keyboard_arrow_up' : 'keyboard_arrow_down',
+          }}
+          size={16}
+          tintColor={colors.textTertiary}
+        />
       </Pressable>
       {expanded
         ? steps.map((step, index) => (

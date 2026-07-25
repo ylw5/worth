@@ -36,8 +36,6 @@ import { getWishlistItem } from '@/lib/wishlist';
 
 type FundingSourceRow = SelectableFundingSource & {
   name: string;
-  original_amount: number;
-  allocated_amount: number;
 };
 
 function buildSources(
@@ -55,8 +53,6 @@ function buildSources(
       source_type: 'spending_resolution' as const,
       source_id: resolution.id,
       name: resolution.product_snapshot.title,
-      original_amount: resolution.amount,
-      allocated_amount: allocated,
       available_amount: getAvailableAmount(resolution.amount, allocated),
     };
   });
@@ -70,8 +66,6 @@ function buildSources(
       source_type: 'asset_sale' as const,
       source_id: sale.id,
       name: sale.asset.name,
-      original_amount: sale.sale_price,
-      allocated_amount: allocated,
       available_amount: getAvailableAmount(sale.sale_price, allocated),
     };
   });
@@ -319,8 +313,7 @@ export default function FulfillWishlistScreen() {
                 {groupSources.length ? (
                   groupSources.map((source) => {
                     const key = sourceKey(source);
-                    const selectedIndex = selectedKeys.indexOf(key);
-                    const selected = selectedIndex >= 0;
+                    const selected = selectedKeys.includes(key);
                     const used =
                       preview.allocations.find(
                         (allocation) =>
@@ -334,7 +327,7 @@ export default function FulfillWishlistScreen() {
                             ? '取消选择这笔资金'
                             : '选择这笔资金，按点击顺序抵扣'
                         }
-                        accessibilityLabel={`${source.name}，原金额${formatCurrency(source.original_amount)}，已使用${formatCurrency(source.allocated_amount)}，可用${formatCurrency(source.available_amount)}${selected ? `，第${selectedIndex + 1}顺位，本次使用${formatCurrency(used)}` : ''}`}
+                        accessibilityLabel={`${source.name}，可用${formatCurrency(source.available_amount)}${selected ? `，本次使用${formatCurrency(used)}` : ''}`}
                         accessibilityRole="checkbox"
                         accessibilityState={{
                           checked: selected,
@@ -344,8 +337,10 @@ export default function FulfillWishlistScreen() {
                         key={key}
                         onPress={() => toggleSource(source)}
                         style={({ pressed }) => ({
-                          padding: spacing.lg,
-                          gap: spacing.sm,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          padding: spacing.md,
+                          gap: spacing.md,
                           borderWidth: 1,
                           borderColor: selected
                             ? colors.accent
@@ -360,83 +355,51 @@ export default function FulfillWishlistScreen() {
                         })}>
                         <View
                           style={{
-                            flexDirection: 'row',
+                            width: 22,
+                            height: 22,
                             alignItems: 'center',
-                            gap: spacing.md,
+                            justifyContent: 'center',
+                            borderWidth: 1,
+                            borderColor: selected
+                              ? colors.accent
+                              : colors.border,
+                            borderRadius: 6,
+                            backgroundColor: selected
+                              ? colors.accent
+                              : colors.surface,
                           }}>
-                          <View
-                            style={{
-                              width: 22,
-                              height: 22,
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              borderWidth: 1,
-                              borderColor: selected
-                                ? colors.accent
-                                : colors.border,
-                              borderRadius: 6,
-                              backgroundColor: selected
-                                ? colors.accent
-                                : colors.surface,
-                            }}>
-                            {selected ? (
-                              <Text
-                                style={{
-                                  color: colors.textPrimary,
-                                  fontWeight: '800',
-                                }}>
-                                ✓
-                              </Text>
-                            ) : null}
-                          </View>
+                          {selected ? (
+                            <Text
+                              style={{
+                                color: colors.textPrimary,
+                                fontWeight: '800',
+                              }}>
+                              ✓
+                            </Text>
+                          ) : null}
+                        </View>
+                        <View style={{ flex: 1, gap: spacing.xs }}>
                           <Text
                             selectable
                             style={{
-                              flex: 1,
                               color: colors.textPrimary,
                               ...typography.cardTitle,
                             }}>
                             {source.name}
                           </Text>
-                        </View>
-                        <Text
-                          selectable
-                          style={{
-                            color: colors.textSecondary,
-                            ...typography.label,
-                            fontVariant: ['tabular-nums'],
-                          }}>
-                          原金额 {formatCurrency(source.original_amount)} · 已使用{' '}
-                          {formatCurrency(source.allocated_amount)}
-                        </Text>
-                        <Text
-                          selectable
-                          style={{
-                            color: colors.textPrimary,
-                            ...typography.label,
-                            fontVariant: ['tabular-nums'],
-                          }}>
-                          可用 {formatCurrency(source.available_amount)}
-                        </Text>
-                        {selected ? (
                           <Text
                             selectable
                             style={{
-                              color: colors.textPrimary,
+                              color: colors.textSecondary,
                               ...typography.label,
-                              fontWeight: '700',
                               fontVariant: ['tabular-nums'],
                             }}>
-                            第 {selectedIndex + 1} 顺位 · 本次使用{' '}
-                            {formatCurrency(used)} · 剩余{' '}
-                            {formatCurrency(
-                              getAvailableAmount(
-                                source.available_amount,
-                                used,
-                              ),
-                            )}
+                            可用 {formatCurrency(source.available_amount)}
+                            {selected
+                              ? ` · 本次 ${formatCurrency(used)}`
+                              : ''}
                           </Text>
-                        ) : null}
+                        </View>
                       </Pressable>
                     );
                   })
