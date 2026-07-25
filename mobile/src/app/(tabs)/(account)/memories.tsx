@@ -126,7 +126,7 @@ export default function AgentMemoriesScreen() {
                 onPress={() =>
                   router.push({
                     pathname: '/(tabs)/(evaluation)',
-                    params: { id: item.evaluation_id },
+                    params: { evaluationId: item.evaluation_id },
                   })
                 }
                 style={({ pressed }) => ({

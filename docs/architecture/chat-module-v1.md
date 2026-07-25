@@ -33,8 +33,9 @@ Agent 可以自然引用相关历史，但不替用户决定买或不买，也�
 
 | 内容 | 权威数据源 | 说明 |
 |---|---|---|
-| 自由聊天 | `agent_threads`、`agent_messages` | 每个用户一个 `general` 线程 |
-| 购物评估对话 | `purchase_evaluations`、`evaluation_messages` | 每件商品一段独立评估记录 |
+| 自由聊天 | `agent_threads`、`agent_messages` | 用户可有多条线程；新对话空白，首条消息时创建 |
+| 购物评估对话 | `agent_threads`、`agent_messages` | 与自由聊天共用同一线程模型；气泡一律写入 `agent_messages` |
+| 购物评估结果 | `purchase_evaluations` | 结构化评估挂在 `thread_id` 上（1 线程 : N 评估） |
 | 跨对话记忆 | `agent_memories` | 当前主要保存结构化购买经历，不保存全部原始聊天为长期记忆 |
 | 用户决定与后续 | `user_choice`、`outcome_status`、`purchase_outcome_events` | AI 分析、用户选择、真实结果相互独立 |
 | 回访提醒 | `agent_followups` | “再等等”7 天后回访；“买了”30 天后询问使用结果 |
@@ -61,7 +62,7 @@ Agent 可以自然引用相关历史，但不替用户决定买或不买，也�
 - 商品文字、自由聊天或评估对话不可用时返回明确的 503 错误。
 - 购物评估首轮 AI 不可用时，回退到确定性事实叙述。
 - 流式回复失败时通过 SSE 返回稳定错误；已保存的用户消息不会丢失。
-- 自由聊天与购物评估目前仍使用两套消息存储，尚未统一为单一线程模型。
+- 自由聊天与购物评估已统一为单一线程模型（`agent_threads` / `agent_messages`）。`evaluation_messages` 表仍保留，但新写入路径不再使用。
 - 当前长期记忆以购买经历为主，尚未实现对所有自由聊天内容的自动摘要或向量检索。
 
 相关底层说明：

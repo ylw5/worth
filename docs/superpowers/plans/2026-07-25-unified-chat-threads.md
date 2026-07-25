@@ -754,7 +754,7 @@ EOF
 - Modify: `mobile/src/app/(tabs)/(account)/memories.tsx`
 - Modify: `docs/architecture/chat-module-v1.md`
 
-- [ ] **Step 1: Legacy `[id]` redirect**
+- [x] **Step 1: Legacy `[id]` redirect**
 
 Keep redirect to chat tab with `evaluationId` (index resolves to `threadId`), or resolve in the redirect:
 
@@ -763,28 +763,28 @@ Keep redirect to chat tab with `evaluationId` (index resolves to `threadId`), or
 params: { evaluationId: id }
 ```
 
-- [ ] **Step 2: Memories navigation**
+- [x] **Step 2: Memories navigation**
 
 Where memories navigate with `params: { id: item.evaluation_id }` to evaluation `[id]`, keep that path (redirect chain works) **or** navigate to `/(tabs)/(evaluation)` with `evaluationId`. Do not leave dead links.
 
-- [ ] **Step 3: Update architecture doc**
+- [x] **Step 3: Update architecture doc**
 
 In `docs/architecture/chat-module-v1.md`:
 
 - Table row: 自由聊天 + 购物评估对话 both use `agent_threads` / `agent_messages`; `purchase_evaluations` is structured result hanging off `thread_id` (1:N).
 - Remove / rewrite §5 bullet「尚未统一为单一线程模型」→ implemented; note `evaluation_messages` retained but unused for writes.
 
-- [ ] **Step 4: Final verification checklist**
+- [x] **Step 4: Final verification checklist**
 
 - [ ] New chat blank; first message creates drawer row
 - [ ] Same thread: chat then product → one history row, continuous timeline
 - [ ] Second product in same thread → still one history row; two evaluations; inline cards per message
 - [ ] No sticky「你后来怎么选的？」at top
 - [ ] 忍住消费 confirm still once
-- [ ] Memory/followup link opens correct thread
-- [ ] `cd mobile && npx tsc --noEmit` clean
+- [x] Memory/followup link opens correct thread
+- [x] `cd mobile && npx tsc --noEmit` clean
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mobile/src/app/\(tabs\)/\(evaluation\)/\[id\].tsx mobile/src/app/\(tabs\)/\(account\)/memories.tsx docs/architecture/chat-module-v1.md
