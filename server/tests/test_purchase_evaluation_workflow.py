@@ -100,7 +100,9 @@ def test_workflow_builds_fact_only_request_and_exact_allowlist() -> None:
         PurchaseEvaluationWorkflow.tool_names
     )
     assert request.store is False
-    assert "不得输出“建议买/不买”" in request.messages[0].content
+    assert "建议买/不买" in request.messages[0].content
+    assert "[spending_resolution:" in request.messages[0].content
+    assert "不替用户按下最终决定" in request.messages[0].content
     assert "legacy_ai_decision" in request.messages[0].content
     assert "confirmed_matched_assets" in request.messages[1].content
 
@@ -133,7 +135,7 @@ def test_workflow_passes_identity_only_through_run_context() -> None:
         assert "user_id" not in definition.parameters["properties"]
 
 
-def test_workflow_rejects_decision_output() -> None:
+def test_workflow_rejects_visible_decision_language() -> None:
     runner = MagicMock()
     runner.run.return_value = AgentRunResult(
         text="综合来看，建议你买。",
@@ -153,6 +155,33 @@ def test_workflow_rejects_decision_output() -> None:
             user_id="user-1",
             request_id="request-1",
         )
+
+
+def test_workflow_allows_hidden_skip_and_spending_markers() -> None:
+    runner = MagicMock()
+    runner.run.return_value = AgentRunResult(
+        text=(
+            "你已经有功能接近的表，增量场景还不清楚。"
+            "\n[decision:skip]\n[spending_resolution:699.00]"
+        ),
+        provider="provider",
+        model="model",
+        profile="profile",
+        steps=1,
+    )
+    workflow = PurchaseEvaluationWorkflow(runner, tools=tools())
+
+    result = workflow.run(
+        product(),
+        assets(),
+        facts(),
+        messages(),
+        user_id="user-1",
+        request_id="request-1",
+    )
+
+    assert "[decision:skip]" in result.text
+    assert "[spending_resolution:699.00]" in result.text
 
 
 def test_stream_policy_blocks_decision_split_across_deltas() -> None:
@@ -220,9 +249,11 @@ def test_workflow_rejects_allowlist_drift() -> None:
         PurchaseEvaluationWorkflow(MagicMock(), tools=tools()[:-1])
 
 
-def test_system_prompt_freezes_neutral_product_position() -> None:
-    assert "不是购买决策者" in PURCHASE_EVALUATION_SYSTEM_PROMPT
-    assert "不得输出“建议买/不买”" in PURCHASE_EVALUATION_SYSTEM_PROMPT
+def test_system_prompt_freezes_coaching_plus_resolution_protocol() -> None:
+    assert "不替用户按下最终决定" in PURCHASE_EVALUATION_SYSTEM_PROMPT
+    assert "建议买/不买" in PURCHASE_EVALUATION_SYSTEM_PROMPT
+    assert "[decision:skip]" in PURCHASE_EVALUATION_SYSTEM_PROMPT
+    assert "[spending_resolution:" in PURCHASE_EVALUATION_SYSTEM_PROMPT
     assert "每轮最多一个问题" in PURCHASE_EVALUATION_SYSTEM_PROMPT
     assert "不是完整实时行情" in PURCHASE_EVALUATION_SYSTEM_PROMPT
 
