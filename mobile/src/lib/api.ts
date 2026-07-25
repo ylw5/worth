@@ -182,6 +182,111 @@ export const prepareSellPlan = (
     refresh_valuations: refreshValuations,
   });
 
+export async function streamAgentChat(
+  threadId: string,
+  messages: EvaluationChatMessage[],
+  imageUrls: string[],
+  handlers: {
+    onStatus?: (status: 'thinking' | 'replying') => void;
+    onTool?: (tool: {
+      name: string;
+      label: string;
+      phase: 'started' | 'completed';
+    }) => void;
+    onDelta: (fullText: string) => void;
+  },
+): Promise<{ message: string; evaluationId: string | null }> {
+  if (!apiUrl) {
+    throw new Error('无法确定 API 地址，请配置 EXPO_PUBLIC_API_URL');
+  }
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) {
+    throw new Error('登录已失效，请重新登录');
+  }
+
+  let response: Awaited<ReturnType<typeof expoFetch>>;
+  try {
+    response = await expoFetch(
+      `${apiUrl.replace(/\/$/, '')}/agent/chat/stream`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'text/event-stream',
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+        body: JSON.stringify({
+          thread_id: threadId,
+          messages,
+          image_urls: imageUrls,
+        }),
+      },
+    );
+  } catch {
+    throw new Error('网络连接失败，请稍后重试');
+  }
+
+  if (!response.ok || !response.body) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(
+      (error as { detail?: string }).detail ?? '请求失败，请稍后重试',
+    );
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let fullText = '';
+  let evaluationId: string | null = null;
+  let finished = false;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const { events, rest } = splitSseBuffer(buffer);
+      buffer = rest;
+      for (const raw of events) {
+        const event = parseSseEvent(raw);
+        if (!event) continue;
+        if (event.type === 'error') throw new Error(event.message);
+        if (event.type === 'status') {
+          handlers.onStatus?.(event.status);
+          continue;
+        }
+        if (event.type === 'tool') {
+          handlers.onTool?.({
+            name: event.name,
+            label: event.label,
+            phase: event.phase,
+          });
+          continue;
+        }
+        if (event.type === 'delta') {
+          fullText += event.text;
+          handlers.onDelta(fullText);
+          continue;
+        }
+        if (event.type === 'done') {
+          if (finished) continue;
+          finished = true;
+          evaluationId = event.evaluationId;
+          return { message: fullText.trim(), evaluationId };
+        }
+      }
+    }
+  } finally {
+    reader.cancel().catch(() => {});
+  }
+  if (finished) {
+    return { message: fullText.trim(), evaluationId };
+  }
+  if (fullText.trim()) {
+    return { message: fullText.trim(), evaluationId: null };
+  }
+  throw new Error('聊天暂时不可用，请稍后重试');
+}
+
 export async function streamPurchaseEvaluation(
   evaluationId: string,
   product: ParsedProduct,
@@ -245,6 +350,7 @@ export async function streamPurchaseEvaluation(
         if (!event) continue;
         if (event.type === 'error') throw new Error(event.message);
         if (event.type === 'done') return fullText.trim();
+        if (event.type === 'status' || event.type === 'tool') continue;
         fullText += event.text;
         onDelta(fullText);
       }
