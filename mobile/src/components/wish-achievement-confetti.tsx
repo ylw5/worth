@@ -5,75 +5,96 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
-import { colors } from '@/constants/colors';
-
-const PIECES = [
-  { left: '8%', delay: 0, color: colors.accent, size: 10, rotate: 18 },
-  { left: '18%', delay: 120, color: colors.danger, size: 8, rotate: -24 },
-  { left: '28%', delay: 40, color: '#7BC67E', size: 12, rotate: 40 },
-  { left: '38%', delay: 200, color: '#F5A524', size: 9, rotate: -12 },
-  { left: '48%', delay: 80, color: colors.accent, size: 11, rotate: 30 },
-  { left: '58%', delay: 160, color: colors.danger, size: 8, rotate: -36 },
-  { left: '68%', delay: 60, color: '#7BC67E', size: 10, rotate: 16 },
-  { left: '78%', delay: 220, color: '#F5A524', size: 12, rotate: -20 },
-  { left: '88%', delay: 100, color: colors.accent, size: 9, rotate: 28 },
-  { left: '14%', delay: 260, color: '#F5A524', size: 7, rotate: -8 },
-  { left: '72%', delay: 180, color: colors.danger, size: 11, rotate: 22 },
-  { left: '42%', delay: 300, color: '#7BC67E', size: 8, rotate: -30 },
+const COLORS = [
+  '#78B4FF',
+  '#C9362B',
+  '#7BC67E',
+  '#F5A524',
+  '#FF6B9D',
+  '#9B7EDE',
+  '#FFD166',
 ] as const;
 
-function ConfettiPiece({
-  left,
-  delay,
+type Piece = {
+  id: number;
+  color: string;
+  size: number;
+  angle: number;
+  distance: number;
+  delay: number;
+  shape: 'rect' | 'dot';
+};
+
+const PIECES: Piece[] = Array.from({ length: 36 }, (_, id) => {
+  const angle = (id / 36) * Math.PI * 2 + (id % 3) * 0.18;
+  return {
+    id,
+    color: COLORS[id % COLORS.length],
+    size: 8 + (id % 5) * 2,
+    angle,
+    distance: 90 + (id % 6) * 28,
+    delay: (id % 8) * 40,
+    shape: id % 3 === 0 ? 'dot' : 'rect',
+  };
+});
+
+function FireworkPiece({
   color,
   size,
-  rotate,
-}: (typeof PIECES)[number]) {
+  angle,
+  distance,
+  delay,
+  shape,
+}: Piece) {
   const progress = useSharedValue(0);
-  const spin = useSharedValue(0);
 
   useEffect(() => {
     progress.value = withDelay(
       delay,
-      withRepeat(
-        withTiming(1, { duration: 2200, easing: Easing.out(Easing.quad) }),
-        2,
-        false,
+      withSequence(
+        withTiming(1, {
+          duration: 900,
+          easing: Easing.out(Easing.cubic),
+        }),
+        withTiming(1.35, {
+          duration: 700,
+          easing: Easing.in(Easing.quad),
+        }),
       ),
     );
-    spin.value = withDelay(
-      delay,
-      withRepeat(
-        withTiming(1, { duration: 2200, easing: Easing.linear }),
-        2,
-        false,
-      ),
-    );
-  }, [delay, progress, spin]);
+  }, [delay, progress]);
 
-  const style = useAnimatedStyle(() => ({
-    opacity: 1 - progress.value * 0.35,
-    transform: [
-      { translateY: -20 + progress.value * 220 },
-      { translateX: (progress.value - 0.5) * 24 },
-      { rotate: `${rotate + spin.value * 180}deg` },
-    ],
-  }));
+  const style = useAnimatedStyle(() => {
+    const burst = Math.min(progress.value, 1);
+    const fall = Math.max(progress.value - 1, 0);
+    const radius = distance * burst;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius + fall * 120;
+    const opacity = progress.value < 0.08 ? progress.value / 0.08 : 1 - fall * 1.4;
+
+    return {
+      opacity: Math.max(0, Math.min(1, opacity)),
+      transform: [
+        { translateX: x },
+        { translateY: y },
+        { rotate: `${angle + progress.value * 220}deg` },
+        { scale: 0.7 + burst * 0.5 },
+      ],
+    };
+  });
 
   return (
     <Animated.View
       style={[
         {
           position: 'absolute',
-          top: 24,
-          left,
           width: size,
-          height: size * 0.55,
-          borderRadius: 2,
+          height: shape === 'dot' ? size : size * 0.45,
+          borderRadius: shape === 'dot' ? size / 2 : 2,
           backgroundColor: color,
         },
         style,
@@ -86,10 +107,32 @@ export function WishAchievementConfetti({ active }: { active: boolean }) {
   if (!active) return null;
 
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {PIECES.map((piece) => (
-        <ConfettiPiece key={`${piece.left}-${piece.delay}`} {...piece} />
-      ))}
+    <View pointerEvents="none" style={styles.overlay}>
+      <View style={styles.origin}>
+        {PIECES.map((piece) => (
+          <FireworkPiece key={piece.id} {...piece} />
+        ))}
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    elevation: 10,
+    overflow: 'visible',
+  },
+  origin: {
+    position: 'absolute',
+    top: 110,
+    left: '50%',
+    width: 1,
+    height: 1,
+    marginLeft: -0.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
+  },
+});

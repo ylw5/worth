@@ -123,8 +123,7 @@ export default function WishAchievementScreen() {
               justifyContent: 'center',
               paddingHorizontal: spacing.xl,
             }}>
-            <View style={{ position: 'relative' }}>
-              {!capturing ? <WishAchievementConfetti active /> : null}
+            <View style={{ position: 'relative', overflow: 'visible' }}>
               <View ref={cardRef} collapsable={false}>
                 <WishAchievementCard
                   name={item.name}
@@ -132,6 +131,7 @@ export default function WishAchievementScreen() {
                   fulfilledAt={item.fulfilled_at!}
                 />
               </View>
+              {!capturing ? <WishAchievementConfetti active /> : null}
             </View>
 
             <Pressable
