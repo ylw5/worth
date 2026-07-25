@@ -1,5 +1,6 @@
 import { Text, View } from 'react-native';
 
+import { WishAchievementConfetti } from '@/components/wish-achievement-confetti';
 import { colors, radius, spacing, typography } from '@/constants/colors';
 import { formatCurrency, formatDate } from '@/lib/format';
 
@@ -33,10 +34,12 @@ export function WishAchievementCard({
   name,
   actualPrice,
   fulfilledAt,
+  showConfetti = false,
 }: {
   name: string;
   actualPrice: number;
   fulfilledAt: string;
+  showConfetti?: boolean;
 }) {
   return (
     <View
@@ -48,15 +51,23 @@ export function WishAchievementCard({
         backgroundColor: colors.surface,
         borderRadius: radius.large,
         borderCurve: 'continuous',
+        overflow: 'visible',
       }}>
-      <View style={{ alignItems: 'center', gap: spacing.lg }}>
+      <View
+        style={{
+          alignItems: 'center',
+          gap: spacing.lg,
+          overflow: 'visible',
+        }}>
         <View
           style={{
             width: 168,
             height: 168,
             alignItems: 'center',
             justifyContent: 'center',
+            overflow: 'visible',
           }}>
+          <WishAchievementConfetti active={showConfetti} />
           <View
             style={{
               width: 160,
@@ -81,6 +92,7 @@ export function WishAchievementCard({
             style={{
               position: 'absolute',
               top: 0,
+              zIndex: 11,
               width: 36,
               height: 36,
               borderRadius: 18,

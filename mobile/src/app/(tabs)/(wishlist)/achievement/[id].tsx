@@ -13,7 +13,6 @@ import { captureRef } from 'react-native-view-shot';
 
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { WishAchievementCard } from '@/components/wish-achievement-card';
-import { WishAchievementConfetti } from '@/components/wish-achievement-confetti';
 import { colors, spacing, typography } from '@/constants/colors';
 import { wishAchievementSaveErrorMessage } from '@/lib/wish-achievement-save-messages';
 import { getWishlistItem } from '@/lib/wishlist';
@@ -122,16 +121,15 @@ export default function WishAchievementScreen() {
               flex: 1,
               justifyContent: 'center',
               paddingHorizontal: spacing.xl,
+              overflow: 'visible',
             }}>
-            <View style={{ position: 'relative', overflow: 'visible' }}>
-              <View ref={cardRef} collapsable={false}>
-                <WishAchievementCard
-                  name={item.name}
-                  actualPrice={item.actual_price!}
-                  fulfilledAt={item.fulfilled_at!}
-                />
-              </View>
-              {!capturing ? <WishAchievementConfetti active /> : null}
+            <View ref={cardRef} collapsable={false}>
+              <WishAchievementCard
+                name={item.name}
+                actualPrice={item.actual_price!}
+                fulfilledAt={item.fulfilled_at!}
+                showConfetti={!capturing}
+              />
             </View>
 
             <Pressable
