@@ -15,10 +15,15 @@ from .providers import (
 from .router import ModelProfile, ModelRouter
 from .runner import AgentRunner
 from .tools import PURCHASE_TOOL_NAMES, ToolRegistry
+from .tools.conversation import (
+    CONVERSATION_TOOL_NAMES,
+    build_conversation_tool_registry,
+)
 from .tools.purchase import build_purchase_tool_registry
 from .workflows import (
     AssetRecognitionWorkflow,
     CandidateMatchingWorkflow,
+    ConversationAgentWorkflow,
     GeneralChatWorkflow,
     ProductClassificationWorkflow,
     ProductImageRecognitionWorkflow,
@@ -36,6 +41,12 @@ if TYPE_CHECKING:
 @dataclass(frozen=True, slots=True)
 class PurchaseWorkflowBundle:
     workflow: PurchaseEvaluationWorkflow
+    registry: ToolRegistry
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationWorkflowBundle:
+    workflow: ConversationAgentWorkflow
     registry: ToolRegistry
 
 
@@ -116,6 +127,98 @@ def _build_purchase_router(settings: Settings) -> ModelRouter:
             "No AI provider is configured for purchase evaluation"
         )
     return router
+
+
+def _build_conversation_router(settings: Settings) -> ModelRouter:
+    router = ModelRouter()
+    capabilities = {
+        ModelCapability.TEXT,
+        ModelCapability.TOOLS,
+        ModelCapability.STREAMING,
+    }
+
+    if settings.deepseek_api_key:
+        client = OpenAI(
+            api_key=settings.deepseek_api_key,
+            base_url=settings.deepseek_base_url.rstrip("/"),
+            timeout=30.0,
+            max_retries=1,
+        )
+        provider = ChatCompletionsProvider(
+            client,
+            name="deepseek",
+            extra_body={"thinking": {"type": "disabled"}},
+            strict_tools=False,
+            max_tokens_parameter="max_tokens",
+        )
+        router.register_provider(provider)
+        router.register_profile(
+            ModelProfile(
+                name="conversation-agent-deepseek",
+                provider=provider.name,
+                model=settings.deepseek_model,
+                capabilities=capabilities,
+                tasks={"conversation_agent"},
+                priority=100,
+            )
+        )
+
+    if settings.ai_gateway_api_key:
+        client = OpenAI(
+            api_key=settings.ai_gateway_api_key,
+            base_url=settings.ai_gateway_base_url.rstrip("/"),
+            timeout=30.0,
+            max_retries=1,
+        )
+        provider = OpenAIResponsesProvider(
+            client,
+            name="ai_gateway",
+        )
+        router.register_provider(provider)
+        router.register_profile(
+            ModelProfile(
+                name="conversation-agent-gateway",
+                provider=provider.name,
+                model=settings.openai_model,
+                capabilities=capabilities,
+                tasks={"conversation_agent"},
+                priority=90,
+            )
+        )
+
+    if not settings.deepseek_api_key and not settings.ai_gateway_api_key:
+        raise AIConfigurationError(
+            "No AI provider is configured for conversation agent"
+        )
+    return router
+
+
+def build_conversation_agent_workflow(
+    settings: Settings,
+    *,
+    supabase_client: SupabaseClient,
+    market_client: MarketClient | None,
+) -> ConversationWorkflowBundle:
+    registry = build_conversation_tool_registry(
+        settings=settings,
+        supabase_client=supabase_client,
+        market_client=market_client,
+    )
+    definitions = registry.definitions(CONVERSATION_TOOL_NAMES)
+    runner = AgentRunner(
+        _build_conversation_router(settings),
+        tool_executor=registry.executor(CONVERSATION_TOOL_NAMES),
+        max_tool_steps=8,
+        max_repeated_call=2,
+        max_tool_output_chars=32_000,
+    )
+    return ConversationWorkflowBundle(
+        workflow=ConversationAgentWorkflow(
+            runner,
+            tools=definitions,
+        ),
+        registry=registry,
+    )
 
 
 def build_purchase_evaluation_workflow(

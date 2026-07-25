@@ -1,3 +1,7 @@
+from .conversation import (
+    CONVERSATION_SYSTEM_PROMPT,
+    ConversationAgentWorkflow,
+)
 from .purchase_evaluation import (
     PURCHASE_EVALUATION_SYSTEM_PROMPT,
     PurchaseEvaluationWorkflow,
@@ -17,6 +21,8 @@ from .vision import (
 )
 
 __all__ = [
+    "CONVERSATION_SYSTEM_PROMPT",
+    "ConversationAgentWorkflow",
     "PURCHASE_EVALUATION_SYSTEM_PROMPT",
     "PurchaseEvaluationWorkflow",
     "CandidateMatchingWorkflow",
