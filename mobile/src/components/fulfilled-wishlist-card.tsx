@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
@@ -202,6 +203,25 @@ export function FulfilledWishlistCard({
           )}
         </View>
       ) : null}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`分享成就${item.name}`}
+        onPress={() =>
+          router.push({
+            pathname: '/(tabs)/(wishlist)/achievement/[id]',
+            params: { id: item.id },
+          })
+        }
+        style={({ pressed }) => ({
+          alignSelf: 'flex-start',
+          minHeight: 44,
+          justifyContent: 'center',
+          opacity: pressed ? 0.6 : 1,
+        })}>
+        <Text style={{ color: colors.accent, fontWeight: '700' }}>
+          分享成就
+        </Text>
+      </Pressable>
       <Pressable
         accessibilityLabel={`撤销实现${item.name}`}
         accessibilityRole="button"

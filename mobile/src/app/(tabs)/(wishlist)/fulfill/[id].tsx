@@ -170,7 +170,10 @@ export default function FulfillWishlistScreen() {
           queryKey: ['wishlist-funding-allocations'],
         }),
       ]);
-      router.back();
+      router.replace({
+        pathname: '/(tabs)/(wishlist)/achievement/[id]',
+        params: { id },
+      });
     },
     onError: async (caught) => {
       const message =

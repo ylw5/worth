@@ -34,6 +34,14 @@
         }
       ],
       [
+        "expo-media-library",
+        {
+          "photosPermission": "允许 Worth 将心愿成就图保存到相册",
+          "savePhotosPermission": "允许 Worth 将心愿成就图保存到相册",
+          "isAccessMediaLocationEnabled": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "backgroundColor": "#F7F5EF",
