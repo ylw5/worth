@@ -19,6 +19,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { ChatMarkdown } from '@/components/chat-markdown';
 import { EvaluationComposer } from '@/components/evaluation-composer';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { PurchaseOutcomeControls } from '@/components/purchase-outcome-controls';
@@ -630,15 +631,7 @@ function MessageBubble({
         borderRadius: fromUser ? 18 : 0,
         backgroundColor: fromUser ? colors.accentSoft : 'transparent',
       }}>
-      <Text
-        selectable
-        style={{
-          color: colors.textPrimary,
-          lineHeight: 24,
-          fontSize: 16,
-        }}>
-        {content}
-      </Text>
+      <ChatMarkdown content={content} />
     </View>
   );
 }
