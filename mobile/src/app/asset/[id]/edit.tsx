@@ -18,19 +18,18 @@ import { AssetFormFields } from '@/components/asset-form-fields';
 import { AssetPhotoPicker } from '@/components/asset-photo-picker';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, radius, spacing, typography } from '@/constants/colors';
-import { analyzePhotos, cutoutPhoto, estimateAsset } from '@/lib/api';
+import { analyzePhotos, cutoutPhoto } from '@/lib/api';
 import {
   getAsset,
   removePhotos,
-  recordValuation,
   updateAsset,
   uploadCover,
   uploadPhotos,
 } from '@/lib/assets';
+import { startBackgroundValuation } from '@/lib/background-valuation';
 import { specsToText, textToSpecs } from '@/lib/format';
 import type { AssetPhoto } from '@/lib/photos';
 import { parsePurchaseInput } from '@/lib/purchase-input';
-import { tryValuation } from '@/lib/try-valuation';
 import type { Asset, AssetInput } from '@/types/domain';
 
 function AssetEditForm({ asset }: { asset: Asset }) {
@@ -89,8 +88,12 @@ function AssetEditForm({ asset }: { asset: Asset }) {
   const refreshQueries = () =>
     Promise.all([
       queryClient.invalidateQueries({ queryKey: ['asset', asset.id] }),
+      queryClient.invalidateQueries({ queryKey: ['market-insight', asset.id] }),
       queryClient.invalidateQueries({ queryKey: ['valuations', asset.id] }),
       queryClient.invalidateQueries({ queryKey: ['assets'] }),
+      queryClient.invalidateQueries({ queryKey: ['sell-plan-assets'] }),
+      queryClient.invalidateQueries({ queryKey: ['sell-plan'] }),
+      queryClient.invalidateQueries({ queryKey: ['sell-plan-history'] }),
     ]);
 
   const changePhotos = (next: AssetPhoto[]) => {
@@ -251,17 +254,11 @@ function AssetEditForm({ asset }: { asset: Asset }) {
       ...removedCutoutPaths,
     ]).catch(() => undefined);
 
-    const valuationUpdated = await tryValuation(async () => {
-      const valuation = await estimateAsset(input);
-      await recordValuation(asset.id, valuation);
-    });
-    await refreshQueries();
+    startBackgroundValuation(asset.id, input, () =>
+      refreshQueries().catch(() => undefined),
+    );
+    await refreshQueries().catch(() => undefined);
     setPendingAction(null);
-
-    if (!valuationUpdated) {
-      setError('信息已保存，估价失败，可稍后刷新价格');
-      return;
-    }
     router.back();
   };
 

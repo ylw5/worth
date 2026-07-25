@@ -3,13 +3,18 @@ import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 
 import { colors, radius, spacing, typography } from '@/constants/colors';
+import { useIsValuing } from '@/lib/background-valuation';
 import { formatCurrency, formatOwnershipMeta } from '@/lib/format';
 import { getAssetCoverUrl } from '@/lib/incremental-import';
 import type { Asset } from '@/types/domain';
 
 export function AssetCard({ asset }: { asset: Asset }) {
+  const valuing = useIsValuing(asset.id);
   const meta = formatOwnershipMeta(asset.purchase_price, asset.purchase_date);
-  const pending = asset.latest_market_price === null;
+  const pending = valuing || asset.latest_market_price === null;
+  const priceLabel = valuing
+    ? '估价中'
+    : formatCurrency(asset.latest_market_price);
   const coverPath = asset.photo_paths[0];
   const hasCutout = Boolean(
     coverPath && asset.photo_cutout_urls?.[coverPath],
@@ -82,7 +87,7 @@ export function AssetCard({ asset }: { asset: Asset }) {
               fontVariant: ['tabular-nums'],
               lineHeight: 18,
             }}>
-            {formatCurrency(asset.latest_market_price)}
+            {priceLabel}
           </Text>
           {meta ? (
             <Text

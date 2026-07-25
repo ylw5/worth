@@ -20,6 +20,7 @@ import {
   getMarketInsight,
   recordValuation,
 } from '@/lib/assets';
+import { useIsValuing } from '@/lib/background-valuation';
 import { formatCurrency, formatDate, specsToText } from '@/lib/format';
 
 const refreshPriceMutationKey = (assetId: string) =>
@@ -46,7 +47,9 @@ export default function AssetDetailScreen() {
   const refreshKey = id
     ? refreshPriceMutationKey(id)
     : (['refresh-price'] as const);
-  const refreshPending = useIsMutating({ mutationKey: refreshKey }) > 0;
+  const isValuing = useIsValuing(id);
+  const refreshMutating = useIsMutating({ mutationKey: refreshKey }) > 0;
+  const refreshPending = isValuing || refreshMutating;
   const refreshError = useMutationState({
     filters: { mutationKey: refreshKey },
     select: (mutation) => mutation.state.error,
@@ -54,7 +57,7 @@ export default function AssetDetailScreen() {
   const refresh = useMutation({
     mutationKey: refreshKey,
     mutationFn: async () => {
-      if (!assetQuery.data) return;
+      if (!assetQuery.data || isValuing) return;
       const valuation = await estimateAsset(assetQuery.data);
       if (
         valuation.estimated_price === null ||

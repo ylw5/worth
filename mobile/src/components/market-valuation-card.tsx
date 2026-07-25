@@ -231,7 +231,11 @@ export function MarketValuationCard({
               ...typography.display,
               fontVariant: ['tabular-nums'],
             }}>
-            {latest ? formatCurrency(latest.estimated_price) : '—'}
+            {latest
+              ? formatCurrency(latest.estimated_price)
+              : refreshPending
+                ? '估价中'
+                : '—'}
           </Text>
           <Text
             selectable

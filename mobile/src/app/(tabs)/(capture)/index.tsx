@@ -20,14 +20,14 @@ import {
 import { AssetFormFields } from '@/components/asset-form-fields';
 import { AssetPhotoPicker } from '@/components/asset-photo-picker';
 import { colors, radius, spacing, typography } from '@/constants/colors';
-import { analyzePhotos, cutoutPhoto, estimateAsset } from '@/lib/api';
+import { analyzePhotos, cutoutPhoto } from '@/lib/api';
 import {
   createAsset,
-  recordValuation,
   removePhotos,
   uploadCover,
   uploadPhoto,
 } from '@/lib/assets';
+import { startBackgroundValuation } from '@/lib/background-valuation';
 import { specsToText, textToSpecs } from '@/lib/format';
 import {
   mergeRecognition,
@@ -369,21 +369,8 @@ export default function CaptureScreen() {
       ),
     );
 
-    try {
-      const asset = await createAsset(
-        session!.user.id,
-        photoPaths,
-        input,
-        photoCutoutPaths,
-      );
-      saved.current = true;
-      try {
-        const valuation = await estimateAsset(input);
-        await recordValuation(asset.id, valuation);
-      } catch {
-        // The asset is valid even when its first valuation is temporarily unavailable.
-      }
-      await Promise.all([
+    const refreshAfterSave = () =>
+      Promise.all([
         queryClient.invalidateQueries({ queryKey: ['assets'] }),
         queryClient.invalidateQueries({ queryKey: ['sell-plan-assets'] }),
         queryClient.invalidateQueries({ queryKey: ['sell-plan'] }),
@@ -392,6 +379,26 @@ export default function CaptureScreen() {
         queryClient.invalidateQueries({ queryKey: ['agent-memories'] }),
         queryClient.invalidateQueries({ queryKey: ['agent-followups'] }),
       ]).catch(() => undefined);
+
+    try {
+      const asset = await createAsset(
+        session!.user.id,
+        photoPaths,
+        input,
+        photoCutoutPaths,
+      );
+      saved.current = true;
+      startBackgroundValuation(asset.id, input, () =>
+        Promise.all([
+          refreshAfterSave(),
+          queryClient.invalidateQueries({ queryKey: ['asset', asset.id] }),
+          queryClient.invalidateQueries({
+            queryKey: ['market-insight', asset.id],
+          }),
+          queryClient.invalidateQueries({ queryKey: ['valuations', asset.id] }),
+        ]).catch(() => undefined),
+      );
+      await refreshAfterSave();
       router.replace('/(tabs)/(assets)');
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : '保存失败');
