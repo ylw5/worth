@@ -4,10 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, radius, spacing, typography } from '@/constants/colors';
-import {
-  evaluationDecisionLabels,
-  type PurchaseEvaluation,
-} from '@/lib/evaluations';
+import { type AgentThreadListItem } from '@/lib/agent-chat';
+import { evaluationDecisionLabels } from '@/lib/evaluations';
 import { formatDate } from '@/lib/format';
 
 export function ChatHistoryDrawer({
@@ -19,11 +17,11 @@ export function ChatHistoryDrawer({
   onNewChat,
   onClose,
 }: {
-  items: PurchaseEvaluation[];
+  items: AgentThreadListItem[];
   loading: boolean;
   errorMessage?: string;
   selectedId?: string | null;
-  onSelect: (id: string) => void;
+  onSelect: (threadId: string) => void;
   onNewChat: () => void;
   onClose: () => void;
 }) {
@@ -100,14 +98,17 @@ export function ChatHistoryDrawer({
         {loading ? <LoadingState /> : null}
         {errorMessage ? <ErrorState message={errorMessage} /> : null}
         {items.map((item) => {
-          const decision = item.decision ?? 'pending';
+          const title = item.title || '聊天';
           const selected = item.id === selectedId;
+          const subtitle = item.latest_decision
+            ? `${evaluationDecisionLabels[item.latest_decision]} · ${formatDate(item.updated_at)}`
+            : formatDate(item.updated_at);
           return (
             <Pressable
               key={item.id}
               accessibilityRole="button"
               accessibilityState={{ selected }}
-              accessibilityLabel={item.product_title}
+              accessibilityLabel={title}
               onPress={() => onSelect(item.id)}
               style={({ pressed }) => ({
                 paddingHorizontal: spacing.md,
@@ -126,7 +127,7 @@ export function ChatHistoryDrawer({
                   color: colors.textPrimary,
                   lineHeight: 21,
                 }}>
-                {item.product_title}
+                {title}
               </Text>
               <Text
                 selectable
@@ -136,8 +137,7 @@ export function ChatHistoryDrawer({
                   color: colors.textSecondary,
                   lineHeight: 17,
                 }}>
-                {evaluationDecisionLabels[decision]} ·{' '}
-                {formatDate(item.updated_at ?? item.created_at)}
+                {subtitle}
               </Text>
             </Pressable>
           );
