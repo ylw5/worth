@@ -46,7 +46,7 @@ export function shouldShowPendingUserMessage(
 
 - Consumes: nothing (pure).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `mobile/tests/pending-user-message.test.mjs`:
 
@@ -91,7 +91,7 @@ test('shouldShowPendingUserMessage hides when null or already on server', () => 
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run:
 
@@ -101,7 +101,7 @@ cd mobile && node --test tests/pending-user-message.test.mjs
 
 Expected: FAIL (module not found / export missing).
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 Create `mobile/src/lib/pending-user-message.ts`:
 
@@ -122,7 +122,7 @@ export function shouldShowPendingUserMessage(
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run:
 
@@ -132,7 +132,7 @@ cd mobile && node --test tests/pending-user-message.test.mjs
 
 Expected: PASS (2 tests).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mobile/src/lib/pending-user-message.ts mobile/tests/pending-user-message.test.mjs
@@ -154,7 +154,7 @@ EOF
 - Consumes: `outboundUserContent`, `shouldShowPendingUserMessage` from `@/lib/pending-user-message`
 - Produces: UI order `messages → pending bubble → AgentProcessPanel → streaming bubble`
 
-- [ ] **Step 1: Import helpers and add pending state**
+- [x] **Step 1: Import helpers and add pending state**
 
 At the top of `chat-thread.tsx`, add:
 
@@ -173,7 +173,7 @@ const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(
 );
 ```
 
-- [ ] **Step 2: Clear pending on real thread switches**
+- [x] **Step 2: Clear pending on real thread switches**
 
 In the existing `threadId` reset effect (the one that clears draft/photos/errors and skips `null → id`), also clear pending:
 
@@ -190,7 +190,7 @@ const timer = setTimeout(() => {
 
 Keep the early return for `previousThreadId === null && threadId !== null` so mid-send thread creation does not wipe the optimistic bubble.
 
-- [ ] **Step 3: Set pending at send start; clear only on success**
+- [x] **Step 3: Set pending at send start; clear only on success**
 
 At the start of `send`, after validation, compute content once and set pending with sending:
 
@@ -215,7 +215,7 @@ setPendingUserMessage(null);
 
 Do **not** add `setPendingUserMessage(null)` in `catch` or `finally`. `finally` continues to only clear `sending` / `processSteps` / `streamingText`.
 
-- [ ] **Step 4: Render pending bubble and update scroll deps**
+- [x] **Step 4: Render pending bubble and update scroll deps**
 
 After the `messages.map(...)` block and before `{sending || processSteps.length ? (...)`, render:
 
@@ -251,7 +251,7 @@ useEffect(() => {
 ]);
 ```
 
-- [ ] **Step 5: Typecheck and unit tests**
+- [x] **Step 5: Typecheck and unit tests**
 
 Run:
 
@@ -271,7 +271,7 @@ In the running Expo app (chat tab):
 4. Force a failure (e.g. airplane mode after typing, or break API briefly): pending bubble remains; bottom error shows; process strip clears.
 5. Switch to another thread via history: pending from the failed/in-flight turn is gone.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add mobile/src/components/chat-thread.tsx
