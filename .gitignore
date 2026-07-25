@@ -9,6 +9,9 @@ __pycache__/
 .vercel
 supabase/.temp/
 
+# Local git worktrees
+.worktrees/
+
 # Agent / IDE 工具产物
 .agents/
 .claude/
