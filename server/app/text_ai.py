@@ -1,3 +1,10 @@
+"""Legacy provider-specific text AI compatibility interfaces.
+
+Production text routes use ``app.ai.workflows``. This module remains for
+provider-specific compatibility tests until the remaining legacy methods are
+removed.
+"""
+
 from __future__ import annotations
 
 from typing import Iterator, Protocol
@@ -75,6 +82,13 @@ class TextAIService(Protocol):
         user_id: str,
         tool_executor: ToolExecutor,
     ) -> Iterator[str]: ...
+
+    def continue_general_chat(
+        self,
+        messages: list[EvaluationChatMessage],
+        memory_context: dict,
+        user_id: str,
+    ) -> str: ...
 
 
 def build_text_ai(settings: Settings) -> TextAIService:

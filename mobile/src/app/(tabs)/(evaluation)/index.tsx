@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { SymbolView } from 'expo-symbols';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Keyboard,
@@ -17,9 +17,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ChatConversation } from '@/components/chat-conversation';
 import { ChatHistoryDrawer } from '@/components/chat-history-drawer';
 import { EvaluationComposer } from '@/components/evaluation-composer';
+import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, spacing } from '@/constants/colors';
 import {
+  createAgentMessage,
+  getOrCreateGeneralThread,
+  listAgentMessages,
+} from '@/lib/agent-chat';
+import {
   analyzeProductPhotos,
+  chatFreely,
   evaluatePurchase,
   normalizeProductText,
   parseProduct,
@@ -43,39 +50,53 @@ export default function EvaluationScreen() {
   const { session } = useSession();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
-  const params = useLocalSearchParams<{ id?: string }>();
+  const params = useLocalSearchParams<{ evaluationId?: string }>();
   const history = useQuery({
     queryKey: ['purchase-evaluations'],
     queryFn: listPurchaseEvaluations,
   });
   const [open, setOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(
-    typeof params.id === 'string' ? params.id : null,
+    typeof params.evaluationId === 'string' ? params.evaluationId : null,
   );
   const [conversationTitle, setConversationTitle] = useState('聊天');
+  const generalThread = useQuery({
+    queryKey: ['agent-thread', 'general', session?.user.id],
+    queryFn: () => getOrCreateGeneralThread(session!.user.id),
+    enabled: Boolean(session),
+  });
+  const generalMessages = useQuery({
+    queryKey: ['agent-messages', generalThread.data?.id],
+    queryFn: () => listAgentMessages(generalThread.data!.id),
+    enabled: Boolean(generalThread.data?.id),
+  });
   const [prompt, setPrompt] = useState('');
   const [photos, setPhotos] = useState<AssetPhoto[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [starterMessages, setStarterMessages] = useState<
-    { id: string; role: 'user' | 'assistant'; content: string }[]
-  >([]);
-  const starterScrollRef = useRef<ScrollView>(null);
+  const generalScrollRef = useRef<ScrollView>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
-    if (typeof params.id === 'string' && params.id) {
-      setActiveId(params.id);
+    if (
+      typeof params.evaluationId === 'string' &&
+      params.evaluationId
+    ) {
+      const timer = setTimeout(
+        () => setActiveId(params.evaluationId as string),
+        0,
+      );
+      return () => clearTimeout(timer);
     }
-  }, [params.id]);
+  }, [params.evaluationId]);
 
   useEffect(() => {
-    if (!starterMessages.length) return;
+    if (!generalMessages.data?.length) return;
     const timer = setTimeout(() => {
-      starterScrollRef.current?.scrollToEnd({ animated: true });
+      generalScrollRef.current?.scrollToEnd({ animated: true });
     }, 50);
     return () => clearTimeout(timer);
-  }, [starterMessages.length]);
+  }, [generalMessages.data?.length]);
 
   useEffect(() => {
     const showEvent =
@@ -104,8 +125,8 @@ export default function EvaluationScreen() {
     setPrompt('');
     setPhotos([]);
     setError('');
-    setStarterMessages([]);
     setOpen(false);
+    router.replace('/(tabs)/(evaluation)');
   };
 
   const openConversation = (id: string) => {
@@ -113,8 +134,8 @@ export default function EvaluationScreen() {
     setPrompt('');
     setPhotos([]);
     setError('');
-    setStarterMessages([]);
     setOpen(false);
+    router.setParams({ evaluationId: id });
   };
 
   const analyze = async () => {
@@ -130,7 +151,6 @@ export default function EvaluationScreen() {
     let uploadedPaths: string[] = [];
     let saved = false;
     try {
-      const assetsPromise = listEvaluationAssets();
       let product: ParsedProduct;
 
       if (photos.length) {
@@ -162,15 +182,34 @@ export default function EvaluationScreen() {
             extractProductPrice(description.text),
           );
           if (interpreted.intent === 'chat' || !interpreted.product) {
-            const reply =
-              interpreted.reply ||
-              '你好！想聊聊某件商品时，可以描述它、粘贴链接或发一张图片。';
-            const stamp = Date.now();
-            setStarterMessages((prev) => [
-              ...prev,
-              { id: `user-${stamp}`, role: 'user', content: text },
-              { id: `assistant-${stamp}`, role: 'assistant', content: reply },
-            ]);
+            const thread =
+              generalThread.data ??
+              (await getOrCreateGeneralThread(session.user.id));
+            const messages = (generalMessages.data ?? []).map(
+              ({ role, content }) => ({ role, content }),
+            );
+            messages.push({ role: 'user', content: text });
+            await createAgentMessage(
+              thread.id,
+              session.user.id,
+              'user',
+              text,
+            );
+            await queryClient.invalidateQueries({
+              queryKey: ['agent-messages', thread.id],
+            });
+            const response = await chatFreely(messages.slice(-100));
+            await createAgentMessage(
+              thread.id,
+              session.user.id,
+              'assistant',
+              response.message ||
+                interpreted.reply ||
+                '我在，慢慢说。',
+            );
+            await queryClient.invalidateQueries({
+              queryKey: ['agent-messages', thread.id],
+            });
             setPrompt('');
             return;
           }
@@ -178,7 +217,7 @@ export default function EvaluationScreen() {
         }
       }
 
-      const assets = await assetsPromise;
+      const assets = await listEvaluationAssets();
       const result = await evaluatePurchase(product, assets);
       const evaluation = await createPurchaseEvaluation(
         session.user.id,
@@ -313,7 +352,7 @@ export default function EvaluationScreen() {
           ) : (
             <View style={{ flex: 1 }}>
               <ScrollView
-                ref={starterScrollRef}
+                ref={generalScrollRef}
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{
                   flexGrow: 1,
@@ -322,7 +361,11 @@ export default function EvaluationScreen() {
                   paddingBottom: spacing.lg,
                   gap: spacing.lg,
                 }}>
-                {starterMessages.map((message) => {
+                {generalMessages.isLoading ? <LoadingState /> : null}
+                {generalMessages.error ? (
+                  <ErrorState message={generalMessages.error.message} />
+                ) : null}
+                {(generalMessages.data ?? []).slice(-10).map((message) => {
                   const fromUser = message.role === 'user';
                   return (
                     <View

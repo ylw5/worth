@@ -69,6 +69,22 @@ def test_analyze_request_accepts_one_to_five_images(count: int) -> None:
     assert len(request.image_urls) == count
 
 
+@pytest.mark.parametrize(
+    "image_url",
+    [
+        "",
+        "http://example.com/image.jpg",
+        "file:///tmp/image.jpg",
+        "https://example.com/image.jpg with-space",
+    ],
+)
+def test_analyze_request_rejects_unsafe_image_urls(
+    image_url: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        AnalyzeRequest(image_urls=[image_url])
+
+
 def test_condition_rejects_free_text() -> None:
     with pytest.raises(ValidationError):
         AssetRecognition(

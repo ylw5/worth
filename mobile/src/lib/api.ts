@@ -10,6 +10,7 @@ import type {
 } from '@/lib/evaluations';
 import type {
   SellPlanAsset,
+  SellPlanPreparedResult,
   SellPlanResult,
 } from '@/lib/sell-plans';
 import { parseSseEvent, splitSseBuffer } from '@/lib/sse';
@@ -126,6 +127,9 @@ export const analyzeProductPhotos = (imageUrls: string[]) =>
     image_urls: imageUrls,
   });
 
+export const chatFreely = (messages: EvaluationChatMessage[]) =>
+  request<{ message: string }>('/agent/chat', { messages });
+
 export const evaluatePurchase = (
   product: ParsedProduct,
   assets: EvaluationAsset[],
@@ -136,12 +140,14 @@ export const evaluatePurchase = (
   });
 
 export const continuePurchaseEvaluation = (
+  evaluationId: string,
   product: ParsedProduct,
   matchedAssets: EvaluationAsset[],
   facts: PurchaseEvaluationResult['facts'],
   messages: EvaluationChatMessage[],
 ) =>
   request<{ message: string }>('/purchase-evaluations/chat', {
+    evaluation_id: evaluationId,
     product,
     matched_assets: matchedAssets,
     facts,
@@ -157,7 +163,19 @@ export const recommendSellPlan = (
     assets,
   });
 
+export const prepareSellPlan = (
+  wishlistItemId: string,
+  planDate: string,
+  refreshValuations = false,
+) =>
+  request<SellPlanPreparedResult>('/sell-plans/prepare', {
+    wishlist_item_id: wishlistItemId,
+    plan_date: planDate,
+    refresh_valuations: refreshValuations,
+  });
+
 export async function streamPurchaseEvaluation(
+  evaluationId: string,
   product: ParsedProduct,
   matchedAssets: EvaluationAsset[],
   facts: PurchaseEvaluationResult['facts'],
@@ -184,6 +202,7 @@ export async function streamPurchaseEvaluation(
           Authorization: `Bearer ${data.session.access_token}`,
         },
         body: JSON.stringify({
+          evaluation_id: evaluationId,
           product,
           matched_assets: matchedAssets,
           facts,

@@ -9,6 +9,9 @@ export type SellPlanAssetSource = AssetInput & {
   latest_market_price_low: number | null;
   latest_market_price_high: number | null;
   latest_valuation_at: string | null;
+  status_confirmed_at: string | null;
+  status_source: 'default' | 'user' | 'system';
+  updated_at: string;
 };
 
 export type SellPlanAsset = {
@@ -47,23 +50,73 @@ export type SellPlanSnapshot = {
   is_reachable: boolean;
   items: SellPlanItem[];
   refresh_failures: number;
+  input_fingerprint: string;
+  readiness_counts: SellPlanReadinessCounts;
+  calculation_version: string;
+  valuation_as_of: string | null;
+  explanation: SellPlanExplanation;
   created_at: string;
   updated_at: string;
+};
+
+export type SellPlanReadinessState =
+  | 'needs_confirmation'
+  | 'needs_valuation'
+  | 'stale_valuation'
+  | 'ready'
+  | 'excluded';
+
+export type SellPlanReadinessItem = {
+  id: string;
+  name: string;
+  status: AssetStatus;
+  readiness: SellPlanReadinessState;
+  conservative_price: number | null;
+  latest_valuation_at: string | null;
+  status_confirmed_at: string | null;
+};
+
+export type SellPlanReadinessCounts = Record<
+  SellPlanReadinessState,
+  number
+>;
+
+export type SellPlanExplanation = {
+  summary: string;
+  item_reasons: {
+    item_id: string;
+    reason: string;
+  }[];
+  evidence_gaps: string[];
+  question: string;
+};
+
+export type SellPlanPreparedResult = {
+  plan: SellPlanResult;
+  readiness: SellPlanReadinessItem[];
+  readiness_counts: SellPlanReadinessCounts;
+  confirmed_sellable_total: number;
+  unconfirmed_potential_total: number;
+  refresh_failures: number;
+  input_fingerprint: string;
+  calculation_version: string;
+  valuation_as_of: string | null;
+  explanation: SellPlanExplanation;
 };
 
 function fail(error: { message: string } | null) {
   if (error) throw new Error(error.message);
 }
 
-export async function listSellableAssetSources(): Promise<
+export async function listSellPlanAssetSources(): Promise<
   SellPlanAssetSource[]
 > {
   const { data, error } = await supabase
     .from('assets')
     .select(
-      'id,name,brand,model,specs,category,subcategory,status,condition,search_query,latest_market_price,latest_market_price_low,latest_market_price_high,latest_valuation_at',
+      'id,name,brand,model,specs,category,subcategory,status,condition,search_query,latest_market_price,latest_market_price_low,latest_market_price_high,latest_valuation_at,status_confirmed_at,status_source,updated_at',
     )
-    .in('status', ['idle', 'listed'])
+    .neq('status', 'sold')
     .order('updated_at', { ascending: false });
   fail(error);
   return (data ?? []) as SellPlanAssetSource[];

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from typing import Literal, Optional
+from datetime import date
+from typing import Annotated, Literal, Optional, Self
 
-from pydantic import BaseModel, Field
+from pydantic import BeforeValidator, BaseModel, Field, model_validator
 
 
 Category = Literal[
@@ -16,6 +17,47 @@ Category = Literal[
     "其他",
 ]
 
+
+AI_CATEGORY_ALIASES = {
+    "电子产品": "数码",
+    "数码产品": "数码",
+    "消费电子": "数码",
+    "3C": "数码",
+    "3C数码": "数码",
+    "电脑数码": "数码",
+    "家用电器": "家电",
+    "电器": "家电",
+    "家居": "家具",
+    "家居家具": "家具",
+    "服装": "服饰箱包",
+    "服饰": "服饰箱包",
+    "箱包": "服饰箱包",
+    "服装箱包": "服饰箱包",
+    "珠宝": "珠宝腕表",
+    "珠宝首饰": "珠宝腕表",
+    "腕表": "珠宝腕表",
+    "钟表": "珠宝腕表",
+    "收藏品": "收藏",
+    "汽车": "交通工具",
+    "摩托车": "交通工具",
+    "自行车": "交通工具",
+    "车辆": "交通工具",
+    "其它": "其他",
+    "未知": "其他",
+    "未分类": "其他",
+}
+
+
+def normalize_ai_category(value: object) -> object:
+    if not isinstance(value, str):
+        return value
+    normalized = value.strip()
+    return AI_CATEGORY_ALIASES.get(normalized, normalized)
+
+
+AICategory = Annotated[Category, BeforeValidator(normalize_ai_category)]
+
+
 Condition = Literal[
     "全新未使用",
     "几乎全新",
@@ -26,6 +68,14 @@ Condition = Literal[
 ]
 AssetStatus = Literal["in_use", "idle", "listed", "sold"]
 ProductSource = Literal["url", "text", "image"]
+AnalysisImageUrl = Annotated[
+    str,
+    Field(
+        min_length=9,
+        max_length=8192,
+        pattern=r"^https://[^\s]+$",
+    ),
+]
 
 
 class AssetRecognition(BaseModel):
@@ -40,19 +90,26 @@ class AssetRecognition(BaseModel):
 
 
 class AssetSpec(BaseModel):
-    name: str
-    value: str
+    name: str = Field(min_length=1, max_length=50)
+    value: str = Field(min_length=1, max_length=300)
 
 
 class AIAssetRecognition(BaseModel):
-    name: str
-    brand: str
-    model: str
-    specs: list[AssetSpec]
-    category: Category
-    subcategory: str
+    name: str = Field(min_length=1, max_length=300)
+    brand: str = Field(max_length=100)
+    model: str = Field(max_length=100)
+    specs: list[AssetSpec] = Field(max_length=50)
+    category: AICategory
+    subcategory: str = Field(max_length=50)
     condition: Condition
-    search_query: str
+    search_query: str = Field(min_length=1, max_length=300)
+
+    @model_validator(mode="after")
+    def validate_unique_specs(self) -> Self:
+        names = [spec.name for spec in self.specs]
+        if len(names) != len(set(names)):
+            raise ValueError("asset spec names must be unique")
+        return self
 
 
 class AssetInput(AssetRecognition):
@@ -60,7 +117,7 @@ class AssetInput(AssetRecognition):
 
 
 class AnalyzeRequest(BaseModel):
-    image_urls: list[str] = Field(min_length=1, max_length=5)
+    image_urls: list[AnalysisImageUrl] = Field(min_length=1, max_length=5)
     current_asset: Optional[AssetInput] = None
 
 
@@ -80,12 +137,19 @@ class MarketCandidate(BaseModel):
 
 
 class CandidateDecision(BaseModel):
-    item_id: str
+    item_id: str = Field(min_length=1)
     same_product: bool
 
 
 class CandidateMatches(BaseModel):
     decisions: list[CandidateDecision]
+
+    @model_validator(mode="after")
+    def validate_unique_ids(self) -> Self:
+        ids = [decision.item_id for decision in self.decisions]
+        if len(ids) != len(set(ids)):
+            raise ValueError("candidate decision item_ids must be unique")
+        return self
 
 
 class ValuationResult(BaseModel):
@@ -107,28 +171,48 @@ class ProductTextRequest(BaseModel):
 
 
 class ProductImagesRequest(BaseModel):
-    image_urls: list[str] = Field(min_length=1, max_length=5)
+    image_urls: list[AnalysisImageUrl] = Field(min_length=1, max_length=5)
 
 
 class AIProductClassification(BaseModel):
-    normalized_title: str
-    category: Category
-    subcategory: str
+    normalized_title: str = Field(min_length=1, max_length=300)
+    category: AICategory
+    subcategory: str = Field(min_length=1, max_length=50)
 
 
 class AIProductInterpretation(BaseModel):
     intent: Literal["product", "chat"]
-    normalized_title: str
-    category: Category
-    subcategory: str
-    reply: str
+    normalized_title: str = Field(max_length=300)
+    category: AICategory
+    subcategory: str = Field(max_length=50)
+    reply: str = Field(max_length=1000)
+
+    @model_validator(mode="after")
+    def validate_intent_payload(self) -> Self:
+        if self.intent == "product":
+            if not self.normalized_title or not self.subcategory:
+                raise ValueError(
+                    "product intent requires title and subcategory"
+                )
+            if self.reply:
+                raise ValueError("product intent reply must be empty")
+        else:
+            if self.normalized_title or self.subcategory:
+                raise ValueError(
+                    "chat intent cannot contain product classification"
+                )
+            if self.category != "其他" or not self.reply:
+                raise ValueError(
+                    "chat intent requires category=其他 and a reply"
+                )
+        return self
 
 
 class AIProductRecognition(BaseModel):
-    title: str
+    title: str = Field(min_length=1, max_length=300)
     price: Optional[float] = Field(gt=0)
-    category: Category
-    subcategory: str
+    category: AICategory
+    subcategory: str = Field(min_length=1, max_length=50)
 
 
 class ParsedProduct(BaseModel):
@@ -183,6 +267,7 @@ class EvaluationChatMessage(BaseModel):
 
 
 class EvaluationChatRequest(BaseModel):
+    evaluation_id: Optional[str] = None
     product: ParsedProduct
     matched_assets: list[EvaluationAsset] = Field(max_length=500)
     facts: EvaluationFacts
@@ -190,6 +275,14 @@ class EvaluationChatRequest(BaseModel):
 
 
 class EvaluationChatResponse(BaseModel):
+    message: str
+
+
+class AgentChatRequest(BaseModel):
+    messages: list[EvaluationChatMessage] = Field(min_length=1, max_length=100)
+
+
+class AgentChatResponse(BaseModel):
     message: str
 
 
@@ -221,3 +314,68 @@ class SellPlanResult(BaseModel):
     coverage_ratio: float
     is_reachable: bool
     items: list[SellPlanItem]
+
+
+SellPlanReadinessState = Literal[
+    "needs_confirmation",
+    "needs_valuation",
+    "stale_valuation",
+    "ready",
+    "excluded",
+]
+
+
+class SellPlanPrepareRequest(BaseModel):
+    wishlist_item_id: str = Field(min_length=1, max_length=100)
+    plan_date: date
+    refresh_valuations: bool = False
+
+
+class SellPlanReadinessItem(BaseModel):
+    id: str
+    name: str
+    status: AssetStatus
+    readiness: SellPlanReadinessState
+    conservative_price: Optional[float] = Field(default=None, gt=0)
+    latest_valuation_at: Optional[str] = None
+    status_confirmed_at: Optional[str] = None
+
+
+class SellPlanReadinessCounts(BaseModel):
+    needs_confirmation: int = Field(ge=0)
+    needs_valuation: int = Field(ge=0)
+    stale_valuation: int = Field(ge=0)
+    ready: int = Field(ge=0)
+    excluded: int = Field(ge=0)
+
+
+class SellPlanItemReason(BaseModel):
+    item_id: str = Field(min_length=1)
+    reason: str = Field(min_length=1, max_length=300)
+
+
+class SellPlanExplanation(BaseModel):
+    summary: str = Field(min_length=1, max_length=600)
+    item_reasons: list[SellPlanItemReason] = Field(max_length=100)
+    evidence_gaps: list[str] = Field(max_length=10)
+    question: str = Field(default="", max_length=300)
+
+    @model_validator(mode="after")
+    def validate_unique_item_reasons(self) -> Self:
+        item_ids = [item.item_id for item in self.item_reasons]
+        if len(item_ids) != len(set(item_ids)):
+            raise ValueError("sell plan item reasons must be unique")
+        return self
+
+
+class SellPlanPreparedResult(BaseModel):
+    plan: SellPlanResult
+    readiness: list[SellPlanReadinessItem]
+    readiness_counts: SellPlanReadinessCounts
+    confirmed_sellable_total: float = Field(ge=0)
+    unconfirmed_potential_total: float = Field(ge=0)
+    refresh_failures: int = Field(ge=0)
+    input_fingerprint: str
+    calculation_version: str
+    valuation_as_of: Optional[str] = None
+    explanation: SellPlanExplanation

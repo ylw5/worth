@@ -11,118 +11,187 @@ import {
 
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors } from '@/constants/colors';
-import { estimateAsset, recommendSellPlan } from '@/lib/api';
-import { recordValuation } from '@/lib/assets';
+import { prepareSellPlan } from '@/lib/api';
+import { confirmAssetSellability } from '@/lib/assets';
 import { formatCurrency, formatDateOnly } from '@/lib/format';
+import { localDateKey } from '@/lib/sell-plan-helpers';
 import {
-  localDateKey,
-  toSellPlanAssets,
-} from '@/lib/sell-plan-helpers';
-import {
-  getDailySellPlan,
-  listSellableAssetSources,
   listSellPlanHistory,
-  saveDailySellPlan,
-  type SellPlanAssetSource,
+  type SellPlanReadinessItem,
 } from '@/lib/sell-plans';
 import { getWishlistItem } from '@/lib/wishlist';
-import { useSession } from '@/providers/session-provider';
+import type { AssetStatus } from '@/types/domain';
+
+type ConfirmableStatus = Exclude<AssetStatus, 'sold'>;
+
+const confirmationOptions: {
+  status: ConfirmableStatus;
+  label: string;
+}[] = [
+  { status: 'in_use', label: '还在用' },
+  { status: 'idle', label: '已闲置' },
+  { status: 'listed', label: '准备出售' },
+];
+
+function ReadinessMetric({
+  label,
+  value,
+  color = colors.text,
+}: {
+  label: string;
+  value: number;
+  color?: string;
+}) {
+  return (
+    <View style={{ flex: 1, gap: 3 }}>
+      <Text selectable style={{ color: colors.muted, fontSize: 12 }}>
+        {label}
+      </Text>
+      <Text
+        selectable
+        style={{ color, fontSize: 18, fontWeight: '800' }}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function ConfirmationRow({
+  asset,
+  selected,
+  disabled,
+  onSelect,
+}: {
+  asset: SellPlanReadinessItem;
+  selected?: ConfirmableStatus;
+  disabled: boolean;
+  onSelect: (status: ConfirmableStatus) => void;
+}) {
+  return (
+    <View
+      style={{
+        padding: 13,
+        gap: 10,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: 14,
+        borderCurve: 'continuous',
+      }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          gap: 12,
+        }}>
+        <Text
+          selectable
+          numberOfLines={1}
+          style={{ flex: 1, color: colors.text, fontWeight: '700' }}>
+          {asset.name}
+        </Text>
+        {asset.conservative_price ? (
+          <Text selectable style={{ color: colors.green }}>
+            参考 {formatCurrency(asset.conservative_price)}
+          </Text>
+        ) : null}
+      </View>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {confirmationOptions.map((option) => {
+          const active = selected === option.status;
+          return (
+            <Pressable
+              key={option.status}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: active }}
+              disabled={disabled}
+              onPress={() => onSelect(option.status)}
+              style={({ pressed }) => ({
+                flex: 1,
+                paddingVertical: 9,
+                alignItems: 'center',
+                borderRadius: 10,
+                borderCurve: 'continuous',
+                backgroundColor: active ? colors.text : colors.greenSoft,
+                opacity: pressed || disabled ? 0.65 : 1,
+              })}>
+              <Text
+                style={{
+                  color: active ? colors.card : colors.text,
+                  fontSize: 12,
+                  fontWeight: '700',
+                }}>
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 
 export default function WishlistDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { session } = useSession();
   const queryClient = useQueryClient();
-  const [refreshProgress, setRefreshProgress] = useState('');
+  const dateKey = localDateKey();
+  const [confirmations, setConfirmations] = useState<
+    Record<string, ConfirmableStatus>
+  >({});
 
   const wishlist = useQuery({
     queryKey: ['wishlist', id],
     queryFn: () => getWishlistItem(id),
     enabled: Boolean(id),
   });
-  const assets = useQuery({
-    queryKey: ['sellable-assets'],
-    queryFn: listSellableAssetSources,
-  });
-  const plan = useQuery({
-    queryKey: ['sell-plan', id, localDateKey()],
-    queryFn: async () => {
-      const existing = await getDailySellPlan(id);
-      if (existing) return existing;
-      if (!session || !wishlist.data) {
-        throw new Error('登录已失效，请重新登录');
-      }
-      const result = await recommendSellPlan(
-        wishlist.data.target_price,
-        toSellPlanAssets(assets.data ?? []),
-      );
-      return saveDailySellPlan(
-        session.user.id,
-        id,
-        result,
-      );
-    },
-    enabled: Boolean(
-      id && session && wishlist.data && assets.data,
-    ),
+  const prepared = useQuery({
+    queryKey: ['sell-plan-prepared', id, dateKey],
+    queryFn: () => prepareSellPlan(id, dateKey),
+    enabled: Boolean(id),
   });
   const history = useQuery({
     queryKey: ['sell-plan-history', id],
     queryFn: () => listSellPlanHistory(id),
-    enabled: Boolean(id && plan.data),
+    enabled: Boolean(id && prepared.data),
   });
 
-  const refresh = useMutation({
-    mutationFn: async () => {
-      if (!session || !wishlist.data) {
-        throw new Error('登录已失效，请重新登录');
-      }
-      const current = assets.data ?? [];
-      const updated: SellPlanAssetSource[] = [];
-      let failures = 0;
-
-      for (const [index, asset] of current.entries()) {
-        setRefreshProgress(`正在更新 ${index + 1}/${current.length} 件`);
-        try {
-          const valuation = await estimateAsset(asset);
-          if (
-            valuation.estimated_price === null ||
-            valuation.price_low === null ||
-            valuation.price_high === null
-          ) {
-            failures += 1;
-            updated.push(asset);
-            continue;
-          }
-          await recordValuation(asset.id, valuation);
-          updated.push({
-            ...asset,
-            latest_market_price: valuation.estimated_price,
-            latest_market_price_low: valuation.price_low,
-            latest_market_price_high: valuation.price_high,
-            latest_valuation_at: new Date().toISOString(),
-          });
-        } catch {
-          failures += 1;
-          updated.push(asset);
-        }
-      }
-
-      setRefreshProgress('正在重新计算方案');
-      const result = await recommendSellPlan(
-        wishlist.data.target_price,
-        toSellPlanAssets(updated),
-      );
-      return saveDailySellPlan(session.user.id, id, result, failures);
-    },
+  const confirm = useMutation({
+    mutationFn: () =>
+      confirmAssetSellability(
+        Object.entries(confirmations).map(([assetId, status]) => ({
+          id: assetId,
+          status,
+        })),
+      ),
     onSuccess: async () => {
+      setConfirmations({});
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['assets'] }),
-        queryClient.invalidateQueries({ queryKey: ['sellable-assets'] }),
+        queryClient.invalidateQueries({
+          queryKey: ['sell-plan-prepared', id],
+        }),
+        queryClient.invalidateQueries({ queryKey: ['sell-plan-assets'] }),
         queryClient.invalidateQueries({ queryKey: ['sell-plan', id] }),
-        queryClient.invalidateQueries({ queryKey: ['sell-plan-history', id] }),
+        queryClient.invalidateQueries({
+          queryKey: ['sell-plan-history', id],
+        }),
+        queryClient.invalidateQueries({ queryKey: ['assets'] }),
       ]);
     },
-    onSettled: () => setRefreshProgress(''),
+  });
+  const refresh = useMutation({
+    mutationFn: () => prepareSellPlan(id, dateKey, true),
+    onSuccess: async (result) => {
+      queryClient.setQueryData(
+        ['sell-plan-prepared', id, dateKey],
+        result,
+      );
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['assets'] }),
+        queryClient.invalidateQueries({ queryKey: ['sell-plan-assets'] }),
+        queryClient.invalidateQueries({
+          queryKey: ['sell-plan-history', id],
+        }),
+      ]);
+    },
   });
 
   if (wishlist.isLoading) return <LoadingState />;
@@ -130,7 +199,24 @@ export default function WishlistDetailScreen() {
   if (!wishlist.data) return <ErrorState message="心愿不存在" />;
 
   const item = wishlist.data;
-  const currentPlan = plan.data;
+  const result = prepared.data;
+  const needsConfirmation =
+    result?.readiness.filter(
+      (asset) => asset.readiness === 'needs_confirmation',
+    ) ?? [];
+  const selectedCount = Object.keys(confirmations).length;
+  const refreshableCount = result
+    ? result.readiness_counts.ready +
+      result.readiness_counts.needs_valuation +
+      result.readiness_counts.stale_valuation
+    : 0;
+  const reasons = new Map(
+    result?.explanation.item_reasons.map((reason) => [
+      reason.item_id,
+      reason.reason,
+    ]),
+  );
+
   return (
     <>
       <Stack.Screen options={{ title: item.name }} />
@@ -186,46 +272,57 @@ export default function WishlistDetailScreen() {
               今日最佳卖出组合
             </Text>
             <Text selectable style={{ color: colors.muted, fontSize: 12 }}>
-              {localDateKey()}
+              {dateKey}
             </Text>
           </View>
 
-          {plan.isLoading ? <LoadingState /> : null}
-          {assets.error ? (
-            <ErrorState message={assets.error.message} />
+          {prepared.isLoading ? <LoadingState /> : null}
+          {prepared.error ? (
+            <ErrorState message={prepared.error.message} />
           ) : null}
-          {plan.error ? <ErrorState message={plan.error.message} /> : null}
-          {currentPlan ? (
+          {result ? (
             <>
-              <View style={{ gap: 8 }}>
-                {currentPlan.items.map((asset) => (
-                  <View
-                    key={asset.id}
-                    style={{
-                      flexDirection: 'row',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                    }}>
-                    <Text
-                      selectable
-                      style={{ flex: 1, color: colors.text }}>
-                      {asset.name}
-                    </Text>
-                    <Text
-                      selectable
+              <Text
+                selectable
+                style={{ color: colors.text, lineHeight: 21 }}>
+                {result.explanation.summary}
+              </Text>
+              <View style={{ gap: 10 }}>
+                {result.plan.items.map((asset) => (
+                  <View key={asset.id} style={{ gap: 3 }}>
+                    <View
                       style={{
-                        color: colors.green,
-                        fontVariant: ['tabular-nums'],
+                        flexDirection: 'row',
+                        justifyContent: 'space-between',
+                        gap: 12,
                       }}>
-                      {formatCurrency(asset.conservative_price)}
-                    </Text>
+                      <Text
+                        selectable
+                        style={{ flex: 1, color: colors.text }}>
+                        {asset.name}
+                      </Text>
+                      <Text
+                        selectable
+                        style={{
+                          color: colors.green,
+                          fontVariant: ['tabular-nums'],
+                        }}>
+                        {formatCurrency(asset.conservative_price)}
+                      </Text>
+                    </View>
+                    {reasons.get(asset.id) ? (
+                      <Text
+                        selectable
+                        style={{
+                          color: colors.muted,
+                          fontSize: 12,
+                          lineHeight: 18,
+                        }}>
+                        {reasons.get(asset.id)}
+                      </Text>
+                    ) : null}
                   </View>
                 ))}
-                {!currentPlan.items.length ? (
-                  <Text selectable style={{ color: colors.muted }}>
-                    暂无已估价的闲置或已上架资产
-                  </Text>
-                ) : null}
               </View>
               <View
                 style={{
@@ -238,67 +335,189 @@ export default function WishlistDetailScreen() {
                   style={{
                     width: `${Math.min(
                       100,
-                      currentPlan.coverage_ratio * 100,
+                      result.plan.coverage_ratio * 100,
                     )}%`,
                     height: '100%',
                     backgroundColor: colors.green,
                   }}
                 />
               </View>
-              <Text selectable style={{ color: colors.text, lineHeight: 21 }}>
-                预计 {formatCurrency(currentPlan.estimated_total)}，
-                {currentPlan.is_reachable
-                  ? '可以覆盖当前目标。'
-                  : `可覆盖目标的 ${Math.round(
-                      currentPlan.coverage_ratio * 100,
-                    )}%。`}
-              </Text>
-              {currentPlan.refresh_failures ? (
+              <View style={{ flexDirection: 'row', gap: 14 }}>
+                <View
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    gap: 4,
+                    backgroundColor: colors.greenSoft,
+                    borderRadius: 12,
+                    borderCurve: 'continuous',
+                  }}>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>
+                    已确认可卖
+                  </Text>
+                  <Text
+                    selectable
+                    style={{
+                      color: colors.green,
+                      fontSize: 18,
+                      fontWeight: '800',
+                    }}>
+                    {formatCurrency(result.confirmed_sellable_total)}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    gap: 4,
+                    backgroundColor: colors.card,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 12,
+                    borderCurve: 'continuous',
+                  }}>
+                  <Text style={{ color: colors.muted, fontSize: 12 }}>
+                    待确认潜力
+                  </Text>
+                  <Text
+                    selectable
+                    style={{
+                      color: colors.text,
+                      fontSize: 18,
+                      fontWeight: '800',
+                    }}>
+                    {formatCurrency(result.unconfirmed_potential_total)}
+                  </Text>
+                </View>
+              </View>
+              {result.refresh_failures ? (
                 <Text selectable style={{ color: colors.danger }}>
-                  {currentPlan.refresh_failures} 件资产行情刷新失败，方案使用最近一次估值。
+                  {result.refresh_failures}{' '}
+                  件资产行情刷新失败；原估价仍有效时才会保留在组合中。
                 </Text>
               ) : null}
             </>
           ) : null}
+        </View>
 
-          {refresh.error ? (
-            <ErrorState message={refresh.error.message} />
-          ) : null}
-          {refreshProgress ? (
-            <Text selectable style={{ color: colors.muted }}>
-              {refreshProgress}
-            </Text>
-          ) : null}
-          <Pressable
-            accessibilityRole="button"
-            disabled={
-              refresh.isPending || assets.isLoading || Boolean(assets.error)
-            }
-            onPress={() => refresh.mutate()}
-            style={({ pressed }) => ({
-              padding: 13,
-              alignItems: 'center',
-              borderWidth: 1,
-              borderColor: colors.green,
-              borderRadius: 13,
+        {result ? (
+          <View
+            style={{
+              padding: 18,
+              gap: 14,
+              backgroundColor: colors.card,
+              borderRadius: 18,
               borderCurve: 'continuous',
-              opacity:
-                pressed ||
-                refresh.isPending ||
-                assets.isLoading ||
-                Boolean(assets.error)
-                  ? 0.6
-                  : 1,
-            })}>
-            {refresh.isPending ? (
-              <ActivityIndicator color={colors.green} />
+            }}>
+            <Text selectable style={{ color: colors.text, fontWeight: '800' }}>
+              数据就绪
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <ReadinessMetric
+                label="可计算"
+                value={result.readiness_counts.ready}
+                color={colors.green}
+              />
+              <ReadinessMetric
+                label="待确认"
+                value={result.readiness_counts.needs_confirmation}
+              />
+              <ReadinessMetric
+                label="待估价"
+                value={
+                  result.readiness_counts.needs_valuation +
+                  result.readiness_counts.stale_valuation
+                }
+              />
+              <ReadinessMetric
+                label="继续持有"
+                value={result.readiness_counts.excluded}
+              />
+            </View>
+
+            {needsConfirmation.length ? (
+              <>
+                <Text
+                  selectable
+                  style={{ color: colors.muted, lineHeight: 20 }}>
+                  先确认当前状态。只有“已闲置”和“准备出售”会进入估价与组合。
+                </Text>
+                {needsConfirmation.map((asset) => (
+                  <ConfirmationRow
+                    key={asset.id}
+                    asset={asset}
+                    selected={confirmations[asset.id]}
+                    disabled={confirm.isPending}
+                    onSelect={(status) =>
+                      setConfirmations((current) => ({
+                        ...current,
+                        [asset.id]: status,
+                      }))
+                    }
+                  />
+                ))}
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={!selectedCount || confirm.isPending}
+                  onPress={() => confirm.mutate()}
+                  style={({ pressed }) => ({
+                    padding: 13,
+                    alignItems: 'center',
+                    borderRadius: 13,
+                    borderCurve: 'continuous',
+                    backgroundColor: colors.text,
+                    opacity:
+                      pressed || !selectedCount || confirm.isPending
+                        ? 0.55
+                        : 1,
+                  })}>
+                  {confirm.isPending ? (
+                    <ActivityIndicator color={colors.card} />
+                  ) : (
+                    <Text style={{ color: colors.card, fontWeight: '700' }}>
+                      确认已选择的 {selectedCount} 件
+                    </Text>
+                  )}
+                </Pressable>
+                {confirm.error ? (
+                  <ErrorState message={confirm.error.message} />
+                ) : null}
+              </>
             ) : (
-              <Text style={{ color: colors.green, fontWeight: '700' }}>
-                刷新行情与方案
+              <Text selectable style={{ color: colors.muted }}>
+                所有未售资产的状态都已确认。
               </Text>
             )}
-          </Pressable>
-        </View>
+
+            <Pressable
+              accessibilityRole="button"
+              disabled={refresh.isPending || !refreshableCount}
+              onPress={() => refresh.mutate()}
+              style={({ pressed }) => ({
+                padding: 13,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: colors.green,
+                borderRadius: 13,
+                borderCurve: 'continuous',
+                opacity:
+                  pressed || refresh.isPending || !refreshableCount
+                    ? 0.55
+                    : 1,
+              })}>
+              {refresh.isPending ? (
+                <ActivityIndicator color={colors.green} />
+              ) : (
+                <Text style={{ color: colors.green, fontWeight: '700' }}>
+                  刷新行情并重新计算
+                </Text>
+              )}
+            </Pressable>
+            {refresh.error ? (
+              <ErrorState message={refresh.error.message} />
+            ) : null}
+          </View>
+        ) : null}
 
         <View style={{ gap: 11 }}>
           <Text selectable style={{ color: colors.text, fontWeight: '800' }}>
