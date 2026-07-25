@@ -43,7 +43,7 @@ function buildChartData(rows: TrendRow[], { labeled }: { labeled: boolean }) {
   return rows.map((row, index) => {
     const isHigh = index === highIndex;
     const isLatest = index === lastIndex;
-    const showLabel = labeled && (isHigh || isLatest);
+    const showLabel = labeled && isHigh && !isLatest;
     return {
       value: row.estimated_price,
       hideDataPoint: !showLabel,
@@ -62,8 +62,8 @@ function buildChartData(rows: TrendRow[], { labeled }: { labeled: boolean }) {
             </Text>
           )
         : undefined,
-      dataPointLabelShiftY: isHigh && !isLatest ? -18 : isLatest ? 14 : -18,
-      dataPointLabelShiftX: isLatest ? -28 : -18,
+      dataPointLabelShiftY: -18,
+      dataPointLabelShiftX: -18,
     };
   });
 }
@@ -129,7 +129,7 @@ function TrendAreaChart({
       disableScroll
       isAnimated={false}
       overflowTop={labeled ? 24 : 0}
-      overflowBottom={labeled ? 24 : 0}
+      overflowBottom={0}
     />
   );
 }

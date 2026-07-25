@@ -66,9 +66,19 @@ export default function AssetDetailScreen() {
       await recordValuation(assetQuery.data.id, valuation);
       return valuation;
     },
-    onSuccess: async () => {
+    onSuccess: async (valuation) => {
+      // Patch price fields in place so photo signed URLs stay stable.
+      queryClient.setQueryData(['asset', id], (current) => {
+        if (!current || !valuation) return current;
+        return {
+          ...current,
+          latest_market_price: valuation.estimated_price,
+          latest_market_price_low: valuation.price_low,
+          latest_market_price_high: valuation.price_high,
+          latest_valuation_at: new Date().toISOString(),
+        };
+      });
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['asset', id] }),
         queryClient.invalidateQueries({ queryKey: ['market-insight', id] }),
         queryClient.invalidateQueries({ queryKey: ['valuations', id] }),
         queryClient.invalidateQueries({ queryKey: ['assets'] }),
