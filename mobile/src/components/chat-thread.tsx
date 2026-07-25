@@ -36,6 +36,13 @@ import {
   type EvaluationChatMessage,
 } from '@/lib/evaluations';
 import {
+  completedToolsFromProcessSteps,
+  processSummaryLabel,
+  visibleLiveProcessSteps,
+  type AgentProcessStep,
+  type CompletedProcessStep,
+} from '@/lib/agent-process-steps';
+import {
   outboundUserContent,
   shouldShowPendingUserMessage,
 } from '@/lib/pending-user-message';
@@ -56,16 +63,6 @@ const formatResolutionAmount = (amount: number) =>
     maximumFractionDigits: 2,
   }).format(amount);
 
-type ProcessStep =
-  | { kind: 'status'; status: 'thinking' | 'replying' }
-  | {
-      kind: 'tool';
-      id: string;
-      name: string;
-      label: string;
-      phase: 'started' | 'completed';
-    };
-
 export function ChatThread(props: {
   threadId: string | null;
   onThreadIdChange: (threadId: string) => void;
@@ -82,7 +79,9 @@ export function ChatThread(props: {
   const [pendingUserMessage, setPendingUserMessage] = useState<string | null>(
     null,
   );
-  const [processSteps, setProcessSteps] = useState<ProcessStep[]>([]);
+  const [processSteps, setProcessSteps] = useState<AgentProcessStep[]>([]);
+  const [completedProcessByMessageId, setCompletedProcessByMessageId] =
+    useState<Record<string, CompletedProcessStep[]>>({});
   const [streamingText, setStreamingText] = useState('');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [confirmingResolutionId, setConfirmingResolutionId] = useState<
@@ -127,6 +126,9 @@ export function ChatThread(props: {
       setResolutionError('');
       setConfirmingResolutionId(null);
       setPendingUserMessage(null);
+      setCompletedProcessByMessageId({});
+      setProcessSteps([]);
+      setStreamingText('');
     }, 0);
     return () => clearTimeout(timer);
   }, [threadId]);
@@ -265,43 +267,53 @@ export function ChatThread(props: {
 
       setProcessSteps([]);
       setStreamingText('');
+      let liveSteps: AgentProcessStep[] = [];
+
       const response = await streamAgentChat(
         currentThreadId,
         history.slice(-100),
         imageUrls,
         {
           onStatus: (status) => {
-            setProcessSteps((prev) => [...prev, { kind: 'status', status }]);
+            if (status === 'replying') return;
+            liveSteps = [...liveSteps, { kind: 'status', status }];
+            setProcessSteps(liveSteps);
           },
           onTool: (tool) => {
-            setProcessSteps((prev) => {
-              if (tool.phase === 'completed') {
-                return prev.map((step) =>
-                  step.kind === 'tool' &&
-                  step.name === tool.name &&
-                  step.phase === 'started'
-                    ? { ...step, phase: 'completed' }
-                    : step,
-                );
-              }
-              return [
-                ...prev,
+            if (tool.phase === 'completed') {
+              liveSteps = liveSteps.map((step) =>
+                step.kind === 'tool' &&
+                step.name === tool.name &&
+                step.phase === 'started'
+                  ? { ...step, phase: 'completed' }
+                  : step,
+              );
+            } else {
+              liveSteps = [
+                ...liveSteps,
                 {
                   kind: 'tool',
-                  id: `${tool.name}-${prev.length}`,
+                  id: `${tool.name}-${liveSteps.length}`,
                   name: tool.name,
                   label: tool.label,
                   phase: 'started',
                 },
               ];
-            });
+            }
+            setProcessSteps(liveSteps);
           },
           onDelta: (full) => setStreamingText(full),
         },
       );
 
+      const tools = completedToolsFromProcessSteps(liveSteps);
+      let assistantMessageId: string | null = null;
+
       if (response.evaluationId) {
-        await saveEvaluationReply(response.evaluationId, response.message);
+        assistantMessageId = await saveEvaluationReply(
+          response.evaluationId,
+          response.message,
+        );
         const threadEvaluations =
           await listEvaluationsForThread(currentThreadId);
         const evaluation = threadEvaluations.find(
@@ -314,12 +326,20 @@ export function ChatThread(props: {
           onTitleChange?.(title);
         }
       } else {
-        await createAgentMessage(
+        const assistant = await createAgentMessage(
           currentThreadId,
           session.user.id,
           'assistant',
           response.message || '我在，慢慢说。',
         );
+        assistantMessageId = assistant.id;
+      }
+
+      if (assistantMessageId && tools.length) {
+        setCompletedProcessByMessageId((prev) => ({
+          ...prev,
+          [assistantMessageId!]: tools,
+        }));
       }
 
       await invalidateThread(currentThreadId);
@@ -363,9 +383,16 @@ export function ChatThread(props: {
 
         {messages.map((message) => {
           const resolution = resolutionsByMessageId.get(message.id);
+          const completed =
+            message.role === 'assistant'
+              ? completedProcessByMessageId[message.id]
+              : undefined;
 
           return (
             <View key={message.id} style={{ gap: spacing.sm }}>
+              {completed?.length ? (
+                <CompletedProcessPanel steps={completed} />
+              ) : null}
               <MessageBubble
                 role={message.role}
                 content={stripDecisionMark(message.content)}
@@ -391,7 +418,9 @@ export function ChatThread(props: {
         ) : null}
 
         {sending || processSteps.length ? (
-          <AgentProcessPanel steps={processSteps} />
+          <AgentProcessPanel
+            steps={visibleLiveProcessSteps(processSteps)}
+          />
         ) : null}
         {streamingText ? (
           <MessageBubble
@@ -435,39 +464,16 @@ export function ChatThread(props: {
 
 const THINKING_LABEL = '正在思考';
 
-function AgentProcessPanel({ steps }: { steps: ProcessStep[] }) {
+function AgentProcessPanel({ steps }: { steps: AgentProcessStep[] }) {
   if (!steps.length) {
     return <ThinkingShimmer />;
-  }
-
-  let lastStatusIndex = -1;
-  for (let index = steps.length - 1; index >= 0; index -= 1) {
-    if (steps[index]!.kind === 'status') {
-      lastStatusIndex = index;
-      break;
-    }
   }
 
   return (
     <View style={{ gap: spacing.xs }}>
       {steps.map((step, index) => {
         if (step.kind === 'status') {
-          const label =
-            step.status === 'thinking' ? '正在思考' : '正在回复';
-          if (index === lastStatusIndex) {
-            return <ThinkingShimmer key={`status-${index}`} label={label} />;
-          }
-          return (
-            <Text
-              key={`status-${index}`}
-              style={{
-                color: colors.textTertiary,
-                fontSize: 16,
-                lineHeight: 24,
-              }}>
-              {label}
-            </Text>
-          );
+          return <ThinkingShimmer key={`status-${index}`} />;
         }
         const suffix =
           step.phase === 'started' ? '（进行中…）' : '（完成）';
@@ -484,6 +490,44 @@ function AgentProcessPanel({ steps }: { steps: ProcessStep[] }) {
           </Text>
         );
       })}
+    </View>
+  );
+}
+
+function CompletedProcessPanel({ steps }: { steps: CompletedProcessStep[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const summary = processSummaryLabel(steps.length);
+
+  return (
+    <View style={{ gap: spacing.xs }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+        accessibilityLabel={expanded ? `收起，${summary}` : `展开，${summary}`}
+        onPress={() => setExpanded((value) => !value)}
+        style={{ alignSelf: 'flex-start', paddingVertical: spacing.xs }}>
+        <Text
+          style={{
+            color: colors.textTertiary,
+            fontSize: 16,
+            lineHeight: 24,
+          }}>
+          {expanded ? `收起 · ${summary}` : summary}
+        </Text>
+      </Pressable>
+      {expanded
+        ? steps.map((step, index) => (
+            <Text
+              key={`${step.name}-${index}`}
+              style={{
+                color: colors.textTertiary,
+                fontSize: 16,
+                lineHeight: 24,
+              }}>
+              {step.label}
+            </Text>
+          ))
+        : null}
     </View>
   );
 }
