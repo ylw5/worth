@@ -15,12 +15,25 @@ const secureStorage = {
 
 const webStorage = {
   getItem: async (key: string) =>
-    typeof localStorage === 'undefined' ? null : localStorage.getItem(key),
+    typeof localStorage === 'undefined' ||
+    typeof localStorage.getItem !== 'function'
+      ? null
+      : localStorage.getItem(key),
   setItem: async (key: string, value: string) => {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+    if (
+      typeof localStorage !== 'undefined' &&
+      typeof localStorage.setItem === 'function'
+    ) {
+      localStorage.setItem(key, value);
+    }
   },
   removeItem: async (key: string) => {
-    if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+    if (
+      typeof localStorage !== 'undefined' &&
+      typeof localStorage.removeItem === 'function'
+    ) {
+      localStorage.removeItem(key);
+    }
   },
 };
 

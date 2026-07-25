@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Six of Pentacles · 星币六</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --paper: #fbfaf6;
+        --paper-deep: #f2eee5;
+        --surface: #ffffff;
+        --ink: #111113;
+        --muted: #74706a;
+        --soft: #aaa39a;
+        --line: #ded4c2;
+        --gold: #b99a64;
+        --gold-soft: #eadcc3;
+        --blue: #78b4ff;
+        --black: #0b0b0d;
+        --shadow: 0 24px 80px rgba(34, 27, 16, 0.12);
+        --radius: 22px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 76% 6%, rgba(185, 154, 100, 0.16), transparent 30rem),
+          linear-gradient(180deg, var(--paper), #f7f6f3 44%, var(--paper));
+        color: var(--ink);
+        font-family: "Inter", "Noto Sans SC", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      img {
+        display: block;
+        max-width: 100%;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .page {
+        overflow: hidden;
+      }
+
+      .nav {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px clamp(20px, 4vw, 56px);
+        background: rgba(251, 250, 246, 0.86);
+        border-bottom: 1px solid rgba(222, 212, 194, 0.8);
+        backdrop-filter: blur(18px);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-weight: 700;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--gold);
+        border-radius: 50%;
+        color: var(--gold);
+        font-family: "Cormorant Garamond", serif;
+        font-size: 20px;
+      }
+
+      .nav-links {
+        display: flex;
+        gap: 22px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .hero {
+        min-height: calc(100svh - 72px);
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+        align-items: center;
+        gap: clamp(28px, 5vw, 76px);
+        max-width: 1220px;
+        margin: 0 auto;
+        padding: 54px clamp(20px, 4vw, 56px) 72px;
+      }
+
+      .kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 24px;
+        color: var(--gold);
+        font: 600 13px/1 "Inter", sans-serif;
+      }
+
+      .kicker::before {
+        content: "";
+        width: 44px;
+        height: 1px;
+        background: var(--gold);
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+
+      h1 {
+        max-width: 820px;
+        font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+        font-size: clamp(58px, 9vw, 128px);
+        font-weight: 500;
+        line-height: 0.92;
+      }
+
+      .hero-copy {
+        max-width: 690px;
+        margin-top: 28px;
+        color: var(--muted);
+        font-size: clamp(17px, 1.6vw, 22px);
+        line-height: 1.72;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 34px;
+      }
+
+      .btn {
+        min-height: 48px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 20px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        font-weight: 700;
+      }
+
+      .btn.primary {
+        background: var(--black);
+        border-color: var(--black);
+        color: #fff;
+      }
+
+      .hero-visual {
+        position: relative;
+        min-height: 620px;
+      }
+
+      .tarot {
+        position: absolute;
+        inset: 0 auto auto 8%;
+        width: min(58vw, 430px);
+        filter: drop-shadow(0 32px 46px rgba(111, 89, 48, 0.18));
+        transform: rotate(-2deg);
+      }
+
+      .phone {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: min(44vw, 315px);
+        border: 10px solid #111;
+        border-radius: 42px;
+        overflow: hidden;
+        background: #fff;
+        box-shadow: var(--shadow);
+      }
+
+      .quote-band {
+        border-block: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.48);
+      }
+
+      .quote-inner {
+        max-width: 1220px;
+        margin: 0 auto;
+        padding: 24px clamp(20px, 4vw, 56px);
+        display: flex;
+        justify-content: space-between;
+        gap: 28px;
+        color: var(--muted);
+      }
+
+      .quote-inner strong {
+        color: var(--ink);
+      }
+
+      .section {
+        max-width: 1220px;
+        margin: 0 auto;
+        padding: 96px clamp(20px, 4vw, 56px);
+      }
+
+      .section-head {
+        display: grid;
+        grid-template-columns: minmax(0, 0.72fr) minmax(280px, 0.55fr);
+        gap: 44px;
+        align-items: end;
+        margin-bottom: 40px;
+      }
+
+      h2 {
+        font-family: "Cormorant Garamond", "Noto Serif SC", serif;
+        font-size: clamp(42px, 6vw, 78px);
+        font-weight: 500;
+        line-height: 1;
+      }
+
+      .section-head p,
+      .lead {
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1.72;
+      }
+
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+
+      .stat {
+        min-height: 210px;
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.64);
+      }
+
+      .stat b {
+        display: block;
+        margin-bottom: 18px;
+        font-size: clamp(36px, 4vw, 54px);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      .stat span {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(320px, 1.1fr);
+        gap: 44px;
+        align-items: start;
+      }
+
+      .panel {
+        padding: clamp(24px, 4vw, 42px);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.7);
+        box-shadow: 0 10px 40px rgba(25, 23, 20, 0.05);
+      }
+
+      .panel h3 {
+        margin-bottom: 14px;
+        font-size: 24px;
+      }
+
+      .panel p {
+        color: var(--muted);
+        line-height: 1.75;
+      }
+
+      .flow {
+        display: grid;
+        gap: 12px;
+      }
+
+      .flow-item {
+        display: grid;
+        grid-template-columns: 48px 1fr;
+        gap: 16px;
+        align-items: start;
+        padding: 18px;
+        border-radius: 18px;
+        background: var(--surface);
+        border: 1px solid rgba(222, 212, 194, 0.75);
+      }
+
+      .flow-item i {
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: #111;
+        color: #fff;
+        font-style: normal;
+        font-weight: 700;
+      }
+
+      .flow-item h3 {
+        margin: 0 0 6px;
+        font-size: 18px;
+      }
+
+      .flow-item p {
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .features {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+
+      .feature {
+        min-height: 260px;
+        padding: 26px;
+        border-radius: var(--radius);
+        background: #fff;
+        border: 1px solid rgba(222, 212, 194, 0.8);
+      }
+
+      .feature .tag {
+        display: inline-flex;
+        margin-bottom: 34px;
+        padding: 7px 11px;
+        border: 1px solid var(--gold-soft);
+        border-radius: 999px;
+        color: var(--gold);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .feature h3 {
+        margin-bottom: 12px;
+        font-size: 22px;
+      }
+
+      .feature p {
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .demo-card {
+        background: #f5f5f8;
+        border-radius: 34px;
+        padding: 34px 24px 26px;
+      }
+
+      .demo-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 28px;
+      }
+
+      .demo-title {
+        font-size: 28px;
+        font-weight: 800;
+      }
+
+      .demo-plus {
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: #fff;
+        font-size: 28px;
+        line-height: 1;
+      }
+
+      .demo-value {
+        margin-bottom: 22px;
+      }
+
+      .demo-value span {
+        display: block;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+
+      .demo-value b {
+        font-size: 54px;
+        letter-spacing: 0;
+      }
+
+      .chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 22px;
+      }
+
+      .chip {
+        padding: 9px 14px;
+        border-radius: 999px;
+        background: #fff;
+        color: var(--muted);
+        font-weight: 700;
+      }
+
+      .chip.active {
+        background: #111;
+        color: #fff;
+      }
+
+      .mini-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+      }
+
+      .mini-asset {
+        background: #fff;
+        border-radius: 20px;
+        padding: 12px;
+      }
+
+      .mini-img {
+        height: 110px;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #eee, #fafafa);
+        margin-bottom: 12px;
+      }
+
+      .mini-asset b {
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      .mini-asset span {
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .tech {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+
+      .tech div {
+        padding: 20px;
+        border-radius: 18px;
+        background: var(--paper-deep);
+        border: 1px solid var(--line);
+      }
+
+      .tech b {
+        display: block;
+        margin-bottom: 10px;
+      }
+
+      .tech span {
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.55;
+      }
+
+      .final {
+        padding-bottom: 120px;
+      }
+
+      .final-card {
+        position: relative;
+        overflow: hidden;
+        min-height: 460px;
+        display: grid;
+        align-items: end;
+        padding: clamp(28px, 5vw, 62px);
+        border: 1px solid var(--gold-soft);
+        border-radius: 34px;
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.88), rgba(242, 238, 229, 0.8)),
+          url("intro-assets/six-card.png") right 8% center / min(36vw, 320px) no-repeat;
+      }
+
+      .final-card h2 {
+        max-width: 760px;
+      }
+
+      .final-card p {
+        max-width: 650px;
+        margin-top: 24px;
+        color: var(--muted);
+        font-size: 19px;
+        line-height: 1.76;
+      }
+
+      @media (max-width: 920px) {
+        .nav-links {
+          display: none;
+        }
+
+        .hero,
+        .section-head,
+        .split {
+          grid-template-columns: 1fr;
+        }
+
+        .hero {
+          padding-top: 40px;
+        }
+
+        .hero-visual {
+          min-height: 520px;
+        }
+
+        .tarot {
+          left: 0;
+          width: min(76vw, 360px);
+        }
+
+        .phone {
+          width: min(56vw, 270px);
+        }
+
+        .stats,
+        .features,
+        .tech {
+          grid-template-columns: repeat(2, 1fr);
+        }
+
+        .quote-inner {
+          display: block;
+        }
+
+        .quote-inner p + p {
+          margin-top: 12px;
+        }
+
+        .final-card {
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(242, 238, 229, 0.95)),
+            url("intro-assets/six-card.png") right 20px top 24px / 150px no-repeat;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .hero-visual {
+          min-height: 460px;
+        }
+
+        .stats,
+        .features,
+        .tech,
+        .mini-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .stat,
+        .feature {
+          min-height: auto;
+        }
+
+        .phone {
+          border-width: 7px;
+          border-radius: 32px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <nav class="nav">
+        <a class="brand" href="#">
+          <span class="brand-mark">VI</span>
+          <span>Six of Pentacles · 星币六</span>
+        </a>
+        <div class="nav-links" aria-label="页面导航">
+          <a href="#problem">问题</a>
+          <a href="#solution">方案</a>
+          <a href="#features">功能</a>
+          <a href="#tech">技术</a>
+        </div>
+      </nav>
+
+      <section class="hero" id="top">
+        <div>
+          <span class="kicker">个人消费决策 AI Agent</span>
+          <h1>在想买和值得买之间，多留一点停顿。</h1>
+          <p class="hero-copy">
+            星币六把你已经拥有的东西、你正在犹豫的商品，以及真正想实现的心愿放进同一段对话里。它不替你决定，只让每一次消费冲动都有机会被看见。
+          </p>
+          <div class="hero-actions">
+            <a class="btn primary" href="#solution">看产品机制</a>
+            <a class="btn" href="#features">查看核心功能</a>
+          </div>
+        </div>
+        <div class="hero-visual" aria-label="星币六产品视觉">
+          <img class="tarot" src="intro-assets/six-card.png" alt="Six of Pentacles tarot card" />
+          <img class="phone" src="intro-assets/assets-ui.jpg" alt="星币六资产页界面" />
+        </div>
+      </section>
+
+      <div class="quote-band">
+        <div class="quote-inner">
+          <p><strong>逆位：</strong>资源失衡、过度给予与无序支出。</p>
+          <p><strong>正位：</strong>财富平衡、收获回馈与良性流动。</p>
+          <p><strong>翻转：</strong>把冲动消费逆转成心愿资金。</p>
+        </div>
+      </div>
+
+      <section class="section" id="problem">
+        <div class="section-head">
+          <h2>冲动消费不是小概率事件。</h2>
+          <p>
+            情绪消费正在年轻人群中加速渗透，但现有工具大多停留在事后记账和预算提醒。星币六瞄准的是下单前那个最真实的纠结瞬间。
+          </p>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <b>近 6 成</b>
+            <span>年轻人愿意为情绪价值买单，较 2024 年继续增长。</span>
+          </div>
+          <div class="stat">
+            <b>¥949</b>
+            <span>Z 世代情绪消费月均支出，已经成为稳定的日常开销。</span>
+          </div>
+          <div class="stat">
+            <b>34%</b>
+            <span>消费者曾因冲动消费经历财务压力。</span>
+          </div>
+          <div class="stat">
+            <b>近 40%</b>
+            <span>冲动消费占电商消费金额比例，体量不再是边角料。</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="solution">
+        <div class="split">
+          <div class="panel">
+            <span class="kicker">核心方案</span>
+            <h2>不是记录你花了什么，而是陪你判断这次要不要花。</h2>
+            <p class="lead">
+              当用户想买一件东西时，可以把照片、链接或文字描述发给 Agent。星币六结合资产库和历史对话，给出基于事实的提醒，而不是命令式结论。
+            </p>
+          </div>
+          <div class="flow">
+            <div class="flow-item">
+              <i>1</i>
+              <div>
+                <h3>发来想买的商品</h3>
+                <p>支持图片、链接和文字描述，像问朋友一样开始一段对话。</p>
+              </div>
+            </div>
+            <div class="flow-item">
+              <i>2</i>
+              <div>
+                <h3>AI 调取个人记忆</h3>
+                <p>结合资产库、闲置状态、购买价格和过往纠结记录。</p>
+              </div>
+            </div>
+            <div class="flow-item">
+              <i>3</i>
+              <div>
+                <h3>看见似曾相识的冲动</h3>
+                <p>提醒用户过去买过什么、后来是否常用、有没有已经闲置。</p>
+              </div>
+            </div>
+            <div class="flow-item">
+              <i>4</i>
+              <div>
+                <h3>买、冷静 24 小时，或不买</h3>
+                <p>不买金额进入心愿资金；冷静后未继续购买，也会被温和地记为一次克制。</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="features">
+        <div class="section-head">
+          <h2>把克制做成有反馈的体验。</h2>
+          <p>
+            星币六的核心不是评判消费，而是把“忍住没买”的价值变得具体、可见、可积累。
+          </p>
+        </div>
+        <div class="features">
+          <article class="feature">
+            <span class="tag">AI 对话</span>
+            <h3>一个真的在劝住你的 Agent</h3>
+            <p>
+              Agent 记得用户拥有过什么，也记得之前纠结过什么。它给出的不是泛泛建议，而是基于个人事实的提醒。
+            </p>
+          </article>
+          <article class="feature">
+            <span class="tag">心愿资金</span>
+            <h3>忍住的钱有具体去处</h3>
+            <p>
+              每一次选择不买，金额都会进入指定心愿。克制不再只是少花钱，而是离旅行、门票或真正想要的东西更近。
+            </p>
+          </article>
+          <article class="feature">
+            <span class="tag">资产管理</span>
+            <h3>让 AI 的提醒更有依据</h3>
+            <p>
+              用户记录持有、闲置和已卖出的物品，资产页展示每日二手市场参考价，让资产清单保持鲜活。
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="split">
+          <div class="demo-card" aria-label="产品界面示意">
+            <div class="demo-top">
+              <div class="demo-title">我的资产</div>
+              <div class="demo-plus">+</div>
+            </div>
+            <div class="demo-value">
+              <span>总资产参考价值</span>
+              <b>¥14,486</b>
+            </div>
+            <div class="chips">
+              <span class="chip active">全部</span>
+              <span class="chip">持有</span>
+              <span class="chip">闲置</span>
+              <span class="chip">已卖出</span>
+            </div>
+            <div class="mini-grid">
+              <div class="mini-asset">
+                <div class="mini-img"></div>
+                <b>金属水瓶</b>
+                <span>待估价 · 不足 1 个月</span>
+              </div>
+              <div class="mini-asset">
+                <div class="mini-img"></div>
+                <b>人体工学办公椅</b>
+                <span>¥2,050 · 已使用 2 个月</span>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <span class="kicker">产品气质</span>
+            <h2>冷静、干净、对象优先。</h2>
+            <p class="lead">
+              页面视觉延续移动端 UI 的克制风格：大面积白色与浅灰、近黑文字、少量金色塔罗线条。资产照片和金额信息优先出现，装饰只服务于“财富流动”的叙事。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="tech">
+        <div class="section-head">
+          <h2>技术栈支撑一个完整的移动端体验。</h2>
+          <p>
+            前端负责顺滑的移动端交互，Supabase 承担用户和数据底座，自定义 API 连接识别、估价与流式对话能力。
+          </p>
+        </div>
+        <div class="tech">
+          <div>
+            <b>移动端框架</b>
+            <span>React Native、Expo、Expo Router、React 19</span>
+          </div>
+          <div>
+            <b>数据与状态</b>
+            <span>Supabase、supabase-js、TanStack React Query</span>
+          </div>
+          <div>
+            <b>图片与媒体</b>
+            <span>Image Picker、Media Library、Sharing、View Shot</span>
+          </div>
+          <div>
+            <b>AI 后端能力</b>
+            <span>商品识别、链接解析、资产估价、消费评估、流式对话</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section final">
+        <div class="final-card">
+          <div>
+            <span class="kicker">Reverse</span>
+            <h2>一次冲动消费，被逆转成一次心愿积累。</h2>
+            <p>
+              星币六不替用户做决定，只是在按下购买之前，把“已经拥有的东西”和“真正想要的东西”放在眼前。愿每一份克制，都通向你的心愿。
+            </p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

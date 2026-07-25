@@ -12,8 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { captureRef } from 'react-native-view-shot';
 
 import { ErrorState, LoadingState } from '@/components/screen-state';
-import { WishAchievementCard } from '@/components/wish-achievement-card';
+import { TarotTransformation } from '@/components/tarot-transformation';
 import { colors, spacing, typography } from '@/constants/colors';
+import { formatCurrency } from '@/lib/format';
 import {
   saveWishAchievementImage,
   wishAchievementSaveErrorMessage,
@@ -118,16 +119,19 @@ export default function WishAchievementScreen() {
           <View
             style={{
               flex: 1,
-              justifyContent: 'center',
-              paddingHorizontal: spacing.xl,
+              justifyContent: 'space-between',
               overflow: 'visible',
             }}>
-            <View ref={cardRef} collapsable={false}>
-              <WishAchievementCard
-                name={item.name}
-                actualPrice={item.actual_price!}
-                fulfilledAt={item.fulfilled_at!}
-                showConfetti={!capturing}
+            <View
+              ref={cardRef}
+              collapsable={false}
+              style={{ flex: 1, overflow: 'hidden' }}>
+              <TarotTransformation
+                data={{
+                  wish: item.name,
+                  valueConversion: formatCurrency(item.actual_price!),
+                  wealthFlow: '逆位 → 正位',
+                }}
               />
             </View>
 
@@ -137,7 +141,8 @@ export default function WishAchievementScreen() {
               disabled={saveMutation.isPending || capturing}
               onPress={() => saveMutation.mutate()}
               style={({ pressed }) => ({
-                marginTop: spacing.xxxl,
+                marginTop: spacing.lg,
+                marginBottom: spacing.xl,
                 alignSelf: 'center',
                 minWidth: 200,
                 minHeight: 52,

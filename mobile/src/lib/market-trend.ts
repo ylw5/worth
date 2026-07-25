@@ -1,4 +1,4 @@
-import { formatCurrency } from './format.ts';
+import { formatCurrency } from './format';
 
 export type TrendRange = '1w' | '1m' | '6m' | '1y';
 

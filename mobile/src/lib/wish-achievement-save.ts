@@ -5,6 +5,7 @@ import {
   saveToLibraryAsync,
 } from 'expo-media-library/legacy';
 import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
 
 export { wishAchievementSaveErrorMessage } from '@/lib/wish-achievement-save-messages';
 
@@ -34,6 +35,16 @@ async function shareWishAchievementImage(uri: string): Promise<void> {
 export async function saveWishAchievementImage(
   uri: string,
 ): Promise<WishAchievementSaveResult> {
+  if (Platform.OS === 'web') {
+    const link = document.createElement('a');
+    link.href = uri;
+    link.download = `worth-wish-${new Date().toISOString().slice(0, 10)}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return 'saved';
+  }
+
   const inExpoGo = Constants.appOwnership === 'expo';
 
   if (!inExpoGo) {

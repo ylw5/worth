@@ -1,17 +1,27 @@
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
+  Platform,
   Pressable,
+  StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { captureRef } from 'react-native-view-shot';
 
+import { TarotTransformation } from '@/components/tarot-transformation';
 import { colors, radius, spacing, typography } from '@/constants/colors';
 import type { AssetSaleWithName } from '@/lib/assets';
 import { formatCurrency, formatDate } from '@/lib/format';
 import type { ConfirmedSpendingResolution } from '@/lib/spending-resolutions';
+import {
+  saveWishAchievementImage,
+  wishAchievementSaveErrorMessage,
+} from '@/lib/wish-achievement-save';
 import type { WishlistFundingAllocation } from '@/lib/wishlist-fulfillment';
 import type { WishlistItem } from '@/lib/wishlist';
 import { sumAmounts } from '@/lib/wishlist-progress';
@@ -66,6 +76,11 @@ export function FulfilledWishlistCard({
   onUndo,
 }: FulfilledWishlistCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareRevealed, setShareRevealed] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const insets = useSafeAreaInsets();
+  const shareRef = useRef<View>(null);
   const itemAllocations = allocations.filter(
     (allocation) => allocation.wishlist_item_id === item.id,
   );
@@ -104,6 +119,28 @@ export function FulfilledWishlistCard({
         },
       ],
     );
+  };
+
+  const saveAchievement = async () => {
+    try {
+      setCapturing(true);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      const uri = await captureRef(shareRef, {
+        format: 'png',
+        quality: 1,
+        result: 'tmpfile',
+      });
+      const result = await saveWishAchievementImage(uri);
+      if (result === 'shared') {
+        Alert.alert('已打开分享', '当前环境无法直接写入相册，请通过分享保存图片');
+        return;
+      }
+      Alert.alert('已保存', '已保存到相册，可去微信等应用分享');
+    } catch (error) {
+      Alert.alert('保存失败', wishAchievementSaveErrorMessage(error));
+    } finally {
+      setCapturing(false);
+    }
   };
 
   return (
@@ -206,12 +243,10 @@ export function FulfilledWishlistCard({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`分享成就${item.name}`}
-        onPress={() =>
-          router.push({
-            pathname: '/(tabs)/(wishlist)/achievement/[id]',
-            params: { id: item.id },
-          })
-        }
+        onPress={() => {
+          setShareRevealed(false);
+          setShareOpen(true);
+        }}
         style={({ pressed }) => ({
           alignSelf: 'flex-start',
           minHeight: 44,
@@ -243,6 +278,118 @@ export function FulfilledWishlistCard({
           {undoing ? '撤销中…' : '撤销实现'}
         </Text>
       </Pressable>
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setShareOpen(false)}
+        presentationStyle="fullScreen"
+        visible={shareOpen}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: '#FFFCF5',
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+          }}>
+          <LinearGradient
+            colors={['#FFFDF8', '#F7F1E6', '#FFFCF5']}
+            pointerEvents="none"
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            style={{
+              paddingHorizontal: spacing.xl,
+              paddingVertical: spacing.md,
+            }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="关闭分享卡片"
+              hitSlop={8}
+              onPress={() => setShareOpen(false)}
+              style={{
+                width: 44,
+                height: 44,
+                alignItems: 'flex-start',
+                justifyContent: 'center',
+              }}>
+              <Text
+                style={{
+                  color: colors.textPrimary,
+                  fontSize: 28,
+                  fontWeight: '400',
+                  lineHeight: 32,
+                }}>
+                ×
+              </Text>
+            </Pressable>
+          </View>
+          <View style={{ flex: 1, justifyContent: 'space-between' }}>
+            <View
+              ref={shareRef}
+              collapsable={false}
+              style={{ flex: 1, overflow: 'hidden' }}>
+              <TarotTransformation
+                data={{
+                  wish: item.name,
+                  valueConversion: formatCurrency(item.actual_price),
+                  wealthFlow: '逆位 → 正位',
+                }}
+                onRevealed={() => setShareRevealed(true)}
+              />
+            </View>
+            <View
+              style={{
+                height: 88,
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingBottom: spacing.lg,
+              }}>
+              {shareRevealed ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="保存图片"
+                  disabled={capturing}
+                  onPress={() => void saveAchievement()}
+                  style={({ pressed }) => ({
+                    minWidth: 200,
+                    minHeight: 52,
+                    paddingHorizontal: spacing.xxxl,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: radius.pill,
+                    borderWidth: 1,
+                    borderColor: 'rgba(168, 131, 80, 0.36)',
+                    backgroundColor: '#EADDBF',
+                    shadowColor: '#8B6E43',
+                    shadowOpacity: 0.14,
+                    shadowRadius: 18,
+                    shadowOffset: { width: 0, height: 8 },
+                    opacity: pressed || capturing ? 0.65 : 1,
+                  })}>
+                  {capturing ? (
+                    <ActivityIndicator color="#765D38" />
+                  ) : (
+                    <Text
+                      style={{
+                        color: '#765D38',
+                        ...typography.cardTitle,
+                        fontFamily: Platform.select({
+                          ios: 'Kaiti SC',
+                          macos: 'Kaiti SC',
+                          web: '"Kaiti SC", "STKaiti", "KaiTi", serif',
+                          default: 'serif',
+                        }),
+                        fontWeight: '600',
+                        letterSpacing: 0,
+                      }}>
+                      保存图片
+                    </Text>
+                  )}
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

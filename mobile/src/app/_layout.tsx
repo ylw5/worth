@@ -26,6 +26,10 @@ export default function RootLayout() {
               headerBackButtonDisplayMode: 'minimal',
             }}>
             <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen
+              name="tarot-transformation"
+              options={{ headerShown: false }}
+            />
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen
               name="asset/[id]"

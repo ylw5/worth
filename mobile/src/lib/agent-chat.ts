@@ -51,6 +51,42 @@ export async function createAgentThread(
   return data as AgentThread;
 }
 
+export async function createPurchaseEvaluationThread(
+  userId: string,
+  title: string,
+): Promise<AgentThread> {
+  const threadKey = Crypto.randomUUID();
+  const trimmed = title.trim().slice(0, 40) || '购买评估';
+  const { data, error } = await supabase
+    .from('agent_threads')
+    .insert({
+      user_id: userId,
+      thread_key: threadKey,
+      kind: 'purchase_evaluation',
+      title: trimmed,
+    })
+    .select('*')
+    .single();
+  fail(error);
+  return data as AgentThread;
+}
+
+export async function getOrCreateGeneralThread(
+  userId: string,
+): Promise<AgentThread> {
+  const { data, error } = await supabase
+    .from('agent_threads')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('kind', 'general')
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  fail(error);
+  if (data) return data as AgentThread;
+  return createAgentThread(userId, '聊天');
+}
+
 export async function listAgentThreads(): Promise<AgentThreadListItem[]> {
   const { data: threads, error } = await supabase
     .from('agent_threads')
