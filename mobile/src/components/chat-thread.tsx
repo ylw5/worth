@@ -158,7 +158,12 @@ export function ChatThread(props: {
   );
   const outcomeMessageIds = outcomeControlMessageIds(messages, evaluationsById);
 
+  const previousThreadIdRef = useRef(threadId);
   useEffect(() => {
+    const previousThreadId = previousThreadIdRef.current;
+    previousThreadIdRef.current = threadId;
+    // null → id is usually mid-send thread creation; don't wipe errors/streaming.
+    if (previousThreadId === null && threadId !== null) return;
     const timer = setTimeout(() => {
       setDraft('');
       setPhotos([]);
@@ -172,7 +177,10 @@ export function ChatThread(props: {
 
   useEffect(() => {
     const latest = evaluations[evaluations.length - 1];
-    if (latest?.product_title) onTitleChange?.(latest.product_title);
+    if (latest?.product_title) {
+      onTitleChange?.(latest.product_title);
+      return;
+    }
   }, [evaluations, onTitleChange]);
 
   useEffect(() => {
@@ -312,11 +320,10 @@ export function ChatThread(props: {
     try {
       let currentThreadId = threadId;
       if (!currentThreadId) {
-        const thread = await createAgentThread(
-          session.user.id,
-          text.slice(0, 40) || '聊天',
-        );
+        const title = text.slice(0, 40) || '聊天';
+        const thread = await createAgentThread(session.user.id, title);
         currentThreadId = thread.id;
+        onTitleChange?.(thread.title || title);
         onThreadIdChange(thread.id);
         await queryClient.invalidateQueries({ queryKey: ['agent-threads'] });
       }
