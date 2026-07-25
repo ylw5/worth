@@ -8,6 +8,7 @@ from app.ai.tools.conversation import (
     BindPurchaseEvaluationInput,
     RecognizeProductImagesInput,
     RecognizeProductTextInput,
+    WishlistListInput,
     _insert_evaluation,
     build_conversation_tool_registry,
 )
@@ -138,3 +139,74 @@ def test_insert_evaluation_uses_supported_write_builder():
 
     assert evaluation_id == "eval-1"
     builder.execute.assert_called_once_with()
+
+
+@pytest.mark.parametrize(
+    ("status", "operator"),
+    [("active", "is"), ("fulfilled", "not.is")],
+)
+def test_wishlist_list_filters_current_users_items(status, operator):
+    supabase = MagicMock()
+    query = MagicMock()
+    supabase.table.return_value = query
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.filter.return_value = query
+    query.order.return_value = query
+    query.execute.return_value = SimpleNamespace(
+        data=[
+            {
+                "id": "wish-1",
+                "name": "去北海道旅行",
+                "target_price": "12000.00",
+                "notes": "冬天",
+                "actual_price": None,
+                "fulfilled_at": None,
+                "created_at": "2026-07-25T00:00:00Z",
+            }
+        ]
+    )
+    registry = build_conversation_tool_registry(
+        settings=MagicMock(),
+        supabase_client=supabase,
+        market_client=None,
+    )
+
+    result = registry.get("wishlist_list").handler(
+        WishlistListInput(status=status),
+        context(),
+    )
+
+    supabase.table.assert_called_once_with("wishlist_items")
+    query.eq.assert_called_once_with("user_id", "user-1")
+    query.filter.assert_called_once_with(
+        "fulfilled_at",
+        operator,
+        "null",
+    )
+    query.order.assert_called_once_with("created_at", desc=True)
+    assert result.items[0].name == "去北海道旅行"
+    assert result.items[0].target_price == 12000
+
+
+def test_wishlist_list_defaults_to_all_statuses():
+    supabase = MagicMock()
+    query = MagicMock()
+    supabase.table.return_value = query
+    query.select.return_value = query
+    query.eq.return_value = query
+    query.order.return_value = query
+    query.execute.return_value = SimpleNamespace(data=[])
+    registry = build_conversation_tool_registry(
+        settings=MagicMock(),
+        supabase_client=supabase,
+        market_client=None,
+    )
+
+    result = registry.get("wishlist_list").handler(
+        WishlistListInput(),
+        context(),
+    )
+
+    query.filter.assert_not_called()
+    assert result.items == []

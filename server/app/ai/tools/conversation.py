@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -39,6 +39,30 @@ class RecognizeProductOutput(BaseModel):
 
 class RecognizeProductImagesInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class WishlistListInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["all", "active", "fulfilled"] = "all"
+
+
+class WishlistToolRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    name: str
+    target_price: float
+    notes: str
+    actual_price: float | None = None
+    fulfilled_at: str | None = None
+    created_at: str
+
+
+class WishlistListOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[WishlistToolRecord]
 
 
 class ParseProductUrlInput(BaseModel):
@@ -276,6 +300,32 @@ class ConversationToolHandlers:
         )
         return RecognizeProductOutput(is_product=True, product=product)
 
+    def list_wishlist(
+        self,
+        arguments: BaseModel,
+        context: RunContext,
+    ) -> WishlistListOutput:
+        parsed = WishlistListInput.model_validate(arguments)
+        query = (
+            self._supabase.table("wishlist_items")
+            .select(
+                "id, name, target_price, notes, actual_price, "
+                "fulfilled_at, created_at"
+            )
+            .eq("user_id", context.user_id)
+        )
+        if parsed.status == "active":
+            query = query.filter("fulfilled_at", "is", "null")
+        elif parsed.status == "fulfilled":
+            query = query.filter("fulfilled_at", "not.is", "null")
+        response = query.order("created_at", desc=True).execute()
+        return WishlistListOutput(
+            items=[
+                WishlistToolRecord.model_validate(record)
+                for record in (response.data or [])
+            ]
+        )
+
     def bind_purchase_evaluation(
         self,
         arguments: BaseModel,
@@ -311,6 +361,7 @@ CONVERSATION_TOOL_NAMES = (
     "assets_summary",
     "market_price_snapshot",
     "evaluation_history_list",
+    "wishlist_list",
     "bind_purchase_evaluation",
 )
 
@@ -344,6 +395,13 @@ def build_conversation_tool_registry(
         output_model=RecognizeProductOutput,
         handler=handlers.recognize_product_images,
         cacheable=False,
+    )
+    registry.register(
+        name="wishlist_list",
+        description="按需查看当前用户全部、待实现或已实现的心愿",
+        input_model=WishlistListInput,
+        output_model=WishlistListOutput,
+        handler=handlers.list_wishlist,
     )
     registry.register(
         name="bind_purchase_evaluation",
