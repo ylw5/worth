@@ -12,6 +12,7 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type TarotDynamicData = {
   wish: string;
@@ -30,6 +31,7 @@ const reversedCard = require('../../assets/tarot/reversed-card.svg');
 const uprightCard = require('../../assets/tarot/upright-card.svg');
 
 const gold = '#A88350';
+const goldDeep = '#8B6A38';
 const ink = '#253149';
 const warmWhite = '#FFFDF7';
 
@@ -39,6 +41,7 @@ export function TarotTransformation({
   data,
   onRevealed,
 }: TarotTransformationProps) {
+  const insets = useSafeAreaInsets();
   const [revealed, setRevealed] = useState(false);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flip = useSharedValue(0);
@@ -142,6 +145,9 @@ export function TarotTransformation({
     ],
   }));
 
+  const closeRowHeight = 44;
+  const topChrome = Math.max(insets.top, 12) + closeRowHeight;
+
   return (
     <View style={styles.screen}>
       <LinearGradient
@@ -149,7 +155,8 @@ export function TarotTransformation({
         style={StyleSheet.absoluteFill}
       />
 
-      <View style={styles.experienceContent}>
+      <View style={[styles.contentStage, { paddingTop: topChrome }]}>
+        <View style={styles.experienceContent}>
         <View style={styles.cardStage}>
           <Animated.View style={[styles.glow, glowStyle]} />
           <Pressable
@@ -191,14 +198,17 @@ export function TarotTransformation({
           <Text style={styles.quoteTitle}>Six of Pentacles · 星币六</Text>
           <View style={styles.rule} />
           <Text style={styles.quoteBody}>星币六象征财富、资源与价值的流动。</Text>
-          <Text style={styles.meaningText}>
-            <Text style={styles.meaningEmphasis}>逆位，代表资源失衡、过度给予与无序支出。</Text>
-          </Text>
-          <Text style={styles.meaningText}>
-            <Text style={styles.meaningEmphasis}>正位，代表财富平衡、收获回馈与良性流动。</Text>
-          </Text>
+          <View style={styles.meaningBlock}>
+            <Text style={styles.meaningText}>
+              <Text style={styles.meaningEmphasis}>逆位，代表资源失衡、过度给予与无序支出。</Text>
+            </Text>
+            <Text style={styles.meaningText}>
+              <Text style={styles.meaningEmphasis}>正位，代表财富平衡、收获回馈与良性流动。</Text>
+            </Text>
+          </View>
           <Text style={styles.closing}>愿每一份积累，都通向你的心愿。</Text>
         </Animated.View>
+        </View>
       </View>
     </View>
   );
@@ -242,28 +252,30 @@ function TarotFactRow({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: warmWhite,
+  },
+  contentStage: {
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 22,
-    paddingVertical: 0,
-    backgroundColor: warmWhite,
   },
   experienceContent: {
     width: '100%',
     alignItems: 'center',
-    transform: [{ translateY: -16 }],
+    gap: 10,
   },
   cardStage: {
     width: '100%',
-    minHeight: 450,
     alignItems: 'center',
     justifyContent: 'center',
   },
   glow: {
     position: 'absolute',
-    width: 310,
-    height: 310,
-    borderRadius: 155,
+    width: 286,
+    height: 286,
+    borderRadius: 143,
     borderWidth: 1,
     borderColor: 'rgba(168, 131, 80, 0.24)',
     backgroundColor: 'rgba(217, 189, 134, 0.14)',
@@ -273,22 +285,22 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
   },
   pressTarget: {
-    borderRadius: 30,
+    borderRadius: 28,
   },
   pressed: {
     opacity: 0.96,
   },
   cardWrap: {
-    width: 292,
+    width: 270,
     aspectRatio: 767.25 / 1152.75,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    borderRadius: 28,
+    borderRadius: 26,
     shadowColor: '#4E3C20',
     shadowOpacity: 0.22,
-    shadowRadius: 26,
-    shadowOffset: { width: 0, height: 18 },
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 16 },
   },
   cardImage: {
     width: '100%',
@@ -362,8 +374,8 @@ const styles = StyleSheet.create({
       web: '"Kaiti SC", "STKaiti", "KaiTi", serif',
       default: 'serif',
     }),
-    fontSize: 12.5,
-    lineHeight: 18,
+    fontSize: 11.5,
+    lineHeight: 16,
     fontWeight: '600',
     letterSpacing: 0,
   },
@@ -381,7 +393,7 @@ const styles = StyleSheet.create({
   },
   flipHint: {
     width: '100%',
-    maxWidth: 360,
+    maxWidth: 340,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -396,45 +408,50 @@ const styles = StyleSheet.create({
   },
   quoteSection: {
     width: '100%',
-    maxWidth: 360,
-    gap: 8,
-    paddingTop: 2,
+    maxWidth: 340,
+    gap: 10,
+    paddingTop: 4,
   },
   quoteTitle: {
-    color: gold,
+    color: goldDeep,
     fontFamily: 'Georgia',
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '600',
     textAlign: 'center',
+    letterSpacing: 0.2,
   },
   rule: {
     alignSelf: 'center',
-    width: 112,
+    width: 96,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(168, 131, 80, 0.45)',
+    backgroundColor: 'rgba(139, 106, 56, 0.5)',
   },
   quoteBody: {
     color: ink,
     fontSize: 14,
-    lineHeight: 19,
+    lineHeight: 21,
     textAlign: 'center',
     fontWeight: '400',
+  },
+  meaningBlock: {
+    gap: 6,
+    paddingTop: 2,
   },
   meaningText: {
     color: '#5F687A',
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 20,
     textAlign: 'center',
   },
   meaningEmphasis: {
     fontStyle: 'italic',
   },
   closing: {
-    marginTop: 0,
+    marginTop: 6,
     color: ink,
     fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
     textAlign: 'center',
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

@@ -147,147 +147,179 @@ export function FulfilledWishlistCard({
     <View
       style={{
         padding: spacing.lg,
-        gap: spacing.md,
+        gap: spacing.lg,
         backgroundColor: colors.surface,
         borderRadius: radius.large,
         borderCurve: 'continuous',
       }}>
-      <View style={{ gap: spacing.xs }}>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: spacing.md,
+        }}>
+        <View style={{ flex: 1, gap: spacing.xs, minWidth: 0 }}>
+          <Text
+            selectable
+            style={{ color: colors.textPrimary, ...typography.cardTitle }}>
+            {item.name}
+          </Text>
+          <Text
+            selectable
+            style={{ color: colors.textSecondary, ...typography.caption }}>
+            {formatDate(item.fulfilled_at)}
+          </Text>
+        </View>
         <Text
           selectable
-          style={{ color: colors.textPrimary, ...typography.cardTitle }}>
-          {item.name}
-        </Text>
-        <Text
-          selectable
-          style={{ color: colors.textSecondary, ...typography.caption }}>
-          {formatDate(item.fulfilled_at)}
+          style={{
+            color: colors.textPrimary,
+            ...typography.sectionTitle,
+            fontVariant: ['tabular-nums'],
+            flexShrink: 0,
+          }}>
+          {formatCurrency(item.actual_price)}
         </Text>
       </View>
-      <Text
-        selectable
-        style={{
-          color: colors.textPrimary,
-          ...typography.sectionTitle,
-          fontVariant: ['tabular-nums'],
-        }}>
-        {formatCurrency(item.actual_price)}
-      </Text>
+
       <View style={{ gap: spacing.sm }}>
         <TotalRow label="忍住消费抵扣" value={spendingTotal} />
         <TotalRow label="已卖闲置抵扣" value={salesTotal} />
         <TotalRow label="自付金额" value={selfPaid} />
-      </View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded }}
-        onPress={() => setExpanded((current) => !current)}
-        style={({ pressed }) => ({
-          alignSelf: 'flex-start',
-          minHeight: 44,
-          justifyContent: 'center',
-          opacity: pressed ? 0.6 : 1,
-        })}>
-        <Text style={{ color: colors.accent, fontWeight: '700' }}>
-          {expanded ? '收起资金明细' : '查看资金明细'}
-        </Text>
-      </Pressable>
-      {expanded ? (
-        <View style={{ gap: spacing.md }}>
-          {itemAllocations.length ? (
-            itemAllocations.map((allocation) => {
-              const resolutionId = allocation.spending_resolution_id;
-              const saleId = allocation.asset_sale_id;
-              const name = resolutionId
-                ? resolutionNames.get(resolutionId) ?? '忍住消费记录'
-                : saleNames.get(saleId ?? '') ?? '闲置成交记录';
-              return (
-                <View
-                  key={allocation.id}
-                  style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    gap: spacing.md,
-                  }}>
-                  <Text
-                    selectable
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded }}
+          onPress={() => setExpanded((current) => !current)}
+          style={({ pressed }) => ({
+            alignSelf: 'flex-start',
+            minHeight: 36,
+            justifyContent: 'center',
+            opacity: pressed ? 0.6 : 1,
+          })}>
+          <Text
+            style={{
+              color: colors.accent,
+              ...typography.label,
+              fontWeight: '700',
+            }}>
+            {expanded ? '收起资金明细' : '查看资金明细'}
+          </Text>
+        </Pressable>
+        {expanded ? (
+          <View style={{ gap: spacing.sm }}>
+            {itemAllocations.length ? (
+              itemAllocations.map((allocation) => {
+                const resolutionId = allocation.spending_resolution_id;
+                const saleId = allocation.asset_sale_id;
+                const name = resolutionId
+                  ? resolutionNames.get(resolutionId) ?? '忍住消费记录'
+                  : saleNames.get(saleId ?? '') ?? '闲置成交记录';
+                return (
+                  <View
+                    key={allocation.id}
                     style={{
-                      flex: 1,
-                      color: colors.textSecondary,
-                      ...typography.label,
+                      flexDirection: 'row',
+                      justifyContent: 'space-between',
+                      gap: spacing.md,
                     }}>
-                    {name}
-                  </Text>
-                  <Text
-                    selectable
-                    style={{
-                      color: colors.textPrimary,
-                      ...typography.label,
-                      fontWeight: '600',
-                      fontVariant: ['tabular-nums'],
-                    }}>
-                    {formatCurrency(allocation.amount)}
-                  </Text>
-                </View>
-              );
-            })
-          ) : (
-            <Text
-              selectable
-              style={{ color: colors.textSecondary, ...typography.body }}>
-              全部自付
-            </Text>
-          )}
-        </View>
-      ) : null}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`分享成就${item.name}`}
-        onPress={() => {
-          setShareRevealed(false);
-          setShareOpen(true);
-        }}
-        style={({ pressed }) => ({
-          alignSelf: 'flex-start',
-          minHeight: 44,
-          justifyContent: 'center',
-          opacity: pressed ? 0.6 : 1,
-        })}>
-        <Text style={{ color: colors.accent, fontWeight: '700' }}>
-          分享成就
-        </Text>
-      </Pressable>
-      <Pressable
-        accessibilityLabel={`撤销实现${item.name}`}
-        accessibilityRole="button"
-        accessibilityState={{ disabled }}
-        disabled={disabled}
-        onPress={confirmUndo}
-        style={({ pressed }) => ({
-          alignSelf: 'flex-start',
-          minHeight: 44,
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: spacing.sm,
-          opacity: pressed || disabled ? 0.6 : 1,
-        })}>
-        {undoing ? (
-          <ActivityIndicator color={colors.danger} size="small" />
+                    <Text
+                      selectable
+                      style={{
+                        flex: 1,
+                        color: colors.textSecondary,
+                        ...typography.label,
+                      }}>
+                      {name}
+                    </Text>
+                    <Text
+                      selectable
+                      style={{
+                        color: colors.textPrimary,
+                        ...typography.label,
+                        fontWeight: '600',
+                        fontVariant: ['tabular-nums'],
+                      }}>
+                      {formatCurrency(allocation.amount)}
+                    </Text>
+                  </View>
+                );
+              })
+            ) : (
+              <Text
+                selectable
+                style={{ color: colors.textSecondary, ...typography.body }}>
+                全部自付
+              </Text>
+            )}
+          </View>
         ) : null}
-        <Text style={{ color: colors.danger, fontWeight: '700' }}>
-          {undoing ? '撤销中…' : '撤销实现'}
-        </Text>
-      </Pressable>
+      </View>
+
+      <View style={{ gap: spacing.sm }}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`分享成就${item.name}`}
+          onPress={() => {
+            setShareRevealed(false);
+            setShareOpen(true);
+          }}
+          style={({ pressed }) => ({
+            minHeight: 48,
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: radius.medium,
+            borderCurve: 'continuous',
+            backgroundColor: colors.accent,
+            opacity: pressed ? 0.78 : 1,
+          })}>
+          <Text
+            style={{
+              color: colors.onDark,
+              ...typography.body,
+              fontWeight: '700',
+            }}>
+            分享成就
+          </Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel={`撤销实现${item.name}`}
+          accessibilityRole="button"
+          accessibilityState={{ disabled }}
+          disabled={disabled}
+          onPress={confirmUndo}
+          style={({ pressed }) => ({
+            alignSelf: 'center',
+            minHeight: 40,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: spacing.sm,
+            opacity: pressed || disabled ? 0.6 : 1,
+          })}>
+          {undoing ? (
+            <ActivityIndicator color={colors.danger} size="small" />
+          ) : null}
+          <Text
+            style={{
+              color: colors.danger,
+              ...typography.label,
+              fontWeight: '600',
+            }}>
+            {undoing ? '撤销中…' : '撤销实现'}
+          </Text>
+        </Pressable>
+      </View>
       <Modal
         animationType="fade"
         onRequestClose={() => setShareOpen(false)}
         presentationStyle="fullScreen"
+        statusBarTranslucent
         visible={shareOpen}>
         <View
           style={{
             flex: 1,
-            backgroundColor: '#FFFCF5',
-            paddingTop: insets.top,
+            backgroundColor: '#FFFDF8',
             paddingBottom: insets.bottom,
           }}>
           <LinearGradient
@@ -295,34 +327,32 @@ export function FulfilledWishlistCard({
             pointerEvents="none"
             style={StyleSheet.absoluteFill}
           />
-          <View
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="关闭分享卡片"
+            hitSlop={8}
+            onPress={() => setShareOpen(false)}
             style={{
-              paddingHorizontal: spacing.xl,
-              paddingVertical: spacing.md,
+              position: 'absolute',
+              top: insets.top,
+              left: spacing.lg,
+              zIndex: 2,
+              width: 44,
+              height: 44,
+              alignItems: 'center',
+              justifyContent: 'center',
             }}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="关闭分享卡片"
-              hitSlop={8}
-              onPress={() => setShareOpen(false)}
+            <Text
               style={{
-                width: 44,
-                height: 44,
-                alignItems: 'flex-start',
-                justifyContent: 'center',
+                color: colors.textPrimary,
+                fontSize: 28,
+                fontWeight: '400',
+                lineHeight: 32,
               }}>
-              <Text
-                style={{
-                  color: colors.textPrimary,
-                  fontSize: 28,
-                  fontWeight: '400',
-                  lineHeight: 32,
-                }}>
-                ×
-              </Text>
-            </Pressable>
-          </View>
-          <View style={{ flex: 1, justifyContent: 'space-between' }}>
+              ×
+            </Text>
+          </Pressable>
+          <View style={{ flex: 1 }}>
             <View
               ref={shareRef}
               collapsable={false}
@@ -338,9 +368,10 @@ export function FulfilledWishlistCard({
             </View>
             <View
               style={{
-                height: 88,
+                minHeight: 72,
                 alignItems: 'center',
                 justifyContent: 'center',
+                paddingTop: spacing.sm,
                 paddingBottom: spacing.lg,
               }}>
               {shareRevealed ? (

@@ -16,10 +16,8 @@ import { ChatHistoryDrawer } from '@/components/chat-history-drawer';
 import { ChatThread } from '@/components/chat-thread';
 import { colors, spacing } from '@/constants/colors';
 import {
-  createAgentMessage,
-  createPurchaseEvaluationThread,
-  getOrCreateGeneralThread,
-  listAgentMessages,
+  getThreadIdForEvaluation,
+  listAgentThreads,
 } from '@/lib/agent-chat';
 
 export default function EvaluationScreen() {
@@ -64,125 +62,7 @@ export default function EvaluationScreen() {
     router.replace('/(tabs)/(evaluation)');
   };
 
-  const openConversation = (id: string) => {
-    setActiveId(id);
-    setPrompt('');
-    setPhotos([]);
-    setError('');
-    setOpen(false);
-    router.setParams({ evaluationId: id });
-  };
-
-  const analyze = async () => {
-    if (!session) return;
-    const text = prompt.trim();
-    if (!text && !photos.length) {
-      setError('请描述商品、粘贴链接，或添加一张图片');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    let uploadedPaths: string[] = [];
-    let saved = false;
-    try {
-      let product: ParsedProduct;
-
-      if (photos.length) {
-        const uploaded = await uploadPhotos(
-          photos.map((photo) => photo.base64 ?? ''),
-          session.user.id,
-        );
-        uploadedPaths = uploaded.map((photo) => photo.path);
-        const recognized = await analyzeProductPhotos(
-          uploaded.map((photo) => photo.signedUrl),
-        );
-        product = {
-          ...recognized,
-          price: recognized.price ?? extractProductPrice(text),
-          source_text: text,
-        };
-      } else {
-        const normalizedUrl = normalizeProductUrl(text);
-        if ('url' in normalizedUrl) {
-          product = await parseProduct(normalizedUrl.url);
-        } else {
-          const description = normalizeProductDescription(text);
-          if ('error' in description) {
-            setError(description.error);
-            return;
-          }
-          const interpreted = await normalizeProductText(
-            description.text,
-            extractProductPrice(description.text),
-          );
-          if (interpreted.intent === 'chat' || !interpreted.product) {
-            const thread =
-              generalThread.data ??
-              (await getOrCreateGeneralThread(session.user.id));
-            const messages = (generalMessages.data ?? []).map(
-              ({ role, content }) => ({ role, content }),
-            );
-            messages.push({ role: 'user', content: text });
-            await createAgentMessage(
-              thread.id,
-              session.user.id,
-              'user',
-              text,
-            );
-            await queryClient.invalidateQueries({
-              queryKey: ['agent-messages', thread.id],
-            });
-            const response = await chatFreely(messages.slice(-100));
-            await createAgentMessage(
-              thread.id,
-              session.user.id,
-              'assistant',
-              response.message ||
-                interpreted.reply ||
-                '我在，慢慢说。',
-            );
-            await queryClient.invalidateQueries({
-              queryKey: ['agent-messages', thread.id],
-            });
-            setPrompt('');
-            return;
-          }
-          product = interpreted.product;
-        }
-      }
-
-      const assets = await listEvaluationAssets();
-      const result = await evaluatePurchase(product, assets);
-      const thread = await createPurchaseEvaluationThread(
-        session.user.id,
-        result.product.title,
-      );
-      const evaluation = await createPurchaseEvaluation(
-        session.user.id,
-        thread.id,
-        result,
-        { imagePaths: uploadedPaths },
-      );
-      saved = true;
-      await queryClient.invalidateQueries({
-        queryKey: ['purchase-evaluations'],
-      });
-      setPrompt('');
-      setPhotos([]);
-      setConversationTitle(evaluation.product_title);
-      setActiveId(evaluation.id);
-    } catch (caught) {
-      if (!saved && uploadedPaths.length) {
-        await removePhotos(uploadedPaths).catch(() => undefined);
-      }
-      setError(caught instanceof Error ? caught.message : '发送失败');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const headerTitle = activeId ? conversationTitle : '聊天';
+  const headerTitle = activeThreadId ? conversationTitle : '聊天';
 
   return (
     <>
@@ -250,21 +130,18 @@ export default function EvaluationScreen() {
                 tintColor={colors.textPrimary}
               />
             </Pressable>
-            <View style={{ flex: 1, height: 22, justifyContent: 'center', overflow: 'hidden' }}>
-              <Text
-                selectable
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={{
-                  textAlign: 'center',
-                  fontSize: 17,
-                  lineHeight: 22,
-                  fontWeight: '600',
-                  color: colors.textPrimary,
-                }}>
-                {headerTitle}
-              </Text>
-            </View>
+            <Text
+              selectable
+              numberOfLines={1}
+              style={{
+                flex: 1,
+                textAlign: 'center',
+                fontSize: 17,
+                fontWeight: '600',
+                color: colors.textPrimary,
+              }}>
+              {headerTitle}
+            </Text>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="新聊天"

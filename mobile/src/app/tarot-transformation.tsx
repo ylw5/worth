@@ -53,9 +53,10 @@ export default function TarotTransformationScreen() {
       </View>
       <View
         style={{
-          height: 88,
+          minHeight: 72,
           alignItems: 'center',
           justifyContent: 'center',
+          paddingTop: spacing.sm,
           paddingBottom: spacing.lg,
           backgroundColor: '#FFFCF5',
         }}>

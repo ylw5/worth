@@ -1,10 +1,12 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Pressable,
+  StyleSheet,
   Text,
   View,
 } from 'react-native';
@@ -77,37 +79,39 @@ export default function WishAchievementScreen() {
       <View
         style={{
           flex: 1,
-          backgroundColor: colors.surface,
-          paddingTop: insets.top,
+          backgroundColor: '#FFFDF8',
           paddingBottom: insets.bottom,
         }}>
-        <View
+        <LinearGradient
+          colors={['#FFFDF8', '#F7F1E6', '#FFFCF5']}
+          pointerEvents="none"
+          style={StyleSheet.absoluteFill}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="关闭"
+          hitSlop={8}
+          onPress={close}
           style={{
-            paddingHorizontal: spacing.xl,
-            paddingVertical: spacing.md,
+            position: 'absolute',
+            top: insets.top,
+            left: spacing.lg,
+            zIndex: 2,
+            width: 44,
+            height: 44,
+            alignItems: 'center',
+            justifyContent: 'center',
           }}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="关闭"
-            hitSlop={8}
-            onPress={close}
+          <Text
             style={{
-              width: 44,
-              height: 44,
-              alignItems: 'flex-start',
-              justifyContent: 'center',
+              color: colors.textPrimary,
+              fontSize: 28,
+              fontWeight: '400',
+              lineHeight: 32,
             }}>
-            <Text
-              style={{
-                color: colors.textPrimary,
-                fontSize: 28,
-                fontWeight: '400',
-                lineHeight: 32,
-              }}>
-              ×
-            </Text>
-          </Pressable>
-        </View>
+            ×
+          </Text>
+        </Pressable>
 
         {query.isLoading ? <LoadingState /> : null}
         {query.error ? <ErrorState message={query.error.message} /> : null}
@@ -116,12 +120,7 @@ export default function WishAchievementScreen() {
         ) : null}
 
         {fulfilled && item ? (
-          <View
-            style={{
-              flex: 1,
-              justifyContent: 'space-between',
-              overflow: 'visible',
-            }}>
+          <View style={{ flex: 1, overflow: 'visible' }}>
             <View
               ref={cardRef}
               collapsable={false}
@@ -135,38 +134,45 @@ export default function WishAchievementScreen() {
               />
             </View>
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="保存图片"
-              disabled={saveMutation.isPending || capturing}
-              onPress={() => saveMutation.mutate()}
-              style={({ pressed }) => ({
-                marginTop: spacing.lg,
-                marginBottom: spacing.xl,
-                alignSelf: 'center',
-                minWidth: 200,
-                minHeight: 52,
-                paddingHorizontal: spacing.xxxl,
+            <View
+              style={{
+                minHeight: 72,
                 alignItems: 'center',
                 justifyContent: 'center',
-                borderRadius: 999,
-                backgroundColor: colors.textPrimary,
-                opacity:
-                  pressed || saveMutation.isPending || capturing ? 0.65 : 1,
-              })}>
-              {saveMutation.isPending || capturing ? (
-                <ActivityIndicator color={colors.onDark} />
-              ) : (
-                <Text
-                  style={{
-                    color: colors.onDark,
-                    ...typography.cardTitle,
-                    fontWeight: '700',
-                  }}>
-                  保存图片
-                </Text>
-              )}
-            </Pressable>
+                paddingTop: spacing.sm,
+                paddingBottom: spacing.xl,
+              }}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="保存图片"
+                disabled={saveMutation.isPending || capturing}
+                onPress={() => saveMutation.mutate()}
+                style={({ pressed }) => ({
+                  alignSelf: 'center',
+                  minWidth: 200,
+                  minHeight: 52,
+                  paddingHorizontal: spacing.xxxl,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderRadius: 999,
+                  backgroundColor: colors.textPrimary,
+                  opacity:
+                    pressed || saveMutation.isPending || capturing ? 0.65 : 1,
+                })}>
+                {saveMutation.isPending || capturing ? (
+                  <ActivityIndicator color={colors.onDark} />
+                ) : (
+                  <Text
+                    style={{
+                      color: colors.onDark,
+                      ...typography.cardTitle,
+                      fontWeight: '700',
+                    }}>
+                    保存图片
+                  </Text>
+                )}
+              </Pressable>
+            </View>
           </View>
         ) : null}
       </View>
