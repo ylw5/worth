@@ -116,6 +116,7 @@ export function stripDecisionMark(message: string): string {
 export type PurchaseEvaluation = {
   id: string;
   user_id: string;
+  thread_id: string;
   product_url: string;
   product_title: string;
   product_price: number | null;
@@ -190,6 +191,7 @@ export async function getPurchaseEvaluation(
 
 export async function createPurchaseEvaluation(
   userId: string,
+  threadId: string,
   result: PurchaseEvaluationResult,
   options: { imagePaths?: string[] } = {},
 ): Promise<PurchaseEvaluation> {
@@ -199,6 +201,7 @@ export async function createPurchaseEvaluation(
     .from('purchase_evaluations')
     .insert({
       user_id: userId,
+      thread_id: threadId,
       product_url: product.url,
       product_title: product.title,
       product_price: product.price,
@@ -226,6 +229,18 @@ export async function createPurchaseEvaluation(
     throw caught;
   }
   return evaluation;
+}
+
+export async function listEvaluationsForThread(
+  threadId: string,
+): Promise<PurchaseEvaluation[]> {
+  const { data, error } = await supabase
+    .from('purchase_evaluations')
+    .select('*')
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: true });
+  fail(error);
+  return (data ?? []) as PurchaseEvaluation[];
 }
 
 export async function updateEvaluationDecision(

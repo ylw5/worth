@@ -83,3 +83,21 @@ export async function listConfirmedSpendingResolutions(): Promise<
     amount: Number(resolution.amount),
   }));
 }
+
+export async function listSpendingResolutionsForThread(
+  threadId: string,
+): Promise<SpendingResolution[]> {
+  const { data: evaluations, error: evalError } = await supabase
+    .from('purchase_evaluations')
+    .select('id')
+    .eq('thread_id', threadId);
+  fail(evalError);
+  const ids = (evaluations ?? []).map((row) => row.id);
+  if (!ids.length) return [];
+  const { data, error } = await supabase
+    .from('spending_resolutions')
+    .select('*')
+    .in('evaluation_id', ids);
+  fail(error);
+  return (data ?? []) as SpendingResolution[];
+}
