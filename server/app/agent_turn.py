@@ -24,6 +24,9 @@ TOOL_LABELS: dict[str, str] = {
     "market_price_snapshot": "查看市场样本",
     "evaluation_history_list": "查看购买经历",
     "wishlist_list": "查看心愿",
+    "funding_summary": "核对心愿资金",
+    "wishlist_sell_plan_preview": "预览卖出组合",
+    "asset_decision_context": "查看资产证据",
     "bind_purchase_evaluation": "整理评估记录",
 }
 

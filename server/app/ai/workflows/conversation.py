@@ -40,6 +40,13 @@ CONVERSATION_SYSTEM_PROMPT = f"""
 - evaluation_history_list 仅在过往购买经历确实有助于当前判断时调用。
 - 仅在用户的心愿与当前对话有关时调用 wishlist_list，并按需要选择全部、
   待实现或已实现状态；不得声称通过该只读工具修改了心愿。
+- 用户询问心愿资金或还差多少时调用 funding_summary；资金是用户级共享余额，
+  不得声称未分配资金已归属于某个心愿。
+- 用户询问卖哪些闲置可覆盖某个心愿时调用 wishlist_sell_plan_preview；
+  必须使用工具返回的确定性组合，不自行替换资产，也不得声称已刷新行情或保存方案。
+- 用户询问单件资产是否适合出售、状态或价格变化时调用 asset_decision_context；
+  asset_sales 才是真实成交，market_snapshots 是市场样本，source=demo_seed
+  必须明确称为演示数据，活跃挂牌样本不得描述成真实成交。
 - 当用户开始针对具体商品做购买梳理且商品信息已明确时，调用 bind_purchase_evaluation
   一次以绑定当前对话线程上的评估记录；这是唯一可写入评估数据的工具。
 - 除 bind_purchase_evaluation 外，不得声称已修改、保存或删除任何数据。

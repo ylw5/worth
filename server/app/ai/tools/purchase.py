@@ -36,6 +36,14 @@ class AssetToolRecord(BaseModel):
     category: str
     subcategory: str
     status: str
+    purchase_date: str | None = None
+    purchase_price: float | None = None
+    latest_market_price: float | None = None
+    latest_market_price_low: float | None = None
+    latest_market_price_high: float | None = None
+    latest_valuation_at: str | None = None
+    status_confirmed_at: str | None = None
+    status_source: str | None = None
 
 
 class AssetsListOutput(BaseModel):
@@ -148,7 +156,10 @@ class PurchaseToolHandlers:
         query = (
             self._supabase.table("assets")
             .select(
-                "id, name, brand, model, category, subcategory, status"
+                "id, name, brand, model, category, subcategory, status,"
+                " purchase_date, purchase_price, latest_market_price,"
+                " latest_market_price_low, latest_market_price_high,"
+                " latest_valuation_at, status_confirmed_at, status_source"
             )
             .eq("user_id", context.user_id)
             .eq("category", parsed.category)

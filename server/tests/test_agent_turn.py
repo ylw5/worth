@@ -19,6 +19,9 @@ def _messages():
 
 def test_wishlist_tool_has_visible_label():
     assert TOOL_LABELS["wishlist_list"] == "查看心愿"
+    assert TOOL_LABELS["funding_summary"] == "核对心愿资金"
+    assert TOOL_LABELS["wishlist_sell_plan_preview"] == "预览卖出组合"
+    assert TOOL_LABELS["asset_decision_context"] == "查看资产证据"
 
 
 def test_run_agent_turn_returns_message_and_bound_evaluation(monkeypatch):

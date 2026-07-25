@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,11 +11,13 @@ from ...models import (
     Category,
     ParsedProduct,
     ProductSource,
+    SellPlanReadinessCounts,
 )
 from ...product import fetch_product_page
+from ...sell_plan_orchestration import prepare_sell_plan_from_assets
 from ..contracts import RunContext
 from ..errors import ToolExecutionError
-from .purchase import build_purchase_tool_registry
+from .purchase import AssetToolRecord, build_purchase_tool_registry
 from .registry import ToolRegistry
 
 if TYPE_CHECKING:
@@ -65,6 +68,120 @@ class WishlistListOutput(BaseModel):
     items: list[WishlistToolRecord]
 
 
+class FundingSummaryInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ActiveWishFunding(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    name: str
+    target_price: float
+    remaining_gap: float
+
+
+class FundingSummaryOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    available_spending: float = Field(ge=0)
+    available_sales: float = Field(ge=0)
+    available_total: float = Field(ge=0)
+    allocated_total: float = Field(ge=0)
+    active_wishes: list[ActiveWishFunding]
+
+
+class WishlistSellPlanPreviewInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    wishlist_item_id: str = Field(min_length=1, max_length=100)
+
+
+class SellPlanPreviewAsset(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    name: str
+    status: str
+    conservative_price: float
+    latest_valuation_at: str | None = None
+
+
+class WishlistSellPlanPreviewOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    wishlist_item_id: str
+    wishlist_name: str
+    target_price: float
+    available_funding: float = Field(ge=0)
+    remaining_gap: float = Field(ge=0)
+    readiness_counts: SellPlanReadinessCounts
+    selected_assets: list[SellPlanPreviewAsset]
+    conservative_total: float = Field(ge=0)
+    coverage_ratio: float = Field(ge=0, le=1)
+    is_reachable: bool
+    evidence_gaps: list[str]
+
+
+class AssetDecisionContextInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    asset_id: str = Field(min_length=1, max_length=100)
+    days: int = Field(default=30, ge=1, le=90)
+
+
+class AssetStatusEventRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    from_status: str | None = None
+    to_status: str
+    created_at: str
+
+
+class AssetSaleRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sold_at: str
+    sale_price: float
+
+
+class MarketSnapshotRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    snapshot_date: str
+    estimated_price: float
+    price_low: float
+    price_high: float
+    sample_count: int
+    query: str
+    source: str
+    is_demo: bool = False
+    created_at: str
+
+
+class AnalysisRunRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: str
+    status: str
+    run_date: str
+    attempt_count: int
+    error_message: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+
+
+class AssetDecisionContextOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    asset: AssetToolRecord
+    status_events: list[AssetStatusEventRecord]
+    sale: AssetSaleRecord | None = None
+    market_snapshots: list[MarketSnapshotRecord]
+    analysis_runs: list[AnalysisRunRecord]
+    valuation_is_stale: bool | None = None
+
+
 class ParseProductUrlInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -87,6 +204,107 @@ class BindPurchaseEvaluationOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     evaluation_id: str
+
+
+def _cents(value: Any) -> int:
+    try:
+        return max(round(float(value) * 100), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _funding_summary(
+    supabase_client: SupabaseClient,
+    user_id: str,
+) -> FundingSummaryOutput:
+    resolutions = (
+        supabase_client.table("spending_resolutions")
+        .select("id,amount")
+        .eq("user_id", user_id)
+        .filter("confirmed_at", "not.is", "null")
+        .execute()
+        .data
+        or []
+    )
+    sales = (
+        supabase_client.table("asset_sales")
+        .select("id,sale_price")
+        .eq("user_id", user_id)
+        .execute()
+        .data
+        or []
+    )
+    allocations = (
+        supabase_client.table("wishlist_funding_allocations")
+        .select("spending_resolution_id,asset_sale_id,amount")
+        .eq("user_id", user_id)
+        .execute()
+        .data
+        or []
+    )
+    wishes = (
+        supabase_client.table("wishlist_items")
+        .select("id,name,target_price")
+        .eq("user_id", user_id)
+        .filter("fulfilled_at", "is", "null")
+        .order("created_at", desc=True)
+        .execute()
+        .data
+        or []
+    )
+    resolution_allocations: dict[str, int] = {}
+    sale_allocations: dict[str, int] = {}
+    for allocation in allocations:
+        amount = _cents(allocation.get("amount"))
+        if allocation.get("spending_resolution_id"):
+            source_id = str(allocation["spending_resolution_id"])
+            resolution_allocations[source_id] = (
+                resolution_allocations.get(source_id, 0) + amount
+            )
+        elif allocation.get("asset_sale_id"):
+            source_id = str(allocation["asset_sale_id"])
+            sale_allocations[source_id] = (
+                sale_allocations.get(source_id, 0) + amount
+            )
+    spending_cents = sum(
+        max(
+            _cents(source.get("amount"))
+            - resolution_allocations.get(str(source.get("id")), 0),
+            0,
+        )
+        for source in resolutions
+    )
+    sales_cents = sum(
+        max(
+            _cents(source.get("sale_price"))
+            - sale_allocations.get(str(source.get("id")), 0),
+            0,
+        )
+        for source in sales
+    )
+    available_cents = spending_cents + sales_cents
+    return FundingSummaryOutput(
+        available_spending=spending_cents / 100,
+        available_sales=sales_cents / 100,
+        available_total=available_cents / 100,
+        allocated_total=sum(
+            _cents(allocation.get("amount")) for allocation in allocations
+        )
+        / 100,
+        active_wishes=[
+            ActiveWishFunding(
+                id=str(wish["id"]),
+                name=str(wish["name"]),
+                target_price=_cents(wish.get("target_price")) / 100,
+                remaining_gap=max(
+                    _cents(wish.get("target_price")) - available_cents,
+                    0,
+                )
+                / 100,
+            )
+            for wish in wishes
+        ],
+    )
 
 
 def _interpret_text(
@@ -326,6 +544,217 @@ class ConversationToolHandlers:
             ]
         )
 
+    def funding_summary(
+        self,
+        arguments: BaseModel,
+        context: RunContext,
+    ) -> FundingSummaryOutput:
+        del arguments
+        return _funding_summary(self._supabase, context.user_id)
+
+    def wishlist_sell_plan_preview(
+        self,
+        arguments: BaseModel,
+        context: RunContext,
+    ) -> WishlistSellPlanPreviewOutput:
+        parsed = WishlistSellPlanPreviewInput.model_validate(arguments)
+        funding = _funding_summary(self._supabase, context.user_id)
+        wish = next(
+            (
+                item
+                for item in funding.active_wishes
+                if item.id == parsed.wishlist_item_id
+            ),
+            None,
+        )
+        if wish is None:
+            raise ToolExecutionError("心愿不存在或已实现")
+        zero_counts = SellPlanReadinessCounts(
+            needs_confirmation=0,
+            needs_valuation=0,
+            stale_valuation=0,
+            ready=0,
+            excluded=0,
+        )
+        if wish.remaining_gap <= 0:
+            return WishlistSellPlanPreviewOutput(
+                wishlist_item_id=wish.id,
+                wishlist_name=wish.name,
+                target_price=wish.target_price,
+                available_funding=funding.available_total,
+                remaining_gap=0,
+                readiness_counts=zero_counts,
+                selected_assets=[],
+                conservative_total=0,
+                coverage_ratio=1,
+                is_reachable=True,
+                evidence_gaps=[],
+            )
+        assets = (
+            self._supabase.table("assets")
+            .select(
+                "id,name,status,status_confirmed_at,status_source,"
+                "latest_market_price,latest_market_price_low,"
+                "latest_market_price_high,latest_valuation_at"
+            )
+            .eq("user_id", context.user_id)
+            .neq("status", "sold")
+            .order("updated_at", desc=True)
+            .execute()
+            .data
+            or []
+        )
+        prepared = prepare_sell_plan_from_assets(
+            wish.remaining_gap,
+            list(assets),
+        )
+        evidence_gaps = list(prepared.explanation.evidence_gaps)
+        if not prepared.plan.is_reachable and not evidence_gaps:
+            evidence_gaps.append("已确认可卖资产的保守估价不足以覆盖缺口")
+        return WishlistSellPlanPreviewOutput(
+            wishlist_item_id=wish.id,
+            wishlist_name=wish.name,
+            target_price=wish.target_price,
+            available_funding=funding.available_total,
+            remaining_gap=wish.remaining_gap,
+            readiness_counts=prepared.readiness_counts,
+            selected_assets=[
+                SellPlanPreviewAsset.model_validate(
+                    item.model_dump(mode="json")
+                )
+                for item in prepared.plan.items
+            ],
+            conservative_total=prepared.plan.estimated_total,
+            coverage_ratio=prepared.plan.coverage_ratio,
+            is_reachable=prepared.plan.is_reachable,
+            evidence_gaps=evidence_gaps,
+        )
+
+    def asset_decision_context(
+        self,
+        arguments: BaseModel,
+        context: RunContext,
+    ) -> AssetDecisionContextOutput:
+        parsed = AssetDecisionContextInput.model_validate(arguments)
+        asset_response = (
+            self._supabase.table("assets")
+            .select(
+                "id,name,brand,model,category,subcategory,status,"
+                "purchase_date,purchase_price,latest_market_price,"
+                "latest_market_price_low,latest_market_price_high,"
+                "latest_valuation_at,status_confirmed_at,status_source,"
+                "market_key"
+            )
+            .eq("id", parsed.asset_id)
+            .eq("user_id", context.user_id)
+            .limit(1)
+            .execute()
+        )
+        asset_rows = asset_response.data or []
+        if not asset_rows:
+            raise ToolExecutionError("资产不存在")
+        asset_data = dict(asset_rows[0])
+        market_key = asset_data.pop("market_key", None)
+        asset = AssetToolRecord.model_validate(asset_data)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=parsed.days)
+        events = (
+            self._supabase.table("asset_status_events")
+            .select("from_status,to_status,created_at")
+            .eq("asset_id", parsed.asset_id)
+            .eq("user_id", context.user_id)
+            .gte("created_at", cutoff.isoformat())
+            .order("created_at", desc=True)
+            .execute()
+            .data
+            or []
+        )
+        sale_rows = (
+            self._supabase.table("asset_sales")
+            .select("sold_at,sale_price")
+            .eq("asset_id", parsed.asset_id)
+            .eq("user_id", context.user_id)
+            .limit(1)
+            .execute()
+            .data
+            or []
+        )
+        snapshots = (
+            self._supabase.table("market_snapshots")
+            .select(
+                "snapshot_date,estimated_price,price_low,price_high,"
+                "sample_count,query,source,created_at"
+            )
+            .eq("asset_id", parsed.asset_id)
+            .eq("user_id", context.user_id)
+            .gte("snapshot_date", cutoff.date().isoformat())
+            .order("snapshot_date", desc=True)
+            .limit(parsed.days)
+            .execute()
+            .data
+            or []
+        )
+        runs_query = (
+            self._supabase.table("analysis_runs")
+            .select(
+                "kind,status,run_date,attempt_count,error_message,"
+                "started_at,finished_at"
+            )
+            .eq("user_id", context.user_id)
+            .gte("run_date", cutoff.date().isoformat())
+        )
+        runs_query = (
+            runs_query.eq("market_key", market_key)
+            if market_key
+            else runs_query.eq("asset_id", parsed.asset_id)
+        )
+        runs = (
+            runs_query.order("run_date", desc=True)
+            .limit(parsed.days)
+            .execute()
+            .data
+            or []
+        )
+        valuation_is_stale = None
+        if asset.latest_valuation_at:
+            try:
+                valued_at = datetime.fromisoformat(
+                    asset.latest_valuation_at.replace("Z", "+00:00")
+                )
+                if valued_at.tzinfo is None:
+                    valued_at = valued_at.replace(tzinfo=timezone.utc)
+                valuation_is_stale = (
+                    datetime.now(timezone.utc)
+                    - valued_at.astimezone(timezone.utc)
+                    > timedelta(days=7)
+                )
+            except ValueError:
+                valuation_is_stale = None
+        return AssetDecisionContextOutput(
+            asset=asset,
+            status_events=[
+                AssetStatusEventRecord.model_validate(event)
+                for event in events
+            ],
+            sale=(
+                AssetSaleRecord.model_validate(sale_rows[0])
+                if sale_rows
+                else None
+            ),
+            market_snapshots=[
+                MarketSnapshotRecord.model_validate(
+                    {
+                        **snapshot,
+                        "is_demo": snapshot.get("source") == "demo_seed",
+                    }
+                )
+                for snapshot in snapshots
+            ],
+            analysis_runs=[
+                AnalysisRunRecord.model_validate(run) for run in runs
+            ],
+            valuation_is_stale=valuation_is_stale,
+        )
+
     def bind_purchase_evaluation(
         self,
         arguments: BaseModel,
@@ -362,6 +791,9 @@ CONVERSATION_TOOL_NAMES = (
     "market_price_snapshot",
     "evaluation_history_list",
     "wishlist_list",
+    "funding_summary",
+    "wishlist_sell_plan_preview",
+    "asset_decision_context",
     "bind_purchase_evaluation",
 )
 
@@ -402,6 +834,34 @@ def build_conversation_tool_registry(
         input_model=WishlistListInput,
         output_model=WishlistListOutput,
         handler=handlers.list_wishlist,
+    )
+    registry.register(
+        name="funding_summary",
+        description=(
+            "汇总当前用户已确认的忍住消费、真实闲置成交款、已分配金额"
+            "和待实现心愿缺口"
+        ),
+        input_model=FundingSummaryInput,
+        output_model=FundingSummaryOutput,
+        handler=handlers.funding_summary,
+    )
+    registry.register(
+        name="wishlist_sell_plan_preview",
+        description=(
+            "只读预览指定心愿的确定性闲置卖出组合；不刷新行情、不保存方案"
+        ),
+        input_model=WishlistSellPlanPreviewInput,
+        output_model=WishlistSellPlanPreviewOutput,
+        handler=handlers.wishlist_sell_plan_preview,
+    )
+    registry.register(
+        name="asset_decision_context",
+        description=(
+            "读取单件资产的状态时间线、真实成交、市场快照和分析任务证据"
+        ),
+        input_model=AssetDecisionContextInput,
+        output_model=AssetDecisionContextOutput,
+        handler=handlers.asset_decision_context,
     )
     registry.register(
         name="bind_purchase_evaluation",

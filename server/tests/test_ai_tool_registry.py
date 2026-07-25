@@ -149,6 +149,14 @@ def test_assets_tool_uses_server_context_user_id() -> None:
                 "category": "数码",
                 "subcategory": "手机",
                 "status": "in_use",
+                "purchase_date": "2024-01-02",
+                "purchase_price": 5999,
+                "latest_market_price": 3200,
+                "latest_market_price_low": 2900,
+                "latest_market_price_high": 3500,
+                "latest_valuation_at": "2026-07-24T00:00:00+00:00",
+                "status_confirmed_at": "2026-07-23T00:00:00+00:00",
+                "status_source": "user",
             }
         ]
     )
@@ -166,7 +174,11 @@ def test_assets_tool_uses_server_context_user_id() -> None:
         context(),
     )
 
-    assert json.loads(result.output)["assets"][0]["id"] == "asset-1"
+    asset = json.loads(result.output)["assets"][0]
+    assert asset["id"] == "asset-1"
+    assert asset["purchase_price"] == 5999
+    assert asset["latest_market_price_low"] == 2900
+    assert asset["status_source"] == "user"
     eq_calls = client.table.return_value.eq.call_args_list
     assert eq_calls[0].args == ("user_id", "user-1")
     schema = registry.definitions(["assets_list"])[0].parameters

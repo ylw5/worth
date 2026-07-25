@@ -130,18 +130,21 @@ export default function EvaluationScreen() {
                 tintColor={colors.textPrimary}
               />
             </Pressable>
-            <Text
-              selectable
-              numberOfLines={1}
-              style={{
-                flex: 1,
-                textAlign: 'center',
-                fontSize: 17,
-                fontWeight: '600',
-                color: colors.textPrimary,
-              }}>
-              {headerTitle}
-            </Text>
+            <View style={{ flex: 1, height: 22, justifyContent: 'center', overflow: 'hidden' }}>
+              <Text
+                selectable
+                numberOfLines={1}
+                ellipsizeMode="tail"
+                style={{
+                  textAlign: 'center',
+                  fontSize: 17,
+                  lineHeight: 22,
+                  fontWeight: '600',
+                  color: colors.textPrimary,
+                }}>
+                {headerTitle}
+              </Text>
+            </View>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="新聊天"
