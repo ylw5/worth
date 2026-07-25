@@ -176,7 +176,7 @@ Implement at minimum:
   2. if `image_urls`: try recognize → if fail → general chat return
   3. elif url in latest user text: try parse → if fail → general chat
   4. else: try interpret text → if fail → general chat; if `intent=="chat"` → general chat (prefer interpret.reply as soft prompt but still call general_chat with messages for consistency, OR return interpret.reply when non-empty—pick one and test it; prefer always `general_chat` for one code path)
-  5. if product path succeeds: for Task 1 return general_chat still OR stub `evaluation_id=None` and message from a placeholder—**actually for Task 1 only implement chat + degrade**; product success path can call general_chat with a note OR raise NotImplemented—better: if product intent, call `_run_purchase` stub that Task 2 fills. For Task 1, on product intent call general_chat as temporary stand-in only if needed for green tests—**do not**: implement product branch in Task 2. Task 1 tests only cover chat + degrade.
+  5. Task 1 only needs chat + degrade paths green. On `intent=="product"`, call a stub `_purchase_or_degrade` that Task 2 implements; for Task 1 tests that never hit product intent, a stub raising `ProductPipelineError` (caught → general chat) is enough.
 
 ```python
 def run_agent_turn(...):
