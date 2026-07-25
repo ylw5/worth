@@ -196,8 +196,6 @@ def test_bind_purchase_evaluation_upserts_with_context_ids(monkeypatch):
     assert result.evaluation_id == "eval-9"
 ```
 
-Fix the empty-input placeholders in the test file to use `RecognizeProductImagesInput()` once the model exists (no `BaseModel()`).
-
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `cd server && .venv/bin/pytest tests/test_conversation_tools.py -v`
@@ -400,7 +398,10 @@ def test_stream_rejects_forbidden_visible_conclusion():
             AgentStreamEvent(
                 type="tool_started",
                 tool_call=ToolCall(
-                    id="1", name="assets_list", arguments={}
+                    id="1",
+                    call_id="call-1",
+                    name="assets_list",
+                    arguments={},
                 ),
             ),
             AgentStreamEvent(
@@ -429,16 +430,22 @@ def test_stream_forwards_tool_events_and_safe_text():
             AgentStreamEvent(
                 type="tool_started",
                 tool_call=ToolCall(
-                    id="1", name="assets_list", arguments={}
+                    id="1",
+                    call_id="call-1",
+                    name="assets_list",
+                    arguments={},
                 ),
             ),
             AgentStreamEvent(
                 type="tool_completed",
                 tool_call=ToolCall(
-                    id="1", name="assets_list", arguments={}
+                    id="1",
+                    call_id="call-1",
+                    name="assets_list",
+                    arguments={},
                 ),
                 tool_result=ToolResult(
-                    call_id="1", name="assets_list", output="{}"
+                    call_id="call-1", name="assets_list", output="{}"
                 ),
             ),
             AgentStreamEvent(type="text_delta", delta="先看你已有的耳机。"),
