@@ -2,7 +2,7 @@ import json
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from app.agent_turn import run_agent_turn, stream_agent_turn
+from app.agent_turn import TOOL_LABELS, run_agent_turn, stream_agent_turn
 from app.ai.contracts import (
     AgentRunResult,
     AgentStreamEvent,
@@ -15,6 +15,10 @@ from app.models import EvaluationChatMessage
 
 def _messages():
     return [EvaluationChatMessage(role="user", content="hi")]
+
+
+def test_wishlist_tool_has_visible_label():
+    assert TOOL_LABELS["wishlist_list"] == "查看心愿"
 
 
 def test_run_agent_turn_returns_message_and_bound_evaluation(monkeypatch):

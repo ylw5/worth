@@ -155,3 +155,5 @@ def test_purchase_decision_requires_tools_and_user_feedback():
     assert "必须尝试 market_price_snapshot" in CONVERSATION_SYSTEM_PROMPT
     assert "用户自己的使用反馈" in CONVERSATION_SYSTEM_PROMPT
     assert "首轮只有商品信息时继续追问" in CONVERSATION_SYSTEM_PROMPT
+    assert "wishlist_list" in CONVERSATION_SYSTEM_PROMPT
+    assert "心愿与当前对话有关" in CONVERSATION_SYSTEM_PROMPT

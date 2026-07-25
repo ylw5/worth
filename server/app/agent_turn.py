@@ -23,6 +23,7 @@ TOOL_LABELS: dict[str, str] = {
     "assets_summary": "查看资产",
     "market_price_snapshot": "查看市场样本",
     "evaluation_history_list": "查看购买经历",
+    "wishlist_list": "查看心愿",
     "bind_purchase_evaluation": "整理评估记录",
 }
 
