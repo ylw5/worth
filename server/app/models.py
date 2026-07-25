@@ -279,11 +279,14 @@ class EvaluationChatResponse(BaseModel):
 
 
 class AgentChatRequest(BaseModel):
+    thread_id: str
     messages: list[EvaluationChatMessage] = Field(min_length=1, max_length=100)
+    image_urls: list[str] = Field(default_factory=list, max_length=8)
 
 
 class AgentChatResponse(BaseModel):
     message: str
+    evaluation_id: Optional[str] = None
 
 
 class SellPlanAsset(BaseModel):
