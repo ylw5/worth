@@ -6,13 +6,21 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 from supabase import Client as SupabaseClient
 
-from .ai.factory import build_text_workflows, build_vision_workflows
+from .ai.factory import (
+    build_purchase_evaluation_workflow,
+    build_text_workflows,
+    build_vision_workflows,
+)
+from .ai.tools import load_confirmed_evaluation_assets
 from .config import Settings
+from .evaluation import build_purchase_evaluation
 from .evaluation_tools import summarize_evaluation_history
+from .market import MarketClient
 from .models import (
     AIProductInterpretation,
     EvaluationChatMessage,
     ParsedProduct,
+    PurchaseEvaluationResult,
 )
 from .product import fetch_product_page
 
@@ -191,9 +199,144 @@ def _parse_url(
         raise ProductPipelineError(str(error)) from error
 
 
-def _run_purchase(*_args, **_kwargs) -> AgentTurnResult:
-    """Task 2 will implement purchase coaching + silent evaluation upsert."""
-    raise ProductPipelineError("purchase path not implemented")
+def _build_confirmed_purchase_evaluation(
+    supabase_client: SupabaseClient,
+    user_id: str,
+    product: ParsedProduct,
+) -> PurchaseEvaluationResult:
+    """Same facts rebuild as main.build_confirmed_purchase_evaluation."""
+    try:
+        assets = load_confirmed_evaluation_assets(
+            supabase_client,
+            user_id=user_id,
+            category=product.category,
+        )
+    except Exception as error:
+        raise ProductPipelineError(str(error)) from error
+    return build_purchase_evaluation(product, assets)
+
+
+def _latest_evaluation_on_thread(
+    supabase_client: SupabaseClient,
+    thread_id: str,
+) -> dict | None:
+    response = (
+        supabase_client.table("purchase_evaluations")
+        .select("id")
+        .eq("thread_id", thread_id)
+        .order("updated_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    rows = response.data if isinstance(response.data, list) else []
+    if not rows or not isinstance(rows[0], dict):
+        return None
+    return rows[0]
+
+
+def _insert_evaluation(
+    supabase_client: SupabaseClient,
+    user_id: str,
+    thread_id: str,
+    product: ParsedProduct,
+) -> str:
+    source_type = product.source_type
+    source_text = product.source_text.strip()
+    image_paths: list[str] = []
+    # Agent turn has signed URLs, not storage paths; coerce image → text
+    # so purchase_evaluations source_payload_check still passes.
+    if source_type == "image" and not image_paths:
+        source_type = "text"
+        source_text = source_text or product.title
+    if source_type == "text" and not source_text:
+        source_text = product.title
+
+    payload = {
+        "user_id": user_id,
+        "thread_id": thread_id,
+        "product_url": product.url or "",
+        "product_title": product.title,
+        "product_price": product.price,
+        "category": product.category,
+        "subcategory": product.subcategory,
+        "matched_assets": [],
+        "facts": {},
+        # narrative is NOT NULL + non-empty; coaching reply is returned separately.
+        "narrative": f"正在梳理「{product.title}」。",
+        "parser_snapshot": {"product": product.model_dump(mode="json")},
+        "source_type": source_type,
+        "source_text": source_text,
+        "image_paths": image_paths,
+    }
+    try:
+        response = (
+            supabase_client.table("purchase_evaluations")
+            .insert(payload)
+            .select("id")
+            .limit(1)
+            .execute()
+        )
+    except Exception as error:
+        raise ProductPipelineError(str(error)) from error
+    rows = response.data if isinstance(response.data, list) else []
+    if not rows or not isinstance(rows[0], dict) or not rows[0].get("id"):
+        raise ProductPipelineError("failed to insert purchase evaluation")
+    return str(rows[0]["id"])
+
+
+def _upsert_evaluation(
+    supabase_client: SupabaseClient,
+    user_id: str,
+    thread_id: str,
+    product: ParsedProduct,
+) -> str:
+    # Prefer reuse of the latest evaluation on this thread to avoid spam;
+    # otherwise insert a new purchase_evaluations row (silent upsert).
+    existing = _latest_evaluation_on_thread(supabase_client, thread_id)
+    if existing and existing.get("id"):
+        return str(existing["id"])
+    return _insert_evaluation(supabase_client, user_id, thread_id, product)
+
+
+def _purchase_reply(
+    *,
+    settings: Settings,
+    supabase_client: SupabaseClient,
+    user_id: str,
+    messages: list[EvaluationChatMessage],
+    product: ParsedProduct,
+    request_id: str,
+) -> str:
+    try:
+        confirmed = _build_confirmed_purchase_evaluation(
+            supabase_client,
+            user_id,
+            product,
+        )
+        bundle = build_purchase_evaluation_workflow(
+            settings,
+            supabase_client=supabase_client,
+            market_client=(
+                MarketClient(settings.xianyu_cookie)
+                if settings.xianyu_cookie
+                else None
+            ),
+        )
+        message = bundle.workflow.run(
+            product,
+            confirmed.matched_assets,
+            confirmed.facts,
+            list(messages),
+            user_id=user_id,
+            request_id=request_id,
+        ).text
+        if not message or not str(message).strip():
+            raise ProductPipelineError("empty purchase reply")
+        return str(message)
+    except ProductPipelineError:
+        raise
+    except Exception as error:
+        raise ProductPipelineError(str(error)) from error
 
 
 def _purchase_or_degrade(
@@ -207,10 +350,27 @@ def _purchase_or_degrade(
     product: ParsedProduct,
     request_id: str,
 ) -> AgentTurnResult:
-    # Task 2 fills this in; Task 1 stub always degrades via ProductPipelineError.
-    del settings, supabase_client, user_id, thread_id, messages, memory, product
-    del request_id
-    raise ProductPipelineError("purchase path not implemented")
+    del memory  # history already folded into purchase workflow tools when needed
+    try:
+        evaluation_id = _upsert_evaluation(
+            supabase_client,
+            user_id,
+            thread_id,
+            product,
+        )
+        message = _purchase_reply(
+            settings=settings,
+            supabase_client=supabase_client,
+            user_id=user_id,
+            messages=messages,
+            product=product,
+            request_id=request_id,
+        )
+        return AgentTurnResult(message=message, evaluation_id=evaluation_id)
+    except ProductPipelineError:
+        raise
+    except Exception as error:
+        raise ProductPipelineError(str(error)) from error
 
 
 def _product_from_interpretation(
