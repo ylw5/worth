@@ -12,7 +12,10 @@ from app.ai.tools.conversation import (
     CONVERSATION_TOOL_NAMES,
     build_conversation_tool_registry,
 )
-from app.ai.workflows.conversation import ConversationAgentWorkflow
+from app.ai.workflows.conversation import (
+    CONVERSATION_SYSTEM_PROMPT,
+    ConversationAgentWorkflow,
+)
 from app.models import EvaluationChatMessage
 
 
@@ -143,3 +146,12 @@ def test_run_returns_text():
         image_urls=[],
     )
     assert result.text == "你好"
+
+
+def test_purchase_decision_requires_tools_and_user_feedback():
+    assert "最终决策前必须用 assets_list 或 assets_summary" in (
+        CONVERSATION_SYSTEM_PROMPT
+    )
+    assert "必须尝试 market_price_snapshot" in CONVERSATION_SYSTEM_PROMPT
+    assert "用户自己的使用反馈" in CONVERSATION_SYSTEM_PROMPT
+    assert "首轮只有商品信息时继续追问" in CONVERSATION_SYSTEM_PROMPT

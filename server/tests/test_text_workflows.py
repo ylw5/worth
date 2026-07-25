@@ -235,6 +235,25 @@ def test_product_interpretation_normalizes_common_category_alias() -> None:
     assert len(runner.requests) == 1
 
 
+def test_product_interpretation_normalizes_smartwatch_category_alias() -> None:
+    runner = SequenceRunner(
+        [
+            (
+                '{"intent":"product","normalized_title":"Garmin Forerunner 265",'
+                '"category":"智能手表","subcategory":"运动手表","reply":""}'
+            )
+        ]
+    )
+
+    result = ProductInterpretationWorkflow(runner).interpret(
+        "我想买 Garmin Forerunner 265",
+        user_id="user-1",
+        request_id="request-1",
+    )
+
+    assert result.category == "数码"
+
+
 def test_product_interpretation_rejects_purchase_decision_reply() -> None:
     runner = SequenceRunner(
         [

@@ -188,7 +188,6 @@ def _insert_evaluation(
             supabase_client.table("purchase_evaluations")
             .insert(payload)
             .select("id")
-            .limit(1)
             .execute()
         )
     except Exception as error:

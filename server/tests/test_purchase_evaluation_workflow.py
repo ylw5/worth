@@ -257,6 +257,10 @@ def test_system_prompt_freezes_coaching_plus_resolution_protocol() -> None:
     assert "[spending_resolution:" in PURCHASE_EVALUATION_SYSTEM_PROMPT
     assert "每轮最多一个问题" in PURCHASE_EVALUATION_SYSTEM_PROMPT
     assert "不是完整实时行情" in PURCHASE_EVALUATION_SYSTEM_PROMPT
+    assert "视为信息已足够" in PURCHASE_EVALUATION_SYSTEM_PROMPT
+    assert "不得继续用假设场景拖延结论" in (
+        PURCHASE_EVALUATION_SYSTEM_PROMPT
+    )
 
 
 def test_router_preserves_deepseek_priority(monkeypatch) -> None:

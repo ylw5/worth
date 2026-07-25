@@ -9,10 +9,11 @@ from supabase import Client as SupabaseClient
 
 from .ai.contracts import ToolExecutionRecord
 from .ai.factory import build_conversation_agent_workflow
+from .ai.tools.conversation import _upsert_evaluation
 from .config import Settings
 from .evaluation_tools import summarize_evaluation_history
 from .market import MarketClient
-from .models import EvaluationChatMessage
+from .models import EvaluationChatMessage, ParsedProduct
 
 TOOL_LABELS: dict[str, str] = {
     "recognize_product_text": "识别商品",
@@ -115,6 +116,74 @@ def _evaluation_id_from_executions(
     return None
 
 
+def _latest_evaluation_id(
+    supabase_client: SupabaseClient,
+    user_id: str,
+    thread_id: str,
+) -> str | None:
+    try:
+        response = (
+            supabase_client.table("purchase_evaluations")
+            .select("id")
+            .eq("user_id", user_id)
+            .eq("thread_id", thread_id)
+            .order("updated_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        return None
+    rows = response.data if isinstance(response.data, list) else []
+    return str(rows[0]["id"]) if rows and rows[0].get("id") else None
+
+
+def _recognized_product_from_executions(
+    tool_executions: list[ToolExecutionRecord],
+) -> ParsedProduct | None:
+    recognize_tools = {
+        "recognize_product_text",
+        "recognize_product_images",
+        "parse_product_url",
+    }
+    for record in reversed(tool_executions):
+        if record.call.name not in recognize_tools or record.result.is_error:
+            continue
+        try:
+            payload = json.loads(record.result.output)
+            if payload.get("is_product") and payload.get("product"):
+                return ParsedProduct.model_validate(payload["product"])
+        except (json.JSONDecodeError, TypeError, ValueError):
+            continue
+    return None
+
+
+def _resolve_evaluation_id(
+    supabase_client: SupabaseClient,
+    user_id: str,
+    thread_id: str,
+    tool_executions: list[ToolExecutionRecord],
+) -> str | None:
+    bound_id = _evaluation_id_from_executions(tool_executions)
+    if bound_id:
+        return bound_id
+    existing_id = _latest_evaluation_id(
+        supabase_client,
+        user_id,
+        thread_id,
+    )
+    if existing_id:
+        return existing_id
+    product = _recognized_product_from_executions(tool_executions)
+    if product is None:
+        return None
+    return _upsert_evaluation(
+        supabase_client,
+        user_id,
+        thread_id,
+        product,
+    )
+
+
 def run_agent_turn(
     *,
     settings: Settings,
@@ -144,7 +213,12 @@ def run_agent_turn(
         thread_id=thread_id,
         image_urls=image_urls,
     )
-    evaluation_id = _evaluation_id_from_executions(result.tool_executions)
+    evaluation_id = _resolve_evaluation_id(
+        supabase_client,
+        user_id,
+        thread_id,
+        result.tool_executions,
+    )
     return AgentTurnResult(message=result.text, evaluation_id=evaluation_id)
 
 
@@ -170,7 +244,7 @@ def stream_agent_turn(
         ),
     )
     yield {"status": "thinking"}
-    collected_id: str | None = None
+    tool_executions: list[ToolExecutionRecord] = []
     replying = False
     for event in bundle.workflow.stream(
         messages,
@@ -194,16 +268,24 @@ def stream_agent_turn(
                 "label": TOOL_LABELS.get(call.name, call.name),
                 "phase": "completed",
             }
-            if (
-                call.name == "bind_purchase_evaluation"
-                and event.tool_result is not None
-            ):
-                collected_id = _evaluation_id_from_bind_output(
-                    event.tool_result.output
+            if event.tool_result is not None:
+                tool_executions.append(
+                    ToolExecutionRecord(
+                        step=1,
+                        call=call,
+                        result=event.tool_result,
+                    )
                 )
         elif event.type == "text_delta":
             if not replying:
                 yield {"status": "replying"}
                 replying = True
             yield {"delta": event.delta}
-    yield {"evaluation_id": collected_id}
+    yield {
+        "evaluation_id": _resolve_evaluation_id(
+            supabase_client,
+            user_id,
+            thread_id,
+            tool_executions,
+        )
+    }

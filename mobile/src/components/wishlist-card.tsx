@@ -147,7 +147,7 @@ export function WishlistCard({
           {progress.percentage}%
         </Text>
       </View>
-      {item.notes ? (
+      {/* {item.notes ? (
         <Text
           selectable
           numberOfLines={3}
@@ -157,8 +157,8 @@ export function WishlistCard({
           }}>
           {item.notes}
         </Text>
-      ) : null}
-      <Pressable
+      ) : null} */}
+      {/* <Pressable
         accessibilityRole="button"
         accessibilityLabel={`查看${item.name}今日卖出方案`}
         onPress={() =>
@@ -175,7 +175,7 @@ export function WishlistCard({
         <Text style={{ color: colors.green, fontWeight: '700' }}>
           查看今日卖出方案
         </Text>
-      </Pressable>
+      </Pressable> */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`实现${item.name}`}

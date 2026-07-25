@@ -28,8 +28,9 @@
 
 - `MarketValuationCard` 入参：`asset: Asset`、`insight: MarketInsight`。
 - 卡内 `useMutation`：`estimateAsset(asset)` → `recordValuation(asset.id, result)`（与编辑页「保存并重新估价」同一链路；不改 API / 服务端）。
+- 若估价结果缺 `estimated_price` / `price_low` / `price_high`（`recordValuation` 会静默跳过写入），视为失败并展示错误文案，不走成功 invalidate。
 - `onSuccess`：`invalidateQueries` — `['asset', id]`、`['market-insight', id]`、`['valuations', id]`、`['assets']`。
-- 失败不吞异常：mutation `onError` 写入本地 `refreshError` 字符串供展示；不用 `tryValuation`（其会吞错且无文案）。
+- 网络/RPC 失败：mutation `onError` 写入本地 `refreshError` 字符串供展示；不用 `tryValuation`（其会吞错且无文案）。
 - 详情页：`<MarketValuationCard asset={asset} insight={insightQuery.data} />`；pending / 错误态由卡自管。
 
 ## 范围外

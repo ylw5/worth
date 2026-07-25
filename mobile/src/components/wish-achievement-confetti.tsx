@@ -123,7 +123,7 @@ export function WishAchievementConfetti({ active }: { active: boolean }) {
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 10,
     elevation: 10,
     alignItems: 'center',

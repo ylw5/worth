@@ -8,6 +8,7 @@ from app.ai.tools.conversation import (
     BindPurchaseEvaluationInput,
     RecognizeProductImagesInput,
     RecognizeProductTextInput,
+    _insert_evaluation,
     build_conversation_tool_registry,
 )
 from app.models import ParsedProduct
@@ -111,3 +112,29 @@ def test_bind_purchase_evaluation_upserts_with_context_ids(monkeypatch):
         context(thread_id="thread-1"),
     )
     assert result.evaluation_id == "eval-9"
+
+
+def test_insert_evaluation_uses_supported_write_builder():
+    supabase = MagicMock()
+    builder = MagicMock()
+    builder.execute.return_value = SimpleNamespace(data=[{"id": "eval-1"}])
+    supabase.table.return_value.insert.return_value.select.return_value = (
+        builder
+    )
+
+    evaluation_id = _insert_evaluation(
+        supabase,
+        "user-1",
+        "thread-1",
+        ParsedProduct(
+            title="Garmin Forerunner 265",
+            price=1700,
+            category="数码",
+            subcategory="智能手表",
+            source_type="text",
+            source_text="想买 Garmin Forerunner 265",
+        ),
+    )
+
+    assert evaluation_id == "eval-1"
+    builder.execute.assert_called_once_with()

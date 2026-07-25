@@ -21,14 +21,12 @@ import Animated, {
 
 import { EvaluationComposer } from '@/components/evaluation-composer';
 import { ErrorState, LoadingState } from '@/components/screen-state';
-import { PurchaseOutcomeControls } from '@/components/purchase-outcome-controls';
 import { colors, radius, spacing } from '@/constants/colors';
 import {
   createAgentMessage,
   createAgentThread,
   listAgentMessages,
   updateAgentThreadTitle,
-  type AgentMessage,
 } from '@/lib/agent-chat';
 import { streamAgentChat } from '@/lib/api';
 import { removePhotos, uploadPhotos } from '@/lib/assets';
@@ -36,7 +34,6 @@ import {
   listEvaluationsForThread,
   stripDecisionMark,
   type EvaluationChatMessage,
-  type PurchaseEvaluation,
 } from '@/lib/evaluations';
 import type { AssetPhoto } from '@/lib/photos';
 import {
@@ -64,37 +61,6 @@ type ProcessStep =
       label: string;
       phase: 'started' | 'completed';
     };
-
-function evaluationIdFromMessage(message: AgentMessage): string | null {
-  const value = message.route_result?.evaluation_id;
-  return typeof value === 'string' ? value : null;
-}
-
-/** Last assistant message per evaluation — inline outcome controls mount here. */
-function outcomeControlMessageIds(
-  messages: AgentMessage[],
-  evaluationsById: Map<string, PurchaseEvaluation>,
-): Set<string> {
-  const ids = new Set<string>();
-  const seenEvaluations = new Set<string>();
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index]!;
-    if (message.role !== 'assistant') continue;
-    const evaluationId = evaluationIdFromMessage(message);
-    if (!evaluationId || seenEvaluations.has(evaluationId)) continue;
-    seenEvaluations.add(evaluationId);
-    const evaluation = evaluationsById.get(evaluationId);
-    if (!evaluation) continue;
-    if (
-      evaluation.decision === 'buy' ||
-      evaluation.decision === 'skip' ||
-      evaluation.user_choice === 'pending'
-    ) {
-      ids.add(message.id);
-    }
-  }
-  return ids;
-}
 
 export function ChatThread(props: {
   threadId: string | null;
@@ -137,13 +103,9 @@ export function ChatThread(props: {
   const evaluations = evaluationsQuery.data ?? [];
   const resolutions = resolutionsQuery.data ?? [];
 
-  const evaluationsById = new Map(
-    evaluations.map((evaluation) => [evaluation.id, evaluation]),
-  );
   const resolutionsByMessageId = new Map(
     resolutions.map((resolution) => [resolution.message_id, resolution]),
   );
-  const outcomeMessageIds = outcomeControlMessageIds(messages, evaluationsById);
 
   const previousThreadIdRef = useRef(threadId);
   useEffect(() => {
@@ -377,11 +339,6 @@ export function ChatThread(props: {
 
         {messages.map((message) => {
           const resolution = resolutionsByMessageId.get(message.id);
-          const showOutcome =
-            message.role === 'assistant' && outcomeMessageIds.has(message.id);
-          const evaluation = showOutcome
-            ? evaluationsById.get(evaluationIdFromMessage(message) ?? '')
-            : undefined;
 
           return (
             <View key={message.id} style={{ gap: spacing.sm }}>
@@ -400,9 +357,6 @@ export function ChatThread(props: {
                   }
                   onConfirm={() => confirmResolution(resolution)}
                 />
-              ) : null}
-              {evaluation ? (
-                <PurchaseOutcomeControls evaluation={evaluation} />
               ) : null}
             </View>
           );

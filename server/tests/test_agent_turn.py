@@ -160,3 +160,115 @@ def test_stream_agent_turn_emits_status_tool_delta_done(monkeypatch):
     assert {"status": "replying"} in payloads
     assert {"delta": "你好"} in payloads
     assert payloads[-1]["evaluation_id"] == "eval-1"
+
+
+def test_run_agent_turn_keeps_latest_thread_evaluation(monkeypatch):
+    monkeypatch.setattr(
+        "app.agent_turn.assert_thread_owner",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "app.agent_turn.load_history_context",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(
+        "app.agent_turn._latest_evaluation_id",
+        lambda *args, **kwargs: "eval-existing",
+    )
+    workflow = MagicMock()
+    workflow.run.return_value = AgentRunResult(
+        text="不着急，可以再想想。",
+        provider="p",
+        model="m",
+        profile="c",
+        steps=1,
+    )
+    monkeypatch.setattr(
+        "app.agent_turn.build_conversation_agent_workflow",
+        lambda **kwargs: SimpleNamespace(workflow=workflow),
+    )
+
+    out = run_agent_turn(
+        settings=MagicMock(xianyu_cookie=""),
+        supabase_client=MagicMock(),
+        user_id="u1",
+        thread_id="t1",
+        messages=_messages(),
+        image_urls=[],
+        request_id="r1",
+    )
+
+    assert out.evaluation_id == "eval-existing"
+
+
+def test_run_agent_turn_binds_successfully_recognized_product(monkeypatch):
+    monkeypatch.setattr(
+        "app.agent_turn.assert_thread_owner",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "app.agent_turn.load_history_context",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(
+        "app.agent_turn._latest_evaluation_id",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "app.agent_turn._upsert_evaluation",
+        lambda *args, **kwargs: "eval-new",
+    )
+    recognized = json.dumps(
+        {
+            "is_product": True,
+            "product": {
+                "title": "Garmin Forerunner 265",
+                "price": 1700,
+                "category": "数码",
+                "subcategory": "运动手表",
+                "source_type": "text",
+                "source_text": "想买 Garmin Forerunner 265",
+            },
+            "note": "",
+        }
+    )
+    workflow = MagicMock()
+    workflow.run.return_value = AgentRunResult(
+        text="先看看使用频率。",
+        provider="p",
+        model="m",
+        profile="c",
+        steps=1,
+        tool_executions=[
+            ToolExecutionRecord(
+                step=1,
+                call=ToolCall(
+                    id="1",
+                    call_id="c1",
+                    name="recognize_product_text",
+                    arguments={},
+                ),
+                result=ToolResult(
+                    call_id="c1",
+                    name="recognize_product_text",
+                    output=recognized,
+                ),
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.agent_turn.build_conversation_agent_workflow",
+        lambda **kwargs: SimpleNamespace(workflow=workflow),
+    )
+
+    out = run_agent_turn(
+        settings=MagicMock(xianyu_cookie=""),
+        supabase_client=MagicMock(),
+        user_id="u1",
+        thread_id="t1",
+        messages=_messages(),
+        image_urls=[],
+        request_id="r1",
+    )
+
+    assert out.evaluation_id == "eval-new"
