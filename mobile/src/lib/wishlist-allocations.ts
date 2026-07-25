@@ -87,6 +87,24 @@ export function buildAllocationPreview(
   };
 }
 
+export function selectAutomaticFundingSources(
+  actualPrice: number,
+  sources: SelectableFundingSource[],
+) {
+  let remaining = Math.max(toCents(actualPrice), 0);
+  const selected: SelectableFundingSource[] = [];
+
+  for (const source of sources) {
+    if (!remaining) break;
+    const available = Math.max(toCents(source.available_amount), 0);
+    if (!available) continue;
+    selected.push(source);
+    remaining -= Math.min(available, remaining);
+  }
+
+  return selected;
+}
+
 export function parseFulfillmentPrice(
   value: string,
 ): { price: number } | { error: string } {

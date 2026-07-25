@@ -20,6 +20,7 @@ import {
   getAllocatedAmount,
   getAvailableAmount,
   parseFulfillmentPrice,
+  selectAutomaticFundingSources,
   type SelectableFundingSource,
 } from '@/lib/wishlist-allocations';
 import {
@@ -130,7 +131,9 @@ export default function FulfillWishlistScreen() {
     queryFn: listWishlistFundingAllocations,
   });
   const [actualPriceInput, setActualPrice] = useState<string | null>(null);
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [manualSelectedKeys, setManualSelectedKeys] = useState<
+    string[] | null
+  >(null);
   const [error, setError] = useState('');
   const actualPrice =
     actualPriceInput ?? String(wishlistQuery.data?.target_price ?? '');
@@ -140,11 +143,16 @@ export default function FulfillWishlistScreen() {
     salesQuery.data ?? [],
     allocationsQuery.data ?? [],
   );
+  const parsedPrice = parseFulfillmentPrice(actualPrice);
+  const automaticSelectedKeys = selectAutomaticFundingSources(
+    'price' in parsedPrice ? parsedPrice.price : 0,
+    sources,
+  ).map(sourceKey);
+  const selectedKeys = manualSelectedKeys ?? automaticSelectedKeys;
   const selectedSources = selectedKeys.flatMap((key) => {
     const source = sources.find((candidate) => sourceKey(candidate) === key);
     return source ? [source] : [];
   });
-  const parsedPrice = parseFulfillmentPrice(actualPrice);
   const preview = buildAllocationPreview(
     'price' in parsedPrice ? parsedPrice.price : 0,
     selectedSources,
@@ -170,7 +178,7 @@ export default function FulfillWishlistScreen() {
       setError(message);
       if (message === '资金余额已变化，请重新确认') {
         await allocationsQuery.refetch();
-        setSelectedKeys([]);
+        setManualSelectedKeys(null);
       }
     },
   });
@@ -178,11 +186,12 @@ export default function FulfillWishlistScreen() {
   const toggleSource = (source: FundingSourceRow) => {
     const key = sourceKey(source);
     setError('');
-    setSelectedKeys((current) =>
-      current.includes(key)
-        ? current.filter((candidate) => candidate !== key)
-        : [...current, key],
-    );
+    setManualSelectedKeys((current) => {
+      const effective = current ?? automaticSelectedKeys;
+      return effective.includes(key)
+        ? effective.filter((candidate) => candidate !== key)
+        : [...effective, key];
+    });
   };
 
   const submit = () => {

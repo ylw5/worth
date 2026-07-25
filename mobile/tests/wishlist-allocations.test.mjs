@@ -6,6 +6,7 @@ import {
   getAllocatedAmount,
   getAvailableAmount,
   parseFulfillmentPrice,
+  selectAutomaticFundingSources,
 } from '../src/lib/wishlist-allocations.ts';
 
 const allocations = [
@@ -139,4 +140,43 @@ test('validates the actual fulfillment price', () => {
   assert.deepEqual(parseFulfillmentPrice(' 3999.50 '), {
     price: 3999.5,
   });
+});
+
+test('selects the shortest available prefix for automatic funding', () => {
+  const sources = [
+    {
+      source_type: 'spending_resolution',
+      source_id: 'skip-1',
+      available_amount: 800,
+    },
+    {
+      source_type: 'spending_resolution',
+      source_id: 'skip-empty',
+      available_amount: 0,
+    },
+    {
+      source_type: 'asset_sale',
+      source_id: 'sale-1',
+      available_amount: 5000,
+    },
+    {
+      source_type: 'asset_sale',
+      source_id: 'sale-2',
+      available_amount: 1000,
+    },
+  ];
+
+  assert.deepEqual(
+    selectAutomaticFundingSources(1000, sources).map(
+      (source) => source.source_id,
+    ),
+    ['skip-1', 'sale-1'],
+  );
+  assert.deepEqual(
+    selectAutomaticFundingSources(10000, sources).map(
+      (source) => source.source_id,
+    ),
+    ['skip-1', 'sale-1', 'sale-2'],
+  );
+  assert.deepEqual(selectAutomaticFundingSources(0, sources), []);
 });
