@@ -12,21 +12,32 @@
 
 Agent 可以自然引用相关历史，但不替用户决定买或不买，也不会把 AI 分析当成用户选择或真实结果。
 
-## 2. 当前交互流程
+用户侧没有「创建评估」或模式切换；购买梳理在服务端静默发生，对客户端仍是同一条连续对话。
+
+## 2. 当前交互流程（对话优先）
+
+聊天页每轮发送只走单一入口：服务端编排意图、购买梳理与降级。
 
 ```text
-用户输入文字 / 链接 / 图片
-  ├─ 图片 → 商品图片识别 → 创建购物评估
-  ├─ 链接 → 商品页解析与分类 → 创建购物评估
-  └─ 文字 → 意图与商品解释
-       ├─ 具体商品 → 创建购物评估
-       └─ 闲聊/情绪 → 自由聊天
+用户输入 → POST /agent/chat（服务端编排）
+  ├─ 闲聊 → GeneralChat
+  ├─ 购买梳理 → 静默评估落库 + 梳理回复
+  └─ 解析/评估失败 → 同回合降级 GeneralChat
 ```
 
-- 自由聊天调用 `POST /agent/chat`，请求最多携带最近 100 条消息。
-- 购物评估首轮调用 `POST /purchase-evaluations/evaluate`。
-- 购物评估后续对话调用流式接口
-  `POST /purchase-evaluations/chat/stream`。
+客户端发送路径：
+
+1. 确保线程（新对话空白，首条消息时创建 `agent_threads`）
+2. 可选上传图片，只把 `image_urls` 交给服务端（不做本地识别分流）
+3. 持久化用户消息到 `agent_messages`
+4. 调用一次 `POST /agent/chat`（`thread_id`、最近最多 100 条消息、可选 `image_urls`）
+5. 持久化助手回复到 `agent_messages`（若返回 `evaluation_id`，经评估回复路径写入，以便同步决定标记与花费决议）
+
+要点：
+
+- 聊天 Tab **不再**调用 `normalize-text` / `parse` / `analyze-images` / `evaluate` / `stream`；这些旧路由仍保留以兼容，但不参与聊天发送链路。
+- `purchase_evaluations` 是静默后端行：有商品识别时挂在当前 `thread_id` 上 upsert/复用，用户看不到「创建评估」步骤。
+- 气泡一律写入 `agent_messages`；线程与消息模型与统一线程设计一致（`agent_threads` / `agent_messages`，评估挂 `thread_id`）。
 - 商品评估历史通过聊天页抽屉切换；旧详情路由会重定向回聊天页。
 
 ## 3. 对话、记忆与结果
@@ -35,7 +46,7 @@ Agent 可以自然引用相关历史，但不替用户决定买或不买，也�
 |---|---|---|
 | 自由聊天 | `agent_threads`、`agent_messages` | 用户可有多条线程；新对话空白，首条消息时创建 |
 | 购物评估对话 | `agent_threads`、`agent_messages` | 与自由聊天共用同一线程模型；气泡一律写入 `agent_messages` |
-| 购物评估结果 | `purchase_evaluations` | 结构化评估挂在 `thread_id` 上（1 线程 : N 评估） |
+| 购物评估结果 | `purchase_evaluations` | 静默结构化行，挂在 `thread_id` 上（1 线程 : N 评估）；非用户可见模式 |
 | 跨对话记忆 | `agent_memories` | 当前主要保存结构化购买经历，不保存全部原始聊天为长期记忆 |
 | 用户决定与后续 | `user_choice`、`outcome_status`、`purchase_outcome_events` | AI 分析、用户选择、真实结果相互独立 |
 | 回访提醒 | `agent_followups` | “再等等”7 天后回访；“买了”30 天后询问使用结果 |
@@ -59,10 +70,10 @@ Agent 可以自然引用相关历史，但不替用户决定买或不买，也�
 
 ## 5. 降级与当前边界
 
-- 商品文字、自由聊天或评估对话不可用时返回明确的 503 错误。
-- 购物评估首轮 AI 不可用时，回退到确定性事实叙述。
-- 流式回复失败时通过 SSE 返回稳定错误；已保存的用户消息不会丢失。
-- 自由聊天与购物评估已统一为单一线程模型（`agent_threads` / `agent_messages`）。`evaluation_messages` 表仍保留，但新写入路径不再使用。
+- 解析/识别/购买梳理任一步失败时，**同一回合内**降级为 `GeneralChat` 回复（HTTP 200），不向聊天客户端抛「商品描述暂时无法解析」类断聊错误。
+- 仅认证失败、错误线程、GeneralChat 不可用或持久化失败会向客户端暴露错误（如 503）。
+- 旧的 `normalize-text` / `parse` / `evaluate` / `stream` 路由仍可用，但聊天 Tab 不再调用；本迭代无流式 agent turn。
+- `evaluation_messages` 表仍保留，但新写入路径不再使用。
 - 当前长期记忆以购买经历为主，尚未实现对所有自由聊天内容的自动摘要或向量检索。
 
 相关底层说明：
