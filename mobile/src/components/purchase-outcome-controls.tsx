@@ -27,6 +27,8 @@ export function PurchaseOutcomeControls({
         queryKey: ['purchase-evaluation', evaluation.id],
       }),
       queryClient.invalidateQueries({ queryKey: ['purchase-evaluations'] }),
+      queryClient.invalidateQueries({ queryKey: ['thread-evaluations'] }),
+      queryClient.invalidateQueries({ queryKey: ['agent-threads'] }),
       queryClient.invalidateQueries({ queryKey: ['agent-memories'] }),
       queryClient.invalidateQueries({ queryKey: ['agent-followups'] }),
     ]);
