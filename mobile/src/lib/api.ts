@@ -127,8 +127,16 @@ export const analyzeProductPhotos = (imageUrls: string[]) =>
     image_urls: imageUrls,
   });
 
-export const chatFreely = (messages: EvaluationChatMessage[]) =>
-  request<{ message: string }>('/agent/chat', { messages });
+export const chatFreely = (
+  threadId: string,
+  messages: EvaluationChatMessage[],
+  imageUrls: string[] = [],
+) =>
+  request<{ message: string; evaluation_id?: string | null }>('/agent/chat', {
+    thread_id: threadId,
+    messages,
+    image_urls: imageUrls,
+  });
 
 export const evaluatePurchase = (
   product: ParsedProduct,

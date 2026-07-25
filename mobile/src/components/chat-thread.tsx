@@ -30,28 +30,12 @@ import {
   updateAgentThreadTitle,
   type AgentMessage,
 } from '@/lib/agent-chat';
-import {
-  analyzeProductPhotos,
-  chatFreely,
-  evaluatePurchase,
-  normalizeProductText,
-  parseProduct,
-  streamPurchaseEvaluation,
-} from '@/lib/api';
+import { chatFreely } from '@/lib/api';
 import { removePhotos, uploadPhotos } from '@/lib/assets';
 import {
-  extractProductPrice,
-  normalizeProductDescription,
-  normalizeProductUrl,
-} from '@/lib/evaluation-input';
-import {
-  createPurchaseEvaluation,
-  listEvaluationAssets,
   listEvaluationsForThread,
-  productFromEvaluation,
   stripDecisionMark,
   type EvaluationChatMessage,
-  type ParsedProduct,
   type PurchaseEvaluation,
 } from '@/lib/evaluations';
 import type { AssetPhoto } from '@/lib/photos';
@@ -74,14 +58,6 @@ const formatResolutionAmount = (amount: number) =>
 function evaluationIdFromMessage(message: AgentMessage): string | null {
   const value = message.route_result?.evaluation_id;
   return typeof value === 'string' ? value : null;
-}
-
-function latestActiveEvaluationId(messages: AgentMessage[]): string | null {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const evaluationId = evaluationIdFromMessage(messages[index]!);
-    if (evaluationId) return evaluationId;
-  }
-  return null;
 }
 
 /** Last assistant message per evaluation — inline outcome controls mount here. */
@@ -123,7 +99,6 @@ export function ChatThread(props: {
   const [photos, setPhotos] = useState<AssetPhoto[]>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
-  const [streamingReply, setStreamingReply] = useState('');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [confirmingResolutionId, setConfirmingResolutionId] = useState<
     string | null
@@ -162,13 +137,12 @@ export function ChatThread(props: {
   useEffect(() => {
     const previousThreadId = previousThreadIdRef.current;
     previousThreadIdRef.current = threadId;
-    // null → id is usually mid-send thread creation; don't wipe errors/streaming.
+    // null → id is usually mid-send thread creation; don't wipe errors.
     if (previousThreadId === null && threadId !== null) return;
     const timer = setTimeout(() => {
       setDraft('');
       setPhotos([]);
       setSendError('');
-      setStreamingReply('');
       setResolutionError('');
       setConfirmingResolutionId(null);
     }, 0);
@@ -177,10 +151,7 @@ export function ChatThread(props: {
 
   useEffect(() => {
     const latest = evaluations[evaluations.length - 1];
-    if (latest?.product_title) {
-      onTitleChange?.(latest.product_title);
-      return;
-    }
+    if (latest?.product_title) onTitleChange?.(latest.product_title);
   }, [evaluations, onTitleChange]);
 
   useEffect(() => {
@@ -189,7 +160,7 @@ export function ChatThread(props: {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, 50);
     return () => clearTimeout(timer);
-  }, [messages.length, sending, streamingReply, threadId]);
+  }, [messages.length, sending, threadId]);
 
   useEffect(() => {
     const showEvent =
@@ -236,66 +207,6 @@ export function ChatThread(props: {
     }
   };
 
-  const freeChat = async (
-    id: string,
-    userId: string,
-    history: EvaluationChatMessage[],
-    fallbackReply?: string,
-  ) => {
-    const response = await chatFreely(history.slice(-100));
-    await createAgentMessage(
-      id,
-      userId,
-      'assistant',
-      response.message || fallbackReply || '我在，慢慢说。',
-    );
-    await invalidateThread(id);
-  };
-
-  const createNewEvaluation = async (
-    id: string,
-    userId: string,
-    product: ParsedProduct,
-    imagePaths: string[],
-  ) => {
-    const assets = await listEvaluationAssets();
-    const result = await evaluatePurchase(product, assets);
-    const evaluation = await createPurchaseEvaluation(userId, id, result, {
-      imagePaths,
-    });
-    const title = evaluation.product_title.trim().slice(0, 40) || '聊天';
-    await updateAgentThreadTitle(id, title);
-    onTitleChange?.(title);
-    await invalidateThread(id);
-    return evaluation;
-  };
-
-  const streamFollowUp = async (
-    id: string,
-    userId: string,
-    evaluation: PurchaseEvaluation,
-    history: EvaluationChatMessage[],
-  ) => {
-    const message = await streamPurchaseEvaluation(
-      evaluation.id,
-      productFromEvaluation(evaluation),
-      evaluation.matched_assets,
-      evaluation.facts,
-      history.slice(-100),
-      setStreamingReply,
-    );
-    await saveEvaluationReply(evaluation.id, message);
-    await Promise.all([
-      invalidateThread(id),
-      queryClient.invalidateQueries({
-        queryKey: ['purchase-evaluation', evaluation.id],
-      }),
-      queryClient.invalidateQueries({
-        queryKey: ['spending-resolution', evaluation.id],
-      }),
-    ]);
-  };
-
   const send = async () => {
     if (!session || sending) return;
     const text = draft.trim();
@@ -313,12 +224,10 @@ export function ChatThread(props: {
     setSendError('');
     setDraft('');
     setPhotos([]);
-    setStreamingReply('');
 
     let uploadedPaths: string[] = [];
-    let createdEvaluation = false;
+    let currentThreadId = threadId;
     try {
-      let currentThreadId = threadId;
       if (!currentThreadId) {
         const title = text.slice(0, 40) || '聊天';
         const thread = await createAgentThread(session.user.id, title);
@@ -326,6 +235,16 @@ export function ChatThread(props: {
         onTitleChange?.(thread.title || title);
         onThreadIdChange(thread.id);
         await queryClient.invalidateQueries({ queryKey: ['agent-threads'] });
+      }
+
+      let imageUrls: string[] = [];
+      if (pendingPhotos.length) {
+        const uploaded = await uploadPhotos(
+          pendingPhotos.map((photo) => photo.base64 ?? ''),
+          session.user.id,
+        );
+        uploadedPaths = uploaded.map((photo) => photo.path);
+        imageUrls = uploaded.map((photo) => photo.signedUrl);
       }
 
       const userContent = text || '看看这件商品';
@@ -340,96 +259,44 @@ export function ChatThread(props: {
       });
 
       const threadMessages = await listAgentMessages(currentThreadId);
-      const threadEvaluations =
-        evaluationsQuery.data ??
-        (await listEvaluationsForThread(currentThreadId));
       const history: EvaluationChatMessage[] = threadMessages.map(
-        ({ role, content }) => ({ role, content }),
+        ({ role, content }) => ({
+          role,
+          content,
+        }),
       );
-      const activeEvaluationId = latestActiveEvaluationId(threadMessages);
-      const activeEvaluation =
-        threadEvaluations.find((item) => item.id === activeEvaluationId) ??
-        null;
 
-      if (pendingPhotos.length) {
-        const uploaded = await uploadPhotos(
-          pendingPhotos.map((photo) => photo.base64 ?? ''),
-          session.user.id,
+      const response = await chatFreely(
+        currentThreadId,
+        history.slice(-100),
+        imageUrls,
+      );
+
+      if (response.evaluation_id) {
+        await saveEvaluationReply(response.evaluation_id, response.message);
+        const threadEvaluations =
+          await listEvaluationsForThread(currentThreadId);
+        const evaluation = threadEvaluations.find(
+          (item) => item.id === response.evaluation_id,
         );
-        uploadedPaths = uploaded.map((photo) => photo.path);
-        const recognized = await analyzeProductPhotos(
-          uploaded.map((photo) => photo.signedUrl),
-        );
-        const product: ParsedProduct = {
-          ...recognized,
-          price: recognized.price ?? extractProductPrice(text),
-          source_text: text,
-        };
-        await createNewEvaluation(
+        if (evaluation?.product_title) {
+          const title =
+            evaluation.product_title.trim().slice(0, 40) || '聊天';
+          await updateAgentThreadTitle(currentThreadId, title);
+          onTitleChange?.(title);
+        }
+      } else {
+        await createAgentMessage(
           currentThreadId,
           session.user.id,
-          product,
-          uploadedPaths,
+          'assistant',
+          response.message || '我在，慢慢说。',
         );
-        createdEvaluation = true;
-        return;
       }
 
-      const normalizedUrl = normalizeProductUrl(text);
-      if ('url' in normalizedUrl) {
-        const product = await parseProduct(normalizedUrl.url);
-        await createNewEvaluation(
-          currentThreadId,
-          session.user.id,
-          product,
-          [],
-        );
-        createdEvaluation = true;
-        return;
-      }
-
-      const description = normalizeProductDescription(text);
-      if (!('error' in description)) {
-        const interpreted = await normalizeProductText(
-          description.text,
-          extractProductPrice(description.text),
-        );
-        if (interpreted.intent === 'product' && interpreted.product) {
-          await createNewEvaluation(
-            currentThreadId,
-            session.user.id,
-            interpreted.product,
-            [],
-          );
-          createdEvaluation = true;
-          return;
-        }
-        if (interpreted.intent === 'chat') {
-          await freeChat(
-            currentThreadId,
-            session.user.id,
-            history,
-            interpreted.reply,
-          );
-          return;
-        }
-
-        // Product follow-up: active eval + non-chat turn only.
-        if (activeEvaluation) {
-          await streamFollowUp(
-            currentThreadId,
-            session.user.id,
-            activeEvaluation,
-            history,
-          );
-          return;
-        }
-      }
-
-      // Short/invalid text (or no active eval): free chat — avoid orphan bubbles.
-      await freeChat(currentThreadId, session.user.id, history);
+      await invalidateThread(currentThreadId);
     } catch (caught) {
-      if (!createdEvaluation && uploadedPaths.length) {
+      if (uploadedPaths.length) {
         await removePhotos(uploadedPaths).catch(() => undefined);
       }
       setSendError(
@@ -439,7 +306,6 @@ export function ChatThread(props: {
       );
     } finally {
       setSending(false);
-      setStreamingReply('');
     }
   };
 
@@ -495,16 +361,7 @@ export function ChatThread(props: {
           );
         })}
 
-        {sending ? (
-          streamingReply ? (
-            <MessageBubble
-              role="assistant"
-              content={stripDecisionMark(streamingReply)}
-            />
-          ) : (
-            <ThinkingShimmer />
-          )
-        ) : null}
+        {sending ? <ThinkingShimmer /> : null}
       </ScrollView>
 
       <View
