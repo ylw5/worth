@@ -20,10 +20,12 @@ export type AssetSaleWithName = AssetSale & {
 };
 
 async function withPhotoUrls(asset: Asset): Promise<Asset> {
+  // Missing storage objects must not fail the whole assets list.
   const signedUrl = async (path: string) => {
+    if (!path) return '';
     const { data, error } = await bucket.createSignedUrl(path, 3600);
-    fail(error);
-    return data?.signedUrl ?? '';
+    if (error || !data?.signedUrl) return '';
+    return data.signedUrl;
   };
   const cutoutPaths = asset.photo_cutout_paths ?? {};
   const [photo_urls, cutoutEntries] = await Promise.all([
@@ -39,7 +41,9 @@ async function withPhotoUrls(asset: Asset): Promise<Asset> {
     ...asset,
     photo_cutout_paths: cutoutPaths,
     photo_urls,
-    photo_cutout_urls: Object.fromEntries(cutoutEntries),
+    photo_cutout_urls: Object.fromEntries(
+      cutoutEntries.filter(([, url]) => url),
+    ),
   };
 }
 
