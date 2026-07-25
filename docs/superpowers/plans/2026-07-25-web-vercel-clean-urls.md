@@ -4,7 +4,7 @@
 
 **Goal:** Publish the existing Expo Web export behind Vercel Authentication with extensionless Expo Router paths working.
 
-**Architecture:** Expo continues to produce static files in `mobile/dist`. A single Vercel `cleanUrls` setting maps extensionless requests to the exported HTML files; deployment uses `--skip-domain` so no public production alias is created.
+**Architecture:** Expo continues to produce static files in `mobile/dist`. Vercel `cleanUrls` maps extensionless requests to exported HTML files, and one filesystem-fallback rewrite serves `/` for dynamic Expo Router deep links.
 
 **Tech Stack:** Expo SDK 57, Expo Router static export, Vercel static hosting
 
@@ -12,7 +12,8 @@
 
 - Keep Vercel Authentication enabled.
 - Do not expose a public production alias while fixed administrator credentials are embedded.
-- Do not add rewrites, a custom server, deployment automation, dependencies, or a FastAPI deployment.
+- Do not add per-route rewrites, a custom server, deployment automation,
+  dependencies, or a FastAPI deployment.
 - Backend-dependent features remain unavailable until `EXPO_PUBLIC_API_URL` points to a separately deployed API.
 
 ---
@@ -43,7 +44,13 @@ Create `mobile/vercel.json`:
 
 ```json
 {
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ]
 }
 ```
 
@@ -66,12 +73,11 @@ Run from the repository root:
 vercel deploy mobile/dist \
   --yes \
   --project worth \
-  --skip-domain \
   --local-config mobile/vercel.json \
   --logs
 ```
 
-Expected: deployment reaches `READY`; only the generated deployment URL is returned.
+Expected: a Preview deployment reaches `READY`.
 
 - [ ] **Step 5: Verify protected routes and assets**
 

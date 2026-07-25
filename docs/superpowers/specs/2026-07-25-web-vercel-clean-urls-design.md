@@ -7,13 +7,16 @@ so Expo Router paths such as `/capture` resolve without a `.html` suffix.
 
 ## Design
 
-- Add `mobile/vercel.json` with only `"cleanUrls": true`.
+- Add `mobile/vercel.json` with `"cleanUrls": true` and one filesystem-fallback
+  rewrite to `/` so Expo Router can resolve dynamic deep links such as
+  `/asset/<id>` in the browser.
 - Keep Expo's existing static export (`npx expo export --platform web`) and deploy
   the generated `mobile/dist` directory.
 - Keep Vercel Authentication enabled and remove public production aliases. The
   client currently embeds fixed administrator credentials, so the deployment
   must not be publicly accessible.
-- Do not add rewrites, a custom server, deployment automation, or dependencies.
+- Do not add per-route rewrites, a custom server, deployment automation, or
+  dependencies.
 - Do not deploy the FastAPI server in this change. Features that require
   `EXPO_PUBLIC_API_URL` remain unavailable until a separate backend deployment.
 
