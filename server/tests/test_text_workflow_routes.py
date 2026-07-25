@@ -132,37 +132,26 @@ def test_normalize_text_route_uses_interpretation_workflow(
     assert result.reply.startswith("你好")
 
 
-def test_general_chat_route_uses_workflow_and_memory(monkeypatch) -> None:
-    workflow = MagicMock()
-    workflow.chat.return_value = "听起来你今天挺累的。"
-    memory = {"本月评估次数": 2}
+def test_agent_chat_route_uses_agent_turn(monkeypatch) -> None:
     monkeypatch.setattr(
         "app.main.get_user_supabase",
         lambda token: MagicMock(),
     )
     monkeypatch.setattr(
-        "app.main.load_history_context",
-        lambda client, user_id: memory,
+        "app.main.run_agent_turn",
+        lambda **kwargs: SimpleNamespace(
+            message="ok", evaluation_id=None
+        ),
     )
-    monkeypatch.setattr(
-        "app.main.build_text_workflows",
-        lambda settings: SimpleNamespace(general_chat=workflow),
-    )
-
     result = chat_freely(
         AgentChatRequest(
-            messages=[
-                EvaluationChatMessage(
-                    role="user",
-                    content="今天好累",
-                )
-            ]
+            thread_id="t1",
+            messages=[EvaluationChatMessage(role="user", content="hi")],
         ),
         user(),
     )
-
-    assert result.message == "听起来你今天挺累的。"
-    assert workflow.chat.call_args.args[1] == memory
+    assert result.message == "ok"
+    assert result.evaluation_id is None
 
 
 def test_analyze_route_uses_asset_recognition_workflow(monkeypatch) -> None:

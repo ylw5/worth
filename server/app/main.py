@@ -12,6 +12,7 @@ from openai import OpenAIError
 from supabase import Client as SupabaseClient, create_client
 
 from .auth import AuthenticatedUser, require_user
+from .agent_turn import run_agent_turn
 from .ai.errors import AIFoundationError
 from .ai.factory import (
     build_purchase_evaluation_workflow,
@@ -491,19 +492,21 @@ def chat_freely(
 ) -> AgentChatResponse:
     try:
         supabase_client = get_user_supabase(user.access_token)
-        memory_context = load_history_context(
-            supabase_client,
-            user.id,
-        )
-        message = build_text_workflows(
-            get_settings()
-        ).general_chat.chat(
-            request.messages,
-            memory_context,
+        result = run_agent_turn(
+            settings=get_settings(),
+            supabase_client=supabase_client,
             user_id=user.id,
+            thread_id=request.thread_id,
+            messages=list(request.messages),
+            image_urls=list(request.image_urls),
             request_id=uuid4().hex,
         )
-        return AgentChatResponse(message=message)
+        return AgentChatResponse(
+            message=result.message,
+            evaluation_id=result.evaluation_id,
+        )
+    except HTTPException:
+        raise
     except (AIFoundationError, RuntimeError, OpenAIError) as error:
         raise HTTPException(
             status_code=503,
