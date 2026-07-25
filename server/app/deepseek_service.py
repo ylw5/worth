@@ -186,7 +186,23 @@ class DeepSeekService:
             max_tokens=1000,
         )
 
+    _MATCHING_BATCH_SIZE = 25
+
     def matching_ids(
+        self,
+        asset: AssetInput,
+        candidates: list[MarketCandidate],
+        user_id: str,
+    ) -> set[str]:
+        if not candidates:
+            return set()
+        matching: set[str] = set()
+        for offset in range(0, len(candidates), self._MATCHING_BATCH_SIZE):
+            batch = candidates[offset : offset + self._MATCHING_BATCH_SIZE]
+            matching.update(self._matching_ids_batch(asset, batch, user_id))
+        return matching
+
+    def _matching_ids_batch(
         self,
         asset: AssetInput,
         candidates: list[MarketCandidate],
@@ -196,6 +212,7 @@ class DeepSeekService:
             "判断每个在售候选是否与目标资产是同一产品和关键规格，只输出 JSON。"
             "JSON 格式示例："
             '{"decisions":[{"item_id":"123","same_product":true}]}。'
+            "根对象必须包含 decisions 数组；不要使用 matches/results 等其他键名。"
             "配件、广告、其他型号或关键规格不同必须标记为 false。"
             "必须为每个候选返回一次决定，不要添加输入中不存在的 item_id。"
         )
@@ -206,14 +223,13 @@ class DeepSeekService:
             },
             ensure_ascii=False,
         )
-        result = self._parse_json(
+        parsed = self._parse_json(
             system=system,
             payload=payload,
             schema=CandidateMatches,
             user_id=user_id,
             max_tokens=12_000,
         )
-        parsed = result
         candidate_ids = {item.item_id for item in candidates}
         return {
             item.item_id

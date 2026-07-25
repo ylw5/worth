@@ -1,7 +1,8 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, use, useCallback, useEffect, useState } from 'react';
 
-import { isSupabaseConfigured, supabase } from '@/lib/supabase';
+import { ensureSession } from '@/lib/session';
+import { supabase } from '@/lib/supabase';
 
 type SessionState = {
   session: Session | null;
@@ -17,25 +18,6 @@ const SessionContext = createContext<SessionState>({
   retry: () => {},
 });
 
-async function getAdminSession() {
-  const email = process.env.EXPO_PUBLIC_ADMIN_EMAIL;
-  const password = process.env.EXPO_PUBLIC_ADMIN_PASSWORD;
-  if (!isSupabaseConfigured || !email || !password) {
-    throw new Error('管理员环境变量尚未配置');
-  }
-  const { data } = await supabase.auth.getSession();
-  if (data.session) return data.session;
-
-  const { data: login, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
-  if (error || !login.session) {
-    throw new Error('管理员自动登录失败，请重试');
-  }
-  return login.session;
-}
-
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<SessionState>({
     session: null,
@@ -47,7 +29,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const authenticate = useCallback(async () => {
     setState((current) => ({ ...current, loading: true, error: '' }));
     try {
-      const session = await getAdminSession();
+      const session = await ensureSession();
       setState((current) => ({
         ...current,
         session,
@@ -63,7 +45,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    getAdminSession()
+    ensureSession()
       .then((session) =>
         setState((current) => ({ ...current, session, loading: false })),
       )

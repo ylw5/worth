@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols';
 import { useMemo, useState } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
 import Animated, {
   FadeIn,
@@ -136,8 +136,16 @@ function TrendAreaChart({
 
 export function MarketValuationCard({
   insight,
+  refreshable = false,
+  refreshPending = false,
+  refreshError = null,
+  onRefresh,
 }: {
   insight: MarketInsight;
+  refreshable?: boolean;
+  refreshPending?: boolean;
+  refreshError?: string | null;
+  onRefresh?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [range, setRange] = useState<TrendRange>('1w');
@@ -172,11 +180,50 @@ export function MarketValuationCard({
           gap: spacing.md,
         }}>
         <View style={{ flex: 1, gap: spacing.xs }}>
-          <Text
-            selectable
-            style={{ color: colors.textSecondary, ...typography.label }}>
-            当前参考市价
-          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.xs,
+            }}>
+            <Text
+              selectable
+              style={{ color: colors.textSecondary, ...typography.label }}>
+              当前参考市价
+            </Text>
+            {refreshable ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="刷新参考市价"
+                disabled={refreshPending}
+                onPress={onRefresh}
+                hitSlop={10}
+                style={({ pressed }) => ({
+                  width: 28,
+                  height: 28,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  opacity: pressed || refreshPending ? 0.55 : 1,
+                })}>
+                {refreshPending ? (
+                  <ActivityIndicator
+                    color={colors.textSecondary}
+                    size="small"
+                  />
+                ) : (
+                  <SymbolView
+                    name={{
+                      ios: 'arrow.clockwise',
+                      android: 'refresh',
+                      web: 'refresh',
+                    }}
+                    size={16}
+                    tintColor={colors.textSecondary}
+                  />
+                )}
+              </Pressable>
+            ) : null}
+          </View>
           <Text
             selectable
             style={{
@@ -195,6 +242,13 @@ export function MarketValuationCard({
             }}>
             {changeText}
           </Text>
+          {refreshError ? (
+            <Text
+              selectable
+              style={{ color: colors.danger, ...typography.caption }}>
+              {refreshError}
+            </Text>
+          ) : null}
           {failed ? (
             <Text
               selectable

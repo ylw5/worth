@@ -177,7 +177,9 @@ def test_structured_workflow_retries_application_validation() -> None:
 
     assert result.normalized_title == "Phone"
     assert len(runner.requests) == 2
+    assert "JSON Schema" in runner.requests[0].messages[-1].content
     assert "上一次输出未通过" in runner.requests[1].messages[-1].content
+    assert "校验错误" in runner.requests[1].messages[-1].content
 
 
 def test_structured_workflow_fails_after_bounded_retries() -> None:
@@ -293,6 +295,64 @@ def test_candidate_matching_filters_unknown_ids() -> None:
     )
 
     assert matching == {"1"}
+    assert '"decisions"' in runner.requests[0].messages[0].content
+
+
+def test_candidate_matching_accepts_matches_alias() -> None:
+    runner = SequenceRunner(
+        [
+            (
+                '{"matches":['
+                '{"item_id":"1","same_product":true},'
+                '{"item_id":"2","same_product":false}'
+                "]}"
+            )
+        ]
+    )
+
+    matching = CandidateMatchingWorkflow(runner).matching_ids(
+        asset(),
+        candidates(),
+        user_id="user-1",
+        request_id="request-1",
+    )
+
+    assert matching == {"1"}
+    assert len(runner.requests) == 1
+
+
+def test_candidate_matching_batches_large_candidate_lists() -> None:
+    many = [
+        MarketCandidate(
+            item_id=str(index),
+            title=f"Item {index}",
+            price=float(index),
+        )
+        for index in range(CandidateMatchingWorkflow._BATCH_SIZE + 1)
+    ]
+    first_batch = ",".join(
+        f'{{"item_id":"{item.item_id}","same_product":false}}'
+        for item in many[: CandidateMatchingWorkflow._BATCH_SIZE]
+    )
+    second_batch = (
+        f'{{"item_id":"{many[-1].item_id}","same_product":true}}'
+    )
+    runner = SequenceRunner(
+        [
+            f'{{"decisions":[{first_batch}]}}',
+            f'{{"decisions":[{second_batch}]}}',
+        ]
+    )
+
+    matching = CandidateMatchingWorkflow(runner).matching_ids(
+        asset(),
+        many,
+        user_id="user-1",
+        request_id="request-1",
+    )
+
+    assert matching == {many[-1].item_id}
+    assert len(runner.requests) == 2
 
 
 def test_candidate_matching_skips_model_for_empty_candidates() -> None:

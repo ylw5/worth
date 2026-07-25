@@ -13,8 +13,8 @@ import type {
   SellPlanPreparedResult,
   SellPlanResult,
 } from '@/lib/sell-plans';
+import { ensureSession, recoverSession } from '@/lib/session';
 import { parseSseEvent, splitSseBuffer } from '@/lib/sse';
-import { supabase } from '@/lib/supabase';
 import type {
   AssetInput,
   AssetWriteInput,
@@ -38,23 +38,25 @@ async function request<T>(path: string, body: unknown): Promise<T> {
   if (!apiUrl) {
     throw new Error('无法确定 API 地址，请配置 EXPO_PUBLIC_API_URL');
   }
-  const { data } = await supabase.auth.getSession();
-  if (!data.session) {
-    throw new Error('登录已失效，请重新登录');
-  }
 
-  let response: Response;
-  try {
-    response = await fetch(`${apiUrl.replace(/\/$/, '')}${path}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${data.session.access_token}`,
-      },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    throw new Error('网络连接失败，请稍后重试');
+  const send = async (accessToken: string) => {
+    try {
+      return await fetch(`${apiUrl.replace(/\/$/, '')}${path}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      throw new Error('网络连接失败，请稍后重试');
+    }
+  };
+
+  let response = await send((await ensureSession()).access_token);
+  if (response.status === 401) {
+    response = await send((await recoverSession()).access_token);
   }
 
   if (!response.ok) {
@@ -199,31 +201,33 @@ export async function streamAgentChat(
   if (!apiUrl) {
     throw new Error('无法确定 API 地址，请配置 EXPO_PUBLIC_API_URL');
   }
-  const { data } = await supabase.auth.getSession();
-  if (!data.session) {
-    throw new Error('登录已失效，请重新登录');
-  }
 
-  let response: Awaited<ReturnType<typeof expoFetch>>;
-  try {
-    response = await expoFetch(
-      `${apiUrl.replace(/\/$/, '')}/agent/chat/stream`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'text/event-stream',
-          Authorization: `Bearer ${data.session.access_token}`,
+  const send = async (accessToken: string) => {
+    try {
+      return await expoFetch(
+        `${apiUrl.replace(/\/$/, '')}/agent/chat/stream`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            thread_id: threadId,
+            messages,
+            image_urls: imageUrls,
+          }),
         },
-        body: JSON.stringify({
-          thread_id: threadId,
-          messages,
-          image_urls: imageUrls,
-        }),
-      },
-    );
-  } catch {
-    throw new Error('网络连接失败，请稍后重试');
+      );
+    } catch {
+      throw new Error('网络连接失败，请稍后重试');
+    }
+  };
+
+  let response = await send((await ensureSession()).access_token);
+  if (response.status === 401) {
+    response = await send((await recoverSession()).access_token);
   }
 
   if (!response.ok || !response.body) {
@@ -298,33 +302,35 @@ export async function streamPurchaseEvaluation(
   if (!apiUrl) {
     throw new Error('无法确定 API 地址，请配置 EXPO_PUBLIC_API_URL');
   }
-  const { data } = await supabase.auth.getSession();
-  if (!data.session) {
-    throw new Error('登录已失效，请重新登录');
-  }
 
-  let response: Awaited<ReturnType<typeof expoFetch>>;
-  try {
-    response = await expoFetch(
-      `${apiUrl.replace(/\/$/, '')}/purchase-evaluations/chat/stream`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'text/event-stream',
-          Authorization: `Bearer ${data.session.access_token}`,
+  const send = async (accessToken: string) => {
+    try {
+      return await expoFetch(
+        `${apiUrl.replace(/\/$/, '')}/purchase-evaluations/chat/stream`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'text/event-stream',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            evaluation_id: evaluationId,
+            product,
+            matched_assets: matchedAssets,
+            facts,
+            messages,
+          }),
         },
-        body: JSON.stringify({
-          evaluation_id: evaluationId,
-          product,
-          matched_assets: matchedAssets,
-          facts,
-          messages,
-        }),
-      },
-    );
-  } catch {
-    throw new Error('网络连接失败，请稍后重试');
+      );
+    } catch {
+      throw new Error('网络连接失败，请稍后重试');
+    }
+  };
+
+  let response = await send((await ensureSession()).access_token);
+  if (response.status === 401) {
+    response = await send((await recoverSession()).access_token);
   }
 
   if (!response.ok || !response.body) {

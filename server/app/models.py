@@ -146,6 +146,22 @@ class CandidateDecision(BaseModel):
 class CandidateMatches(BaseModel):
     decisions: list[CandidateDecision]
 
+    @model_validator(mode="before")
+    @classmethod
+    def coerce_common_shapes(cls, value: object) -> object:
+        """DeepSeek json_object mode does not enforce schema; accept common aliases."""
+        if isinstance(value, list):
+            return {"decisions": value}
+        if not isinstance(value, dict):
+            return value
+        if "decisions" in value:
+            return value
+        for key in ("matches", "results", "items", "data", "candidates"):
+            nested = value.get(key)
+            if isinstance(nested, list):
+                return {"decisions": nested}
+        return value
+
     @model_validator(mode="after")
     def validate_unique_ids(self) -> Self:
         ids = [decision.item_id for decision in self.decisions]

@@ -1,4 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
+import {
+  useIsMutating,
+  useMutation,
+  useMutationState,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { Link, Stack, useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -6,12 +12,22 @@ import { AssetPhotoGallery } from '@/components/asset-photo-gallery';
 import { MarketValuationCard } from '@/components/market-valuation-card';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { colors, radius, spacing, typography } from '@/constants/colors';
+import { estimateAsset } from '@/lib/api';
 import { assetStatusLabels } from '@/lib/asset-status';
-import { getAsset, getAssetSale, getMarketInsight } from '@/lib/assets';
+import {
+  getAsset,
+  getAssetSale,
+  getMarketInsight,
+  recordValuation,
+} from '@/lib/assets';
 import { formatCurrency, formatDate, specsToText } from '@/lib/format';
+
+const refreshPriceMutationKey = (assetId: string) =>
+  ['refresh-price', assetId] as const;
 
 export default function AssetDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  const queryClient = useQueryClient();
   const assetQuery = useQuery({
     queryKey: ['asset', id],
     queryFn: () => getAsset(id),
@@ -26,6 +42,40 @@ export default function AssetDetailScreen() {
     queryKey: ['market-insight', id],
     queryFn: () => getMarketInsight(assetQuery.data!),
     enabled: Boolean(assetQuery.data),
+  });
+  const refreshKey = id
+    ? refreshPriceMutationKey(id)
+    : (['refresh-price'] as const);
+  const refreshPending = useIsMutating({ mutationKey: refreshKey }) > 0;
+  const refreshError = useMutationState({
+    filters: { mutationKey: refreshKey },
+    select: (mutation) => mutation.state.error,
+  }).at(-1);
+  const refresh = useMutation({
+    mutationKey: refreshKey,
+    mutationFn: async () => {
+      if (!assetQuery.data) return;
+      const valuation = await estimateAsset(assetQuery.data);
+      if (
+        valuation.estimated_price === null ||
+        valuation.price_low === null ||
+        valuation.price_high === null
+      ) {
+        throw new Error('相似样本不足，暂无法更新参考市价');
+      }
+      await recordValuation(assetQuery.data.id, valuation);
+      return valuation;
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['asset', id] }),
+        queryClient.invalidateQueries({ queryKey: ['market-insight', id] }),
+        queryClient.invalidateQueries({ queryKey: ['valuations', id] }),
+        queryClient.invalidateQueries({ queryKey: ['assets'] }),
+        queryClient.invalidateQueries({ queryKey: ['sell-plan-assets'] }),
+        queryClient.invalidateQueries({ queryKey: ['sell-plan'] }),
+      ]);
+    },
   });
 
   if (assetQuery.isLoading) return <LoadingState />;
@@ -96,7 +146,18 @@ export default function AssetDetailScreen() {
             {insightQuery.error.message}
           </Text>
         ) : insightQuery.data ? (
-          <MarketValuationCard insight={insightQuery.data} />
+          <MarketValuationCard
+            insight={insightQuery.data}
+            refreshable={asset.status !== 'sold'}
+            refreshPending={refreshPending}
+            refreshError={
+              refreshError instanceof Error ? refreshError.message : null
+            }
+            onRefresh={() => {
+              if (refreshPending) return;
+              refresh.mutate();
+            }}
+          />
         ) : (
           <View
             style={{
