@@ -1,3 +1,4 @@
+-- Wishlist fulfillment ledger.
 alter table public.wishlist_items
   add column actual_price numeric(12, 2)
     check (actual_price is null or actual_price > 0),
