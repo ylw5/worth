@@ -18,10 +18,22 @@ from .evaluation_tools import summarize_evaluation_history
 from .market import MarketClient
 from .models import (
     AIProductInterpretation,
+    Category,
     EvaluationChatMessage,
     ParsedProduct,
     PurchaseEvaluationResult,
 )
+
+_VALID_CATEGORIES: set[str] = {
+    "数码",
+    "家电",
+    "家具",
+    "服饰箱包",
+    "珠宝腕表",
+    "收藏",
+    "交通工具",
+    "其他",
+}
 from .product import fetch_product_page
 
 
@@ -222,7 +234,10 @@ def _latest_evaluation_on_thread(
 ) -> dict | None:
     response = (
         supabase_client.table("purchase_evaluations")
-        .select("id")
+        .select(
+            "id, product_url, product_title, product_price, category, "
+            "subcategory, source_type, source_text"
+        )
         .eq("thread_id", thread_id)
         .order("updated_at", desc=True)
         .limit(1)
@@ -232,6 +247,60 @@ def _latest_evaluation_on_thread(
     if not rows or not isinstance(rows[0], dict):
         return None
     return rows[0]
+
+
+def _product_from_evaluation_row(row: dict) -> ParsedProduct:
+    source_type = row.get("source_type") or "text"
+    if source_type not in ("url", "text", "image"):
+        source_type = "text"
+    price = row.get("product_price")
+    try:
+        price_value = float(price) if price is not None else None
+    except (TypeError, ValueError):
+        price_value = None
+    if price_value is not None and price_value <= 0:
+        price_value = None
+    category_raw = str(row.get("category") or "其他")
+    category: Category = (
+        category_raw if category_raw in _VALID_CATEGORIES else "其他"  # type: ignore[assignment]
+    )
+    return ParsedProduct(
+        url=str(row.get("product_url") or ""),
+        title=str(row.get("product_title") or "商品").strip() or "商品",
+        price=price_value,
+        category=category,
+        subcategory=str(row.get("subcategory") or ""),
+        source_type=source_type,
+        source_text=str(row.get("source_text") or ""),
+    )
+
+
+_PRICE_RE = re.compile(
+    r"(?:¥|￥|人民币|RMB|元)?\s*(\d{2,6}(?:\.\d{1,2})?)\s*(?:元|块|刀)?",
+    re.IGNORECASE,
+)
+
+
+def _fill_price_from_messages(
+    product: ParsedProduct,
+    messages: list[EvaluationChatMessage],
+) -> ParsedProduct:
+    """If evaluation has no price, recover a positive amount mentioned in chat."""
+    if product.price is not None:
+        return product
+    for message in reversed(messages):
+        if message.role != "user":
+            continue
+        match = _PRICE_RE.search(message.content)
+        if not match:
+            continue
+        try:
+            amount = float(match.group(1))
+        except ValueError:
+            continue
+        if amount > 0:
+            return product.model_copy(update={"price": amount})
+    return product
 
 
 def _insert_evaluation(
@@ -444,6 +513,26 @@ def run_agent_turn(
                 request_id=request_id,
             )
 
+        # Follow-ups like「不会」often classify as chat. If this thread already
+        # has a purchase evaluation, stay on the coaching path so decision /
+        # spending-resolution markers can still be emitted.
+        existing = _latest_evaluation_on_thread(supabase_client, thread_id)
+        if existing:
+            product = _fill_price_from_messages(
+                _product_from_evaluation_row(existing),
+                messages,
+            )
+            return _purchase_or_degrade(
+                settings=settings,
+                supabase_client=supabase_client,
+                user_id=user_id,
+                thread_id=thread_id,
+                messages=messages,
+                memory=memory,
+                product=product,
+                request_id=request_id,
+            )
+
         interpretation = _interpret_text(
             settings, text, user_id, request_id
         )
@@ -468,7 +557,10 @@ def run_agent_turn(
         )
 
     try:
-        product = _product_from_interpretation(interpretation, text)
+        product = _fill_price_from_messages(
+            _product_from_interpretation(interpretation, text),
+            messages,
+        )
         return _purchase_or_degrade(
             settings=settings,
             supabase_client=supabase_client,

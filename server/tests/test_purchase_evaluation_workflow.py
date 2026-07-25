@@ -252,6 +252,7 @@ def test_workflow_rejects_allowlist_drift() -> None:
 def test_system_prompt_freezes_coaching_plus_resolution_protocol() -> None:
     assert "不替用户按下最终决定" in PURCHASE_EVALUATION_SYSTEM_PROMPT
     assert "建议买/不买" in PURCHASE_EVALUATION_SYSTEM_PROMPT
+    assert "禁止换购推销" in PURCHASE_EVALUATION_SYSTEM_PROMPT
     assert "[decision:skip]" in PURCHASE_EVALUATION_SYSTEM_PROMPT
     assert "[spending_resolution:" in PURCHASE_EVALUATION_SYSTEM_PROMPT
     assert "每轮最多一个问题" in PURCHASE_EVALUATION_SYSTEM_PROMPT

@@ -75,6 +75,57 @@ def test_interpret_failure_degrades_to_general_chat(monkeypatch):
     general.assert_called_once()
 
 
+def test_short_followup_continues_purchase_when_thread_has_evaluation(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "app.agent_turn._assert_thread_owner",
+        lambda *a, **k: None,
+    )
+    monkeypatch.setattr(
+        "app.agent_turn._latest_evaluation_on_thread",
+        lambda *_a, **_k: {
+            "id": "eval-1",
+            "product_url": "",
+            "product_title": "佳明 Forerunner 165",
+            "product_price": 1699,
+            "category": "数码",
+            "subcategory": "手表",
+            "source_type": "text",
+            "source_text": "我想买佳明手表",
+        },
+    )
+    interpret = MagicMock()
+    monkeypatch.setattr("app.agent_turn._interpret_text", interpret)
+    purchase = MagicMock(
+        return_value=SimpleNamespace(
+            message="依据不足，先不买。\n[decision:skip]\n[spending_resolution:1699]",
+            evaluation_id="eval-1",
+        )
+    )
+    monkeypatch.setattr("app.agent_turn._purchase_or_degrade", purchase)
+    monkeypatch.setattr(
+        "app.agent_turn.load_history_context",
+        lambda *a, **k: {},
+    )
+
+    result = run_agent_turn(
+        settings=MagicMock(),
+        supabase_client=MagicMock(),
+        user_id="u1",
+        thread_id="t1",
+        messages=[EvaluationChatMessage(role="user", content="不会")],
+        image_urls=[],
+        request_id="r1",
+    )
+    assert result.evaluation_id == "eval-1"
+    interpret.assert_not_called()
+    purchase.assert_called_once()
+    product = purchase.call_args.kwargs["product"]
+    assert product.title == "佳明 Forerunner 165"
+    assert product.price == 1699
+
+
 def test_product_intent_upserts_evaluation_and_returns_id(monkeypatch):
     monkeypatch.setattr(
         "app.agent_turn._assert_thread_owner",
