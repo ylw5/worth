@@ -20,7 +20,54 @@ test('parses delta, error and done events', () => {
     type: 'error',
     message: '暂时不可用',
   });
-  assert.deepEqual(parseSseEvent('data: [DONE]'), { type: 'done' });
+  assert.deepEqual(parseSseEvent('data: [DONE]'), {
+    type: 'done',
+    evaluationId: null,
+  });
+});
+
+test('parses status and tool events', () => {
+  assert.deepEqual(parseSseEvent('data: {"status":"thinking"}'), {
+    type: 'status',
+    status: 'thinking',
+  });
+  assert.deepEqual(parseSseEvent('data: {"status":"replying"}'), {
+    type: 'status',
+    status: 'replying',
+  });
+  assert.deepEqual(
+    parseSseEvent(
+      'data: {"name":"search","label":"搜索商品","phase":"started"}',
+    ),
+    {
+      type: 'tool',
+      name: 'search',
+      label: '搜索商品',
+      phase: 'started',
+    },
+  );
+  assert.deepEqual(
+    parseSseEvent(
+      'data: {"name":"search","label":"搜索商品","phase":"completed"}',
+    ),
+    {
+      type: 'tool',
+      name: 'search',
+      label: '搜索商品',
+      phase: 'completed',
+    },
+  );
+});
+
+test('parses JSON done with evaluation_id', () => {
+  assert.deepEqual(parseSseEvent('data: {"evaluation_id":"eval-123"}'), {
+    type: 'done',
+    evaluationId: 'eval-123',
+  });
+  assert.deepEqual(parseSseEvent('data: {"evaluation_id":null}'), {
+    type: 'done',
+    evaluationId: null,
+  });
 });
 
 test('ignores malformed or empty events', () => {
