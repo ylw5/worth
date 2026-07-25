@@ -30,7 +30,7 @@ import {
   updateAgentThreadTitle,
   type AgentMessage,
 } from '@/lib/agent-chat';
-import { chatFreely } from '@/lib/api';
+import { streamAgentChat } from '@/lib/api';
 import { removePhotos, uploadPhotos } from '@/lib/assets';
 import {
   listEvaluationsForThread,
@@ -54,6 +54,16 @@ const formatResolutionAmount = (amount: number) =>
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(amount);
+
+type ProcessStep =
+  | { kind: 'status'; status: 'thinking' | 'replying' }
+  | {
+      kind: 'tool';
+      id: string;
+      name: string;
+      label: string;
+      phase: 'started' | 'completed';
+    };
 
 function evaluationIdFromMessage(message: AgentMessage): string | null {
   const value = message.route_result?.evaluation_id;
@@ -99,6 +109,8 @@ export function ChatThread(props: {
   const [photos, setPhotos] = useState<AssetPhoto[]>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [processSteps, setProcessSteps] = useState<ProcessStep[]>([]);
+  const [streamingText, setStreamingText] = useState('');
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [confirmingResolutionId, setConfirmingResolutionId] = useState<
     string | null
@@ -155,12 +167,12 @@ export function ChatThread(props: {
   }, [evaluations, onTitleChange]);
 
   useEffect(() => {
-    if (!messages.length && !sending) return;
+    if (!messages.length && !sending && !streamingText) return;
     const timer = setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, 50);
     return () => clearTimeout(timer);
-  }, [messages.length, sending, threadId]);
+  }, [messages.length, sending, streamingText, processSteps.length, threadId]);
 
   useEffect(() => {
     const showEvent =
@@ -266,18 +278,49 @@ export function ChatThread(props: {
         }),
       );
 
-      const response = await chatFreely(
+      setProcessSteps([]);
+      setStreamingText('');
+      const response = await streamAgentChat(
         currentThreadId,
         history.slice(-100),
         imageUrls,
+        {
+          onStatus: (status) => {
+            setProcessSteps((prev) => [...prev, { kind: 'status', status }]);
+          },
+          onTool: (tool) => {
+            setProcessSteps((prev) => {
+              if (tool.phase === 'completed') {
+                return prev.map((step) =>
+                  step.kind === 'tool' &&
+                  step.name === tool.name &&
+                  step.phase === 'started'
+                    ? { ...step, phase: 'completed' }
+                    : step,
+                );
+              }
+              return [
+                ...prev,
+                {
+                  kind: 'tool',
+                  id: `${tool.name}-${prev.length}`,
+                  name: tool.name,
+                  label: tool.label,
+                  phase: 'started',
+                },
+              ];
+            });
+          },
+          onDelta: (full) => setStreamingText(full),
+        },
       );
 
-      if (response.evaluation_id) {
-        await saveEvaluationReply(response.evaluation_id, response.message);
+      if (response.evaluationId) {
+        await saveEvaluationReply(response.evaluationId, response.message);
         const threadEvaluations =
           await listEvaluationsForThread(currentThreadId);
         const evaluation = threadEvaluations.find(
-          (item) => item.id === response.evaluation_id,
+          (item) => item.id === response.evaluationId,
         );
         if (evaluation?.product_title) {
           const title =
@@ -299,6 +342,8 @@ export function ChatThread(props: {
       if (uploadedPaths.length) {
         await removePhotos(uploadedPaths).catch(() => undefined);
       }
+      setProcessSteps([]);
+      setStreamingText('');
       setSendError(
         caught instanceof Error
           ? caught.message
@@ -306,6 +351,8 @@ export function ChatThread(props: {
       );
     } finally {
       setSending(false);
+      setProcessSteps([]);
+      setStreamingText('');
     }
   };
 
@@ -361,7 +408,15 @@ export function ChatThread(props: {
           );
         })}
 
-        {sending ? <ThinkingShimmer /> : null}
+        {sending || processSteps.length ? (
+          <AgentProcessPanel steps={processSteps} />
+        ) : null}
+        {streamingText ? (
+          <MessageBubble
+            role="assistant"
+            content={stripDecisionMark(streamingText)}
+          />
+        ) : null}
       </ScrollView>
 
       <View
@@ -398,7 +453,60 @@ export function ChatThread(props: {
 
 const THINKING_LABEL = '正在思考';
 
-function ThinkingShimmer() {
+function AgentProcessPanel({ steps }: { steps: ProcessStep[] }) {
+  if (!steps.length) {
+    return <ThinkingShimmer />;
+  }
+
+  let lastStatusIndex = -1;
+  for (let index = steps.length - 1; index >= 0; index -= 1) {
+    if (steps[index]!.kind === 'status') {
+      lastStatusIndex = index;
+      break;
+    }
+  }
+
+  return (
+    <View style={{ gap: spacing.xs }}>
+      {steps.map((step, index) => {
+        if (step.kind === 'status') {
+          const label =
+            step.status === 'thinking' ? '正在思考' : '正在回复';
+          if (index === lastStatusIndex) {
+            return <ThinkingShimmer key={`status-${index}`} label={label} />;
+          }
+          return (
+            <Text
+              key={`status-${index}`}
+              style={{
+                color: colors.textTertiary,
+                fontSize: 16,
+                lineHeight: 24,
+              }}>
+              {label}
+            </Text>
+          );
+        }
+        const suffix =
+          step.phase === 'started' ? '（进行中…）' : '（完成）';
+        return (
+          <Text
+            key={step.id}
+            style={{
+              color: colors.textTertiary,
+              fontSize: 16,
+              lineHeight: 24,
+            }}>
+            {step.label}
+            {suffix}
+          </Text>
+        );
+      })}
+    </View>
+  );
+}
+
+function ThinkingShimmer({ label = THINKING_LABEL }: { label?: string }) {
   const progress = useSharedValue(0);
 
   useEffect(() => {
@@ -415,18 +523,19 @@ function ThinkingShimmer() {
   return (
     <View
       accessibilityRole="text"
-      accessibilityLabel={THINKING_LABEL}
+      accessibilityLabel={label}
       style={{
         flexDirection: 'row',
         alignSelf: 'flex-start',
         paddingVertical: spacing.sm,
       }}>
-      {THINKING_LABEL.split('').map((char, index) => (
+      {label.split('').map((char, index) => (
         <ThinkingShimmerChar
           key={`${char}-${index}`}
           char={char}
           index={index}
           progress={progress}
+          labelLength={label.length}
         />
       ))}
     </View>
@@ -437,13 +546,15 @@ function ThinkingShimmerChar({
   char,
   index,
   progress,
+  labelLength,
 }: {
   char: string;
   index: number;
   progress: SharedValue<number>;
+  labelLength: number;
 }) {
   const style = useAnimatedStyle(() => {
-    const peak = progress.value * (THINKING_LABEL.length + 1) - 0.5;
+    const peak = progress.value * (labelLength + 1) - 0.5;
     const distance = Math.abs(index - peak);
     const highlight = Math.max(0, 1 - distance);
     return {
