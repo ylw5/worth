@@ -12,8 +12,8 @@ from openai import OpenAIError
 from supabase import Client as SupabaseClient, create_client
 
 from .auth import AuthenticatedUser, require_user
-from .agent_turn import run_agent_turn
-from .ai.errors import AIFoundationError
+from .agent_turn import assert_thread_owner, run_agent_turn, stream_agent_turn
+from .ai.errors import AIFoundationError, OutputPolicyError
 from .ai.factory import (
     build_purchase_evaluation_workflow,
     build_text_workflows,
@@ -512,6 +512,46 @@ def chat_freely(
             status_code=503,
             detail="聊天暂时不可用，请稍后重试",
         ) from error
+
+
+@app.post("/agent/chat/stream")
+def stream_agent_chat(
+    request: AgentChatRequest,
+    user: AuthenticatedUser = Depends(require_user),
+) -> StreamingResponse:
+    settings = get_settings()
+    supabase_client = get_user_supabase(user.access_token)
+    assert_thread_owner(supabase_client, user.id, request.thread_id)
+
+    def event_stream() -> Iterator[str]:
+        try:
+            for event in stream_agent_turn(
+                settings=settings,
+                supabase_client=supabase_client,
+                user_id=user.id,
+                thread_id=request.thread_id,
+                messages=list(request.messages),
+                image_urls=list(request.image_urls),
+                request_id=uuid4().hex,
+            ):
+                payload = json.dumps(event, ensure_ascii=False)
+                yield f"data: {payload}\n\n"
+            yield "data: [DONE]\n\n"
+        except (AIFoundationError, RuntimeError, OpenAIError, OutputPolicyError):
+            payload = json.dumps(
+                {"error": "聊天暂时不可用，请稍后重试"},
+                ensure_ascii=False,
+            )
+            yield f"data: {payload}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.post("/sell-plans/recommend", response_model=SellPlanResult)
