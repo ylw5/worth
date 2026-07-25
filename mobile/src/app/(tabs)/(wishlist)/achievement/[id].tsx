@@ -14,7 +14,10 @@ import { captureRef } from 'react-native-view-shot';
 import { ErrorState, LoadingState } from '@/components/screen-state';
 import { WishAchievementCard } from '@/components/wish-achievement-card';
 import { colors, spacing, typography } from '@/constants/colors';
-import { wishAchievementSaveErrorMessage } from '@/lib/wish-achievement-save-messages';
+import {
+  saveWishAchievementImage,
+  wishAchievementSaveErrorMessage,
+} from '@/lib/wish-achievement-save';
 import { getWishlistItem } from '@/lib/wishlist';
 
 export default function WishAchievementScreen() {
@@ -35,14 +38,6 @@ export default function WishAchievementScreen() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const {
-        requestWishAchievementSavePermission,
-        saveWishAchievementImage,
-      } = await import('@/lib/wish-achievement-save');
-      const permission = await requestWishAchievementSavePermission();
-      if (permission === 'denied') {
-        throw new Error('需要相册权限才能保存，请在设置中开启');
-      }
       setCapturing(true);
       await new Promise((resolve) => setTimeout(resolve, 50));
       const uri = await captureRef(cardRef, {
@@ -50,9 +45,13 @@ export default function WishAchievementScreen() {
         quality: 1,
         result: 'tmpfile',
       });
-      await saveWishAchievementImage(uri);
+      return saveWishAchievementImage(uri);
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
+      if (result === 'shared') {
+        Alert.alert('已打开分享', '当前环境无法直接写入相册，请通过分享保存图片');
+        return;
+      }
       Alert.alert('已保存', '已保存到相册，可去微信等应用分享');
     },
     onError: (error) => {

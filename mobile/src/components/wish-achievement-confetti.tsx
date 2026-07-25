@@ -80,8 +80,8 @@ function FireworkPiece({
     return {
       opacity: Math.max(0, Math.min(1, opacity)),
       transform: [
-        { translateX: x },
-        { translateY: y },
+        { translateX: x - size / 2 },
+        { translateY: y - size / 2 },
         { rotate: `${angle + progress.value * 220}deg` },
         { scale: 0.7 + burst * 0.5 },
       ],
@@ -93,6 +93,8 @@ function FireworkPiece({
       style={[
         {
           position: 'absolute',
+          left: 0,
+          top: 0,
           width: size,
           height: shape === 'dot' ? size : size * 0.45,
           borderRadius: shape === 'dot' ? size / 2 : 2,
@@ -104,15 +106,17 @@ function FireworkPiece({
   );
 }
 
-/** Renders a burst centered in its parent. Parent should wrap the ring. */
+/** Burst origin is the center of the parent (place over the ring). */
 export function WishAchievementConfetti({ active }: { active: boolean }) {
   if (!active) return null;
 
   return (
     <View pointerEvents="none" style={styles.overlay}>
-      {PIECES.map((piece) => (
-        <FireworkPiece key={piece.id} {...piece} />
-      ))}
+      <View style={styles.origin}>
+        {PIECES.map((piece) => (
+          <FireworkPiece key={piece.id} {...piece} />
+        ))}
+      </View>
     </View>
   );
 }
@@ -124,6 +128,11 @@ const styles = StyleSheet.create({
     elevation: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
+  },
+  origin: {
+    width: 0,
+    height: 0,
     overflow: 'visible',
   },
 });
