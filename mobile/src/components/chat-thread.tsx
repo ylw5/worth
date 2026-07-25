@@ -397,7 +397,7 @@ export function ChatThread(props: {
           createdEvaluation = true;
           return;
         }
-        if (interpreted.intent === 'chat' && !activeEvaluation) {
+        if (interpreted.intent === 'chat') {
           await freeChat(
             currentThreadId,
             session.user.id,
@@ -406,24 +406,20 @@ export function ChatThread(props: {
           );
           return;
         }
+
+        // Product follow-up: active eval + non-chat turn only.
+        if (activeEvaluation) {
+          await streamFollowUp(
+            currentThreadId,
+            session.user.id,
+            activeEvaluation,
+            history,
+          );
+          return;
+        }
       }
 
-      if (activeEvaluation) {
-        // Follow-up on the active evaluation (incl. chat-classified product Qs).
-        await streamFollowUp(
-          currentThreadId,
-          session.user.id,
-          activeEvaluation,
-          history,
-        );
-        return;
-      }
-
-      if ('error' in description) {
-        setSendError(description.error);
-        return;
-      }
-
+      // Short/invalid text (or no active eval): free chat — avoid orphan bubbles.
       await freeChat(currentThreadId, session.user.id, history);
     } catch (caught) {
       if (!createdEvaluation && uploadedPaths.length) {
