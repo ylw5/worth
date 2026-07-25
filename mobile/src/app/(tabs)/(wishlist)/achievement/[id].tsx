@@ -15,11 +15,7 @@ import { ErrorState, LoadingState } from '@/components/screen-state';
 import { WishAchievementCard } from '@/components/wish-achievement-card';
 import { WishAchievementConfetti } from '@/components/wish-achievement-confetti';
 import { colors, spacing, typography } from '@/constants/colors';
-import {
-  requestWishAchievementSavePermission,
-  saveWishAchievementImage,
-  wishAchievementSaveErrorMessage,
-} from '@/lib/wish-achievement-save';
+import { wishAchievementSaveErrorMessage } from '@/lib/wish-achievement-save-messages';
 import { getWishlistItem } from '@/lib/wishlist';
 
 export default function WishAchievementScreen() {
@@ -40,6 +36,10 @@ export default function WishAchievementScreen() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const {
+        requestWishAchievementSavePermission,
+        saveWishAchievementImage,
+      } = await import('@/lib/wish-achievement-save');
       const permission = await requestWishAchievementSavePermission();
       if (permission === 'denied') {
         throw new Error('需要相册权限才能保存，请在设置中开启');

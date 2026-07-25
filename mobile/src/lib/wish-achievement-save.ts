@@ -1,8 +1,8 @@
 import {
-  Asset,
   getPermissionsAsync,
   requestPermissionsAsync,
-} from 'expo-media-library';
+  saveToLibraryAsync,
+} from 'expo-media-library/legacy';
 
 export { wishAchievementSaveErrorMessage } from '@/lib/wish-achievement-save-messages';
 
@@ -16,5 +16,5 @@ export async function requestWishAchievementSavePermission(): Promise<
 }
 
 export async function saveWishAchievementImage(uri: string): Promise<void> {
-  await Asset.create(uri);
+  await saveToLibraryAsync(uri);
 }
