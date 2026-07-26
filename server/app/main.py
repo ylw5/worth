@@ -20,7 +20,6 @@ from .ai.factory import (
     build_vision_workflows,
 )
 from .ai.tools import load_confirmed_evaluation_assets
-from .background_removal import try_remove_background
 from .config import get_settings
 from .evaluation import build_purchase_evaluation
 from .evaluation_tools import (
@@ -212,6 +211,8 @@ def cutout(
     request: CutoutRequest,
     _: AuthenticatedUser = Depends(require_user),
 ) -> CutoutResponse:
+    from .background_removal import try_remove_background
+
     image = try_remove_background(
         request.image_url,
         get_settings().supabase_url,

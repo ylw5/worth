@@ -58,11 +58,8 @@ def test_failure_returns_none(monkeypatch) -> None:
         "_download_image",
         lambda *_: jpeg_bytes((10, 10)),
     )
-    monkeypatch.setattr(
-        background_removal,
-        "_session",
-        Mock(side_effect=RuntimeError("model unavailable")),
-    )
+    background_removal._session.cache_clear()
+    monkeypatch.setattr(background_removal, "new_session", None)
 
     assert (
         background_removal.try_remove_background(

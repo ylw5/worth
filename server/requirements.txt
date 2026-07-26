@@ -4,7 +4,6 @@ openai>=2,<3
 Pillow>=10,<13
 pydantic-settings>=2,<3
 pytest>=8,<9
-rembg[cpu]>=2.0.77,<3
 requests>=2.32,<3
 uvicorn[standard]>=0.34,<1
 supabase>=2,<3

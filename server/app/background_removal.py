@@ -6,7 +6,11 @@ from urllib.parse import urlparse
 
 import requests
 from PIL import Image, ImageOps
-from rembg import new_session, remove
+
+try:
+    from rembg import new_session, remove
+except ImportError:
+    new_session = remove = None
 
 
 logger = logging.getLogger(__name__)
@@ -16,6 +20,8 @@ MAX_COVER_EDGE = 1024
 
 @lru_cache
 def _session():
+    if new_session is None:
+        raise RuntimeError("Background removal is unavailable")
     return new_session()
 
 

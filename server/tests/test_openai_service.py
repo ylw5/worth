@@ -129,7 +129,7 @@ def test_analyze_includes_current_asset_context() -> None:
 
 def test_cutout_returns_optional_png(monkeypatch) -> None:
     cutout = Mock(return_value="png-base64")
-    monkeypatch.setattr("app.main.try_remove_background", cutout)
+    monkeypatch.setattr("app.background_removal.try_remove_background", cutout)
     monkeypatch.setattr(
         "app.main.get_settings",
         lambda: Mock(supabase_url="https://project.supabase.co"),

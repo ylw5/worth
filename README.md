@@ -52,7 +52,7 @@ macOS / Linux：
 ```bash
 cd server
 python3.11 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
+.venv/bin/python -m pip install -r requirements-local.txt
 cd ..
 vercel env pull server/.env --environment=development --yes
 ```
@@ -62,7 +62,7 @@ Windows PowerShell：
 ```powershell
 Set-Location server
 py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements-local.txt
 Set-Location ..
 vercel env pull server/.env --environment=development --yes
 ```
